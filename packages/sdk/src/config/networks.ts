@@ -50,3 +50,5 @@ export const CHAINS = {
   arcTestnet,
   unichainSepolia,
 } as const;
+
+export type ChainKey = keyof typeof CHAINS;
