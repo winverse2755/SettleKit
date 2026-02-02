@@ -11,7 +11,7 @@ import {
 } from 'viem';
 
 import { privateKeyToAccount } from 'viem/accounts';
-import { baseSepolia } from 'viem/chains';
+import { baseSepolia, arcTestnet } from '../config/networks';
 import fetch from 'node-fetch';
 
 // ---------- helpers ----------
@@ -22,8 +22,12 @@ function asHex(value: string): `0x${string}` {
     return value as `0x${string}`;
 }
 
-function addressToBytes32(address: string): `0x${string}` {
-    return `0x${address.slice(2).padStart(64, '0')}`;
+function addressToBytes32(address: string | undefined): `0x${string}` {
+    if (!address) {
+        throw new Error('addressToBytes32: address is undefined or empty');
+    }
+    const cleanAddress = address.toLowerCase().startsWith('0x') ? address.slice(2) : address;
+    return `0x${cleanAddress.padStart(64, '0')}`;
 }
 
 // ---------- ENV ----------
@@ -34,20 +38,8 @@ const {
     ARC_DOMAIN,
     BASE_RPC,
     ARC_RPC,
-    PRIVATE_KEY,
     CIRCLE_API_KEY
 } = process.env as Record<string, string>;
-
-// ---------- ARC CHAIN (custom) ----------
-const arcTestnet = {
-    id: 999999, // ⚠️ reemplazar por el real chainId de Arc testnet
-    name: 'Arc Testnet',
-    network: 'arc-testnet',
-    nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
-    rpcUrls: {
-        default: { http: [ARC_RPC] }
-    }
-} as const;
 
 // ---------- ABIs ----------
 const ERC20_ABI = [
@@ -115,17 +107,24 @@ function isCircleAttestationResponse(
     );
 }
 
+export interface ArcTransferParams {
+    amount: string;
+    recipient: string;
+    privateKey: `0x${string}`;
+}
 
 export class ArcTransferLeg extends Leg {
     name = 'Arc USDC Transfer';
 
     private amount: string;
     private recipient: string;
+    private privateKey: `0x${string}`;
 
-    constructor(params: { amount: string; recipient: string }) {
+    constructor(params: ArcTransferParams) {
         super();
         this.amount = params.amount;
         this.recipient = params.recipient;
+        this.privateKey = params.privateKey;
     }
 
     requires() {
@@ -139,41 +138,44 @@ export class ArcTransferLeg extends Leg {
     async estimate(): Promise<LegEstimate> {
         return {
             gasEstimate: 300000n,
-            estimatedTimeMs: 20000,
+            estimatedTimeMs: 900000, // 15 minutes
             failureProbability: 0.03,
             notes: 'CCTP transfer Base → Arc'
         };
     }
 
     async execute(): Promise<LegReceipt> {
-        const account = privateKeyToAccount(asHex(PRIVATE_KEY));
+        const account = privateKeyToAccount(this.privateKey);
+
+        console.log(`  🔄 Transferring ${this.amount} USDC to Arc...`);
 
         // ---------- clients ----------
         const baseClient = createPublicClient({
             chain: baseSepolia,
-            transport: http(BASE_RPC)
+            transport: http(BASE_RPC || 'https://sepolia.base.org')
         });
 
         const baseWallet = createWalletClient({
             account,
             chain: baseSepolia,
-            transport: http(BASE_RPC)
+            transport: http(BASE_RPC || 'https://sepolia.base.org')
         });
 
         const arcClient = createPublicClient({
             chain: arcTestnet,
-            transport: http(ARC_RPC)
+            transport: http(ARC_RPC || 'https://rpc.testnet.arc.network')
         });
 
         const arcWallet = createWalletClient({
             account,
             chain: arcTestnet,
-            transport: http(ARC_RPC)
+            transport: http(ARC_RPC || 'https://rpc.testnet.arc.network')
         });
 
         const amount = parseUnits(this.amount, 6);
 
         // ---------- 1) Approve ----------
+        console.log('  ✍️  Approving USDC...');
         await baseWallet.writeContract({
             address: asHex(USDC_BASE),
             abi: ERC20_ABI,
@@ -182,6 +184,7 @@ export class ArcTransferLeg extends Leg {
         });
 
         // ---------- 2) Burn ----------
+        console.log('  🔥 Burning USDC on Base...');
         const burnTx = await baseWallet.writeContract({
             address: asHex(TOKEN_MESSENGER_BASE),
             abi: TOKEN_MESSENGER_ABI,
@@ -193,6 +196,8 @@ export class ArcTransferLeg extends Leg {
                 asHex(USDC_BASE)
             ]
         });
+
+        console.log(`  📤 Burn tx: ${burnTx}`);
 
         const receipt = await baseClient.waitForTransactionReceipt({
             hash: burnTx
@@ -215,12 +220,14 @@ export class ArcTransferLeg extends Leg {
             } catch { }
         }
 
-        if (!messageBytes) throw new Error('Message not found');
+        if (!messageBytes) throw new Error('Message not found in logs');
 
         // ---------- 3) Attestation ----------
+        console.log('  ⏳ Waiting for Circle attestation (5-15 min)...');
         const attestation = await this.waitForAttestation(messageBytes);
 
         // ---------- 4) Mint on Arc ----------
+        console.log('  🪙 Minting USDC on Arc...');
         const mintTx = await arcWallet.writeContract({
             address: asHex(MESSAGE_TRANSMITTER_ARC),
             abi: MESSAGE_TRANSMITTER_ABI,
@@ -228,7 +235,11 @@ export class ArcTransferLeg extends Leg {
             args: [messageBytes, attestation]
         });
 
+        console.log(`  📤 Mint tx: ${mintTx}`);
+
         await arcClient.waitForTransactionReceipt({ hash: mintTx });
+
+        console.log('  ✅ Transfer complete!');
 
         return {
             txHash: burnTx,
@@ -239,8 +250,10 @@ export class ArcTransferLeg extends Leg {
 
     async waitForAttestation(message: `0x${string}`): Promise<`0x${string}`> {
         const hash = keccak256(message);
+        let attempts = 0;
+        const maxAttempts = 180; // 6 minutes (2s interval)
 
-        while (true) {
+        while (attempts < maxAttempts) {
             const raw = await fetch(
                 `https://iris-api-sandbox.circle.com/attestations/${hash}`,
                 {
@@ -255,11 +268,14 @@ export class ArcTransferLeg extends Leg {
             }
 
             if (data.status === 'complete' && data.attestation) {
-                return data.attestation; // ahora TypeScript sabe que es `0x${string}`
+                return data.attestation;
             }
 
+            attempts++;
             await new Promise(r => setTimeout(r, 2000));
         }
+
+        throw new Error('Attestation timeout after 6 minutes');
     }
 
     async verify(): Promise<boolean> {
