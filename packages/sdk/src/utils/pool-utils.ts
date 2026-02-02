@@ -6,7 +6,6 @@ import {
     http,
     type Address,
     type PublicClient,
-    type Chain,
     getContract,
     type GetContractReturnType,
 } from 'viem';
@@ -60,8 +59,8 @@ const POOL_MANAGER_ABI = [
 ] as const;
 
 // Uniswap v4 Pool Manager addresses per chain
-const POOL_MANAGER_ADDRESSES: Record<string, Address> = {
-    'unichain-sepolia': '0x4529A01c7A0410167c5740C487A8DE60232617bf', // Unichain Sepolia Pool Manager
+const POOL_MANAGER_ADDRESSES: Partial<Record<ChainKey, Address>> = {
+    unichainSepolia: '0x4529A01c7A0410167c5740C487A8DE60232617bf', // Unichain Sepolia Pool Manager
 };
 
 // Pool state interface
@@ -107,8 +106,7 @@ export function getPublicClient(chainKey: ChainKey): PublicClient {
 export function getPoolContract(
     chainKey: ChainKey = 'unichainSepolia'
 ): GetContractReturnType<typeof POOL_MANAGER_ABI, PublicClient> {
-    const chain = CHAINS[chainKey];
-    const address = POOL_MANAGER_ADDRESSES[chain.network];
+    const address = POOL_MANAGER_ADDRESSES[chainKey];
 
     if (!address) {
         throw new Error(`Pool Manager address not configured for chain: ${chainKey}`);
@@ -135,8 +133,7 @@ export async function getPoolState(
     chainKey: ChainKey = 'unichainSepolia'
 ): Promise<PoolState> {
     const client = getPublicClient(chainKey);
-    const chain = CHAINS[chainKey];
-    const poolManagerAddress = POOL_MANAGER_ADDRESSES[chain.network];
+    const poolManagerAddress = POOL_MANAGER_ADDRESSES[chainKey];
 
     if (!poolManagerAddress) {
         throw new Error(`Pool Manager address not configured for chain: ${chainKey}`);
