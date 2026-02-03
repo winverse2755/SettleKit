@@ -7,6 +7,36 @@
  * 3. UniswapLiquidityExecutor - Uniswap v4 liquidity deposit
  *
  * Flow: USDC on Base → Arc Hub (CCTP) → USDC on Arc/Unichain → SettleAgent → Uniswap Pool
+ *
+ * ## SettleAgent Integration
+ *
+ * The SettleAgent is the decision engine that determines whether to execute, wait, or abort
+ * a liquidity deposit based on real-time risk assessment:
+ *
+ * **Risk Simulation (via RiskSimulator)**:
+ * - Estimates Arc network latency (CCTP attestation timing)
+ * - Analyzes Uniswap pool state (liquidity depth, slippage, price impact)
+ * - Calculates execution confidence score
+ *
+ * **Decision Making (based on AgentPolicy)**:
+ * - max_slippage: Maximum acceptable slippage (e.g., 0.01 = 1%)
+ * - max_price_impact: Maximum acceptable price impact
+ * - min_confidence: Minimum required confidence score
+ * - max_latency_seconds: Maximum acceptable finality delay
+ *
+ * **Decisions**:
+ * - 'execute': Risk is acceptable, proceed with liquidity deposit
+ * - 'wait': Conditions are borderline, retry after delay
+ * - 'abort': Risk thresholds exceeded, do not proceed
+ *
+ * **Retry Logic**:
+ * - retry_attempts: Number of retries for 'wait' decisions
+ * - retry_delay_seconds: Delay between retries
+ * - fallback_strategy: What to do when slippage threshold is exceeded ('wait' or 'abort')
+ *
+ * @see SettleAgent - packages/agent/SettleAgent.ts
+ * @see RiskSimulator - packages/sdk/src/simulators/RiskSimulator.ts
+ * @see UniswapLiquidityExecutor - packages/agent/UniswapLiquidityExecutor.ts
  */
 
 import 'dotenv/config';
@@ -183,6 +213,7 @@ const MOCK_EXECUTION_RESULT: ExecutionResult = {
 export class EndToEndOrchestrator {
     private config: TestConfig;
     private agent: SettleAgent | null = null;
+    private executor: UniswapLiquidityExecutor | null = null;
     private logs: string[] = [];
 
     /**
@@ -529,7 +560,13 @@ export class EndToEndOrchestrator {
      * Evaluate risk using the SettleAgent's simulator
      *
      * In mock mode, returns preset risk metrics.
-     * In live mode, runs actual risk simulation.
+     * In live mode, runs actual risk simulation via SettleAgent.
+     *
+     * The SettleAgent uses RiskSimulator internally to:
+     * - Estimate Arc network latency (CCTP transfer timing)
+     * - Analyze Uniswap pool state (liquidity, slippage, price impact)
+     * - Calculate execution confidence score
+     * - Recommend action based on configurable thresholds
      *
      * @returns Risk metrics and recommended decision
      */
@@ -542,6 +579,7 @@ export class EndToEndOrchestrator {
             await this.sleep(50);
 
             // Create agent to use its decision logic even in mock mode
+            // This ensures consistent decision-making based on the agent policy
             const agent = new SettleAgent(
                 this.config.agentPolicy || {},
                 undefined, // no account for simulation
@@ -556,31 +594,53 @@ export class EndToEndOrchestrator {
             };
         }
 
-        // Live mode: Initialize agent and run simulation
+        // Live mode: Initialize SettleAgent for risk simulation and decision making
         this.log('[Live] Initializing SettleAgent for risk evaluation...');
 
         const privateKey = process.env.PRIVATE_KEY as `0x${string}` | undefined;
 
         if (privateKey) {
+            // Create agent with wallet for potential execution
             this.agent = createSettleAgent(
                 privateKey,
                 this.config.agentPolicy || {},
                 'unichainSepolia'
             );
+
+            // Initialize executor separately for direct execution path
+            const account = privateKeyToAccount(privateKey);
+            this.executor = new UniswapLiquidityExecutor(account, 'unichainSepolia');
+            this.log('[Live] Wallet configured for transaction signing');
         } else {
+            // Simulation-only mode (no wallet)
             this.agent = new SettleAgent(
                 this.config.agentPolicy || {},
                 undefined,
                 'unichainSepolia'
             );
+            this.log('[Live] No wallet configured - running in simulation-only mode');
         }
 
+        // Build the liquidity deposit intent
         const intent: DepositLiquidityIntent = {
             poolId: this.config.poolId,
             amount: this.config.amount,
         };
 
-        const { risk, decision } = await this.agent.simulateOnly(intent);
+        this.log('[Live] Running risk simulation via SettleAgent...');
+        this.log(`[Live] Intent: pool=${intent.poolId.slice(0, 18)}..., amount=${intent.amount}`);
+
+        // Use simulateOnly() to get risk metrics and decision without executing
+        // This runs RiskSimulator internally which:
+        // 1. Estimates Arc network latency (CCTP timing)
+        // 2. Analyzes Uniswap pool (liquidity, slippage, price impact)
+        // 3. Calculates execution confidence
+        // 4. Makes decision based on agent policy thresholds
+        const { risk, decision, reason } = await this.agent.simulateOnly(intent);
+
+        if (reason) {
+            this.log(`[Live] Risk evaluation reason: ${reason}`);
+        }
 
         return { risk, decision };
     }
@@ -588,14 +648,25 @@ export class EndToEndOrchestrator {
     /**
      * Execute based on the agent's decision
      *
+     * Decision flow:
+     * - 'execute': Proceed with liquidity deposit via UniswapLiquidityExecutor
+     * - 'wait': Retry risk evaluation after delay (up to max retries)
+     * - 'abort': Stop execution and report risk threshold violations
+     *
      * @param decision - Agent decision ('execute', 'wait', or 'abort')
      * @param risk - Risk metrics at time of decision
+     * @param retryCount - Current retry count for 'wait' decisions
      * @returns Execution result
      */
     private async executeBasedOnDecision(
         decision: AgentDecision,
-        risk: RiskMetrics
+        risk: RiskMetrics,
+        retryCount: number = 0
     ): Promise<ExecutionResult> {
+        const policy = this.config.agentPolicy || {};
+        const maxRetries = policy.retry_attempts ?? 3;
+        const retryDelaySeconds = policy.retry_delay_seconds ?? 30;
+
         if (this.config.mode === 'mock') {
             this.log('[Mock] Simulating execution...');
             await this.sleep(100);
@@ -626,25 +697,158 @@ export class EndToEndOrchestrator {
             }
         }
 
-        // Live mode: Execute via agent
-        this.log('[Live] Executing via SettleAgent...');
+        // Live mode: Execute based on decision
+        this.log(`[Live] Processing decision: ${decision}`);
 
-        if (!this.agent) {
+        switch (decision) {
+            case 'execute':
+                return this.executeLiquidityDeposit(risk);
+
+            case 'wait':
+                // Retry with delay if within retry limit
+                if (retryCount < maxRetries) {
+                    this.log(`[Live] Waiting ${retryDelaySeconds}s before retry ${retryCount + 1}/${maxRetries}...`);
+                    await this.sleep(retryDelaySeconds * 1000);
+
+                    // Re-evaluate risk after waiting
+                    this.log('[Live] Re-evaluating risk after wait...');
+                    const { risk: newRisk, decision: newDecision } = await this.evaluateRisk();
+
+                    this.log(`[Live] New decision after wait: ${newDecision}`);
+                    return this.executeBasedOnDecision(newDecision, newRisk, retryCount + 1);
+                }
+
+                // Max retries exceeded
+                this.log(`[Live] Max retries (${maxRetries}) exceeded while waiting`);
+                return {
+                    status: 'aborted',
+                    reason: `Max retries (${maxRetries}) exceeded while waiting for favorable conditions`,
+                    risk,
+                    timestamp: Date.now(),
+                };
+
+            case 'abort':
+                const abortReason = this.getAbortReason(risk);
+                this.log(`[Live] Aborting: ${abortReason}`);
+                return {
+                    status: 'aborted',
+                    reason: abortReason,
+                    risk,
+                    timestamp: Date.now(),
+                };
+        }
+    }
+
+    /**
+     * Execute liquidity deposit via UniswapLiquidityExecutor
+     *
+     * This is called when the agent decision is 'execute'.
+     * Uses the executor directly instead of re-running risk simulation.
+     *
+     * @param risk - Risk metrics at time of execution
+     * @returns Execution result
+     */
+    private async executeLiquidityDeposit(risk: RiskMetrics): Promise<ExecutionResult> {
+        this.log('[Live] Executing liquidity deposit...');
+
+        // Check if executor is available
+        if (!this.executor) {
+            this.log('[Live] No executor available - simulation mode only');
             return {
-                status: 'failed',
-                reason: 'Agent not initialized',
+                status: 'completed',
+                reason: 'Simulation mode - no wallet configured for actual execution',
                 risk,
                 timestamp: Date.now(),
             };
         }
 
+        // Check if pool key is provided
+        if (!this.config.poolKey) {
+            return {
+                status: 'failed',
+                reason: 'Pool key is required for liquidity deposit execution',
+                risk,
+                timestamp: Date.now(),
+            };
+        }
+
+        // Build deposit intent
         const intent: DepositLiquidityIntent = {
             poolId: this.config.poolId,
             amount: this.config.amount,
             recipient: this.config.recipient,
         };
 
-        return this.agent.evaluateAndExecute(intent, this.config.poolKey);
+        this.log(`[Live] Depositing ${intent.amount} to pool ${intent.poolId.slice(0, 18)}...`);
+        this.log(`[Live] Recipient: ${intent.recipient}`);
+
+        try {
+            // Execute via UniswapLiquidityExecutor
+            const result = await this.executor.depositFromIntent(intent, this.config.poolKey);
+
+            if (result.success) {
+                this.log(`[Live] Deposit successful! TxHash: ${result.txHash}`);
+                if (result.positionId) {
+                    this.log(`[Live] Position ID: ${result.positionId}`);
+                }
+                return {
+                    status: 'completed',
+                    txHash: result.txHash,
+                    positionId: result.positionId,
+                    risk,
+                    timestamp: Date.now(),
+                };
+            } else {
+                this.log(`[Live] Deposit failed: ${result.error}`);
+                return {
+                    status: 'failed',
+                    reason: result.error || 'Unknown error during liquidity deposit',
+                    risk,
+                    timestamp: Date.now(),
+                };
+            }
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            this.log(`[Live] Execution error: ${errorMessage}`);
+            return {
+                status: 'failed',
+                reason: errorMessage,
+                risk,
+                timestamp: Date.now(),
+            };
+        }
+    }
+
+    /**
+     * Get a human-readable abort reason based on risk metrics and policy
+     */
+    private getAbortReason(risk: RiskMetrics): string {
+        const policy = this.config.agentPolicy || {};
+        const maxSlippage = policy.max_slippage ?? 0.01;
+        const maxPriceImpact = policy.max_price_impact ?? 0.02;
+        const minConfidence = policy.min_confidence ?? 0.80;
+
+        const reasons: string[] = [];
+
+        if (risk.execution_confidence < minConfidence) {
+            reasons.push(
+                `Low confidence (${(risk.execution_confidence * 100).toFixed(1)}% < ${(minConfidence * 100).toFixed(1)}%)`
+            );
+        }
+
+        if (risk.slippage_p95 > maxSlippage) {
+            reasons.push(
+                `High slippage (${(risk.slippage_p95 * 100).toFixed(2)}% > ${(maxSlippage * 100).toFixed(2)}%)`
+            );
+        }
+
+        if (risk.price_impact > maxPriceImpact) {
+            reasons.push(
+                `High price impact (${(risk.price_impact * 100).toFixed(2)}% > ${(maxPriceImpact * 100).toFixed(2)}%)`
+            );
+        }
+
+        return reasons.length > 0 ? reasons.join('; ') : 'Risk thresholds exceeded';
     }
 
     /**
@@ -854,6 +1058,63 @@ export async function testLowConfidence(): Promise<TestReport> {
 }
 
 /**
+ * Agent retry behavior: Tests the SettleAgent's retry logic
+ *
+ * Demonstrates how the agent handles 'wait' decisions:
+ * - Uses configurable retry_attempts and retry_delay_seconds
+ * - Re-evaluates risk after each retry delay
+ * - Eventually aborts if conditions don't improve within max retries
+ */
+export async function testAgentRetryBehavior(): Promise<TestReport> {
+    console.log('\n🧪 TEST: Agent Retry Behavior');
+    console.log('    Testing SettleAgent retry logic with wait decisions');
+
+    return runEndToEndTest({
+        mode: 'mock',
+        amount: '1.0', // 1 USDC
+        agentPolicy: {
+            max_slippage: 0.01,
+            max_price_impact: 0.02,
+            min_confidence: 0.80,
+            // Retry configuration
+            retry_attempts: 2,          // Allow 2 retries
+            retry_delay_seconds: 1,     // Short delay for testing
+            fallback_strategy: 'wait',  // Use wait instead of immediate abort
+        },
+    });
+}
+
+/**
+ * Agent policy customization: Tests the SettleAgent with custom thresholds
+ *
+ * Demonstrates how agent policy affects decision making:
+ * - max_slippage: Maximum acceptable slippage
+ * - max_price_impact: Maximum acceptable price impact
+ * - min_confidence: Minimum required confidence score
+ * - retry_attempts: Number of retries for 'wait' decisions
+ * - fallback_strategy: What to do when slippage threshold is exceeded
+ */
+export async function testAgentPolicyCustomization(): Promise<TestReport> {
+    console.log('\n🧪 TEST: Agent Policy Customization');
+    console.log('    Testing SettleAgent with custom conservative policy');
+
+    return runEndToEndTest({
+        mode: 'mock',
+        amount: '10.0', // 10 USDC - larger amount
+        agentPolicy: {
+            // Conservative thresholds
+            max_slippage: 0.005,        // 0.5% max slippage
+            max_price_impact: 0.01,     // 1% max price impact
+            min_confidence: 0.90,       // 90% confidence required
+            max_latency_seconds: 60,    // 1 minute max latency
+            retry_attempts: 1,
+            retry_delay_seconds: 2,
+            fallback_strategy: 'abort', // Abort on threshold violations
+        },
+    });
+}
+
+/**
  * Live CCTP transfer test: Requires environment variables to be set
  * Run with: LIVE_TEST=true npx ts-node packages/sdk/test/end-to-end.test.ts
  */
@@ -893,18 +1154,34 @@ async function main() {
         const liveReport = await testLiveCCTPTransfer();
         results.push({ name: 'Live CCTP Transfer', report: liveReport });
     } else {
-        // Run mock test scenarios
+        // Run mock test scenarios demonstrating SettleAgent integration
         console.log('\n📋 Running mock test scenarios');
         console.log('    Set LIVE_TEST=true to run against real testnets\n');
+        console.log('    SettleAgent Integration Tests:');
+        console.log('    - Risk simulation via RiskSimulator');
+        console.log('    - Decision making based on policy thresholds');
+        console.log('    - Retry logic for wait decisions');
+        console.log('    - Execution via UniswapLiquidityExecutor\n');
 
+        // Test 1: Happy path - demonstrates successful execution
         const happyPathReport = await testHappyPath();
         results.push({ name: 'Happy Path', report: happyPathReport });
 
+        // Test 2: High slippage - demonstrates slippage threshold enforcement
         const highSlippageReport = await testHighSlippage();
         results.push({ name: 'High Slippage', report: highSlippageReport });
 
+        // Test 3: Low confidence - demonstrates confidence threshold enforcement
         const lowConfidenceReport = await testLowConfidence();
         results.push({ name: 'Low Confidence', report: lowConfidenceReport });
+
+        // Test 4: Agent retry behavior - demonstrates wait/retry logic
+        const retryReport = await testAgentRetryBehavior();
+        results.push({ name: 'Agent Retry Behavior', report: retryReport });
+
+        // Test 5: Custom policy - demonstrates policy customization
+        const policyReport = await testAgentPolicyCustomization();
+        results.push({ name: 'Agent Policy Customization', report: policyReport });
     }
 
     // Print summary
