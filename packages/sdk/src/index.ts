@@ -4,6 +4,7 @@ import 'dotenv/config';
 export * from './types/intent';
 export * from './types/execution-plan';
 export * from './types/risk';
+export * from './types/agent';
 export * from './legs/leg';
 
 // Pool utilities
