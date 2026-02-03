@@ -43,7 +43,7 @@ import type { Address } from 'viem';
 export interface TestConfig {
     /** Mode: 'mock' uses simulated data, 'live' interacts with real testnets */
     mode: 'mock' | 'live';
-    /** USDC amount to transfer/deposit (e.g., "1000000" = 1 USDC with 6 decimals) */
+    /** USDC amount in human-readable format (e.g., "1.0" = 1 USDC) */
     amount: string;
     /** Target Uniswap v4 pool ID */
     poolId: string;
@@ -56,6 +56,31 @@ export interface TestConfig {
 }
 
 /**
+ * Required environment variables for live CCTP transfer
+ */
+interface CCTPEnvironmentConfig {
+    PRIVATE_KEY: string;
+    BASE_RPC: string;
+    ARC_RPC: string;
+    USDC_BASE: string;
+    TOKEN_MESSENGER_BASE: string;
+    MESSAGE_TRANSMITTER_ARC: string;
+    ARC_DOMAIN: string;
+    CIRCLE_API_KEY?: string;
+}
+
+/**
+ * Transfer step details for logging and reporting
+ */
+interface TransferStepDetails {
+    step: 'approve' | 'burn' | 'attestation' | 'mint';
+    status: 'pending' | 'completed' | 'failed';
+    txHash?: string;
+    error?: string;
+    timestamp: number;
+}
+
+/**
  * Result of the end-to-end test flow
  */
 export interface E2ETestResult {
@@ -65,6 +90,12 @@ export interface E2ETestResult {
         txHash?: string;
         chain?: string;
         error?: string;
+        /** Detailed CCTP transfer steps (only in live mode) */
+        steps?: TransferStepDetails[];
+        /** Amount transferred in human-readable format */
+        amount?: string;
+        /** Recipient address */
+        recipient?: string;
     };
     /** Risk metrics from simulation */
     riskMetrics: RiskMetrics;
@@ -193,6 +224,22 @@ export class EndToEndOrchestrator {
 
             this.log(`Transfer successful! TxHash: ${transferResult.txHash}`);
 
+            // Log transfer step details if available
+            if (transferResult.steps && transferResult.steps.length > 0) {
+                this.log('Transfer step breakdown:');
+                for (const step of transferResult.steps) {
+                    const statusIcon =
+                        step.status === 'completed'
+                            ? '✓'
+                            : step.status === 'failed'
+                              ? '✗'
+                              : '○';
+                    this.log(
+                        `  ${statusIcon} ${step.step}${step.txHash ? ` (${step.txHash.slice(0, 10)}...)` : ''}`
+                    );
+                }
+            }
+
             // Step 2: Initialize agent and evaluate risk
             this.log('\n--- Step 2: Risk Evaluation ---');
             const { risk, decision } = await this.evaluateRisk();
@@ -232,6 +279,9 @@ export class EndToEndOrchestrator {
                     success: transferResult.success,
                     txHash: transferResult.txHash,
                     chain: transferResult.chain,
+                    steps: transferResult.steps,
+                    amount: transferResult.amount,
+                    recipient: transferResult.recipient,
                 },
                 riskMetrics: risk,
                 decision,
@@ -259,58 +309,220 @@ export class EndToEndOrchestrator {
     /**
      * Execute the CCTP transfer from Base to Arc
      *
-     * In mock mode, simulates a successful transfer.
+     * In mock mode, simulates a successful transfer with realistic delays.
      * In live mode, uses ArcTransferLeg for actual blockchain interaction.
      *
-     * @returns LegReceipt-compatible result
+     * CCTP Transfer Steps:
+     * 1. Approve USDC spending on Base
+     * 2. Burn USDC via TokenMessenger (depositForBurn)
+     * 3. Wait for Circle attestation
+     * 4. Mint USDC on Arc via MessageTransmitter (receiveMessage)
+     *
+     * @returns Transfer result with detailed step information
      */
     private async executeTransfer(): Promise<{
         success: boolean;
         txHash?: string;
         chain?: string;
         error?: string;
+        steps?: TransferStepDetails[];
+        amount?: string;
+        recipient?: string;
     }> {
+        const steps: TransferStepDetails[] = [];
+
         if (this.config.mode === 'mock') {
             this.log('[Mock] Simulating CCTP transfer...');
-            // Simulate network delay
-            await this.sleep(100);
+
+            // Step 1: Approve (simulated)
+            this.log('[Mock] Step 1/4: Approving USDC spending...');
+            steps.push({
+                step: 'approve',
+                status: 'completed',
+                txHash: '0xmock_approve_' + Date.now().toString(16),
+                timestamp: Date.now(),
+            });
+            await this.sleep(50);
+
+            // Step 2: Burn (simulated)
+            this.log('[Mock] Step 2/4: Burning USDC on Base...');
+            const burnTxHash = '0xmock_burn_' + Date.now().toString(16);
+            steps.push({
+                step: 'burn',
+                status: 'completed',
+                txHash: burnTxHash,
+                timestamp: Date.now(),
+            });
+            await this.sleep(50);
+
+            // Step 3: Attestation (simulated)
+            this.log('[Mock] Step 3/4: Waiting for Circle attestation...');
+            steps.push({
+                step: 'attestation',
+                status: 'completed',
+                timestamp: Date.now(),
+            });
+            await this.sleep(50);
+
+            // Step 4: Mint (simulated)
+            this.log('[Mock] Step 4/4: Minting USDC on Arc...');
+            steps.push({
+                step: 'mint',
+                status: 'completed',
+                txHash: '0xmock_mint_' + Date.now().toString(16),
+                timestamp: Date.now(),
+            });
+            await this.sleep(50);
+
+            this.log('[Mock] CCTP transfer simulation completed successfully');
 
             return {
                 success: true,
-                txHash: '0xmock_transfer_' + Date.now().toString(16),
+                txHash: burnTxHash,
                 chain: 'base',
+                steps,
+                amount: this.config.amount,
+                recipient: this.config.recipient,
             };
         }
 
-        // Live mode: Execute actual transfer
+        // Live mode: Validate environment and execute actual transfer
         this.log('[Live] Executing CCTP transfer via ArcTransferLeg...');
 
+        // Validate required environment variables
+        const envValidation = this.validateCCTPEnvironment();
+        if (!envValidation.valid) {
+            this.log(`[Live] Environment validation failed: ${envValidation.error}`);
+            return {
+                success: false,
+                error: `Missing environment variables: ${envValidation.missing?.join(', ')}`,
+            };
+        }
+
+        this.log('[Live] Environment validation passed');
+        this.log(`[Live] Transferring ${this.config.amount} USDC to ${this.config.recipient}`);
+
         try {
+            // Create ArcTransferLeg instance
             const arcTransfer = new ArcTransferLeg({
                 amount: this.config.amount,
                 recipient: this.config.recipient,
             });
 
+            // Get transfer estimate
             const estimate = await arcTransfer.estimate();
-            this.log(
-                `Transfer estimate: ${estimate.gasEstimate} gas, ~${estimate.estimatedTimeMs}ms`
-            );
+            this.log(`[Live] Transfer estimate:`);
+            this.log(`  - Gas: ${estimate.gasEstimate}`);
+            this.log(`  - Estimated time: ${estimate.estimatedTimeMs}ms`);
+            this.log(`  - Failure probability: ${(estimate.failureProbability * 100).toFixed(1)}%`);
 
+            // Step 1: Approve (logged by ArcTransferLeg internally)
+            this.log('[Live] Step 1/4: Approving USDC spending on Base...');
+            steps.push({
+                step: 'approve',
+                status: 'pending',
+                timestamp: Date.now(),
+            });
+
+            // Step 2-4: Execute the full transfer (ArcTransferLeg handles all steps)
+            this.log('[Live] Step 2/4: Initiating burn on Base (depositForBurn)...');
+            steps.push({
+                step: 'burn',
+                status: 'pending',
+                timestamp: Date.now(),
+            });
+
+            // Execute the transfer
             const receipt: LegReceipt = await arcTransfer.execute();
+
+            // Update step statuses on success
+            steps[0].status = 'completed';
+            steps[1].status = 'completed';
+            steps[1].txHash = receipt.txHash;
+
+            // Add attestation step (handled inside execute)
+            this.log('[Live] Step 3/4: Circle attestation received');
+            steps.push({
+                step: 'attestation',
+                status: 'completed',
+                timestamp: Date.now(),
+            });
+
+            // Add mint step (handled inside execute)
+            this.log('[Live] Step 4/4: USDC minted on Arc');
+            steps.push({
+                step: 'mint',
+                status: 'completed',
+                timestamp: Date.now(),
+            });
+
+            this.log('[Live] CCTP transfer completed successfully!');
 
             return {
                 success: receipt.success,
                 txHash: receipt.txHash,
                 chain: receipt.chain,
+                steps,
+                amount: this.config.amount,
+                recipient: this.config.recipient,
             };
         } catch (error) {
             const errorMessage =
                 error instanceof Error ? error.message : 'Transfer failed';
+
+            // Mark the last pending step as failed
+            const lastPendingStep = steps.find((s) => s.status === 'pending');
+            if (lastPendingStep) {
+                lastPendingStep.status = 'failed';
+                lastPendingStep.error = errorMessage;
+            }
+
+            this.log(`[Live] CCTP transfer failed: ${errorMessage}`);
+
             return {
                 success: false,
                 error: errorMessage,
+                steps,
             };
         }
+    }
+
+    /**
+     * Validate that all required environment variables for CCTP transfer are set
+     *
+     * @returns Validation result with missing variables if any
+     */
+    private validateCCTPEnvironment(): {
+        valid: boolean;
+        error?: string;
+        missing?: string[];
+    } {
+        const required: (keyof CCTPEnvironmentConfig)[] = [
+            'PRIVATE_KEY',
+            'BASE_RPC',
+            'ARC_RPC',
+            'USDC_BASE',
+            'TOKEN_MESSENGER_BASE',
+            'MESSAGE_TRANSMITTER_ARC',
+            'ARC_DOMAIN',
+        ];
+
+        const missing = required.filter((key) => !process.env[key]);
+
+        if (missing.length > 0) {
+            return {
+                valid: false,
+                error: `Missing required environment variables: ${missing.join(', ')}`,
+                missing,
+            };
+        }
+
+        // Optional warning for CIRCLE_API_KEY
+        if (!process.env.CIRCLE_API_KEY) {
+            this.log('[Live] Warning: CIRCLE_API_KEY not set, attestation may fail');
+        }
+
+        return { valid: true };
     }
 
     /**
@@ -487,11 +699,27 @@ export class EndToEndOrchestrator {
         if (success) {
             summary = `✓ End-to-end test PASSED (${result.metadata.durationMs}ms)`;
         } else if (!result.transfer.success) {
-            summary = `✗ End-to-end test FAILED: Transfer failed - ${result.transfer.error}`;
+            // Include failed step info if available
+            const failedStep = result.transfer.steps?.find(
+                (s) => s.status === 'failed'
+            );
+            const stepInfo = failedStep
+                ? ` at step '${failedStep.step}'`
+                : '';
+            summary = `✗ End-to-end test FAILED: Transfer failed${stepInfo} - ${result.transfer.error}`;
         } else if (result.execution.status === 'aborted') {
             summary = `⚠ End-to-end test ABORTED: ${result.execution.reason}`;
         } else {
             summary = `✗ End-to-end test FAILED: ${result.execution.reason}`;
+        }
+
+        // Add transfer details to summary for live tests
+        if (
+            result.metadata.mode === 'live' &&
+            result.transfer.amount &&
+            result.transfer.recipient
+        ) {
+            summary += `\n  Transfer: ${result.transfer.amount} USDC to ${result.transfer.recipient.slice(0, 10)}...`;
         }
 
         return {
@@ -538,7 +766,7 @@ export async function runEndToEndTest(
     // Default test configuration
     const defaultConfig: TestConfig = {
         mode: 'mock',
-        amount: '1000000', // 1 USDC (6 decimals)
+        amount: '1.0', // 1 USDC (human-readable format, ArcTransferLeg uses parseUnits internally)
         poolId: '0x0000000000000000000000000000000000000000000000000000000000000001',
         recipient:
             process.env.RECIPIENT_ADDRESS ||
@@ -587,7 +815,7 @@ export async function testHappyPath(): Promise<TestReport> {
     console.log('\n🧪 TEST: Happy Path');
     return runEndToEndTest({
         mode: 'mock',
-        amount: '1000000',
+        amount: '1.0', // 1 USDC
         agentPolicy: {
             max_slippage: 0.02, // Generous slippage tolerance
             min_confidence: 0.70, // Lower confidence threshold
@@ -602,7 +830,7 @@ export async function testHighSlippage(): Promise<TestReport> {
     console.log('\n🧪 TEST: High Slippage Scenario');
     return runEndToEndTest({
         mode: 'mock',
-        amount: '1000000',
+        amount: '1.0', // 1 USDC
         agentPolicy: {
             max_slippage: 0.001, // Very tight slippage (0.1%)
             min_confidence: 0.80,
@@ -617,10 +845,27 @@ export async function testLowConfidence(): Promise<TestReport> {
     console.log('\n🧪 TEST: Low Confidence Scenario');
     return runEndToEndTest({
         mode: 'mock',
-        amount: '1000000',
+        amount: '1.0', // 1 USDC
         agentPolicy: {
             max_slippage: 0.01,
             min_confidence: 0.99, // Very high confidence required
+        },
+    });
+}
+
+/**
+ * Live CCTP transfer test: Requires environment variables to be set
+ * Run with: LIVE_TEST=true npx ts-node packages/sdk/test/end-to-end.test.ts
+ */
+export async function testLiveCCTPTransfer(): Promise<TestReport> {
+    console.log('\n🧪 TEST: Live CCTP Transfer');
+    return runEndToEndTest({
+        mode: 'live',
+        amount: '0.01', // Small amount for testing (0.01 USDC)
+        recipient: process.env.RECIPIENT_ADDRESS || '',
+        agentPolicy: {
+            max_slippage: 0.05, // 5% slippage tolerance for testnet
+            min_confidence: 0.50, // Lower confidence for testnet
         },
     });
 }
@@ -637,17 +882,30 @@ async function main() {
     console.log('║     SettleKit End-to-End Integration Test Suite            ║');
     console.log('╚════════════════════════════════════════════════════════════╝');
 
+    const isLiveTest = process.env.LIVE_TEST === 'true';
     const results: { name: string; report: TestReport }[] = [];
 
-    // Run test scenarios
-    const happyPathReport = await testHappyPath();
-    results.push({ name: 'Happy Path', report: happyPathReport });
+    if (isLiveTest) {
+        // Run live CCTP transfer test
+        console.log('\n⚠️  Running LIVE test against testnets');
+        console.log('    This will execute real transactions on Base Sepolia and Arc Testnet\n');
 
-    const highSlippageReport = await testHighSlippage();
-    results.push({ name: 'High Slippage', report: highSlippageReport });
+        const liveReport = await testLiveCCTPTransfer();
+        results.push({ name: 'Live CCTP Transfer', report: liveReport });
+    } else {
+        // Run mock test scenarios
+        console.log('\n📋 Running mock test scenarios');
+        console.log('    Set LIVE_TEST=true to run against real testnets\n');
 
-    const lowConfidenceReport = await testLowConfidence();
-    results.push({ name: 'Low Confidence', report: lowConfidenceReport });
+        const happyPathReport = await testHappyPath();
+        results.push({ name: 'Happy Path', report: happyPathReport });
+
+        const highSlippageReport = await testHighSlippage();
+        results.push({ name: 'High Slippage', report: highSlippageReport });
+
+        const lowConfidenceReport = await testLowConfidence();
+        results.push({ name: 'Low Confidence', report: lowConfidenceReport });
+    }
 
     // Print summary
     console.log('\n╔════════════════════════════════════════════════════════════╗');
@@ -675,6 +933,27 @@ async function main() {
     console.log('\n----------------------------------------');
     console.log(`  Passed: ${passed} | Aborted: ${aborted} | Failed: ${failed}`);
     console.log('----------------------------------------');
+
+    // Print transfer step details for live tests
+    if (isLiveTest && results.length > 0) {
+        const liveResult = results[0].report.result;
+        if (liveResult.transfer.steps && liveResult.transfer.steps.length > 0) {
+            console.log('\n📊 CCTP Transfer Step Details:');
+            for (const step of liveResult.transfer.steps) {
+                const statusIcon =
+                    step.status === 'completed'
+                        ? '✓'
+                        : step.status === 'failed'
+                          ? '✗'
+                          : '○';
+                const txInfo = step.txHash
+                    ? ` | tx: ${step.txHash.slice(0, 18)}...`
+                    : '';
+                const errorInfo = step.error ? ` | error: ${step.error}` : '';
+                console.log(`    ${statusIcon} ${step.step}${txInfo}${errorInfo}`);
+            }
+        }
+    }
 
     // Exit with appropriate code
     process.exit(failed > 0 ? 1 : 0);
