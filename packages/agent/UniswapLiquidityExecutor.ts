@@ -147,10 +147,10 @@ const CONTRACT_ADDRESSES: Partial<Record<ChainKey, {
     usdc: Address;
     poolManager: Address;
 }>> = {
-    unichainSepolia: {
-        positionManager: '0xB433cB9fCEf07B89a8f8E530DA24656098B0A3D3', // Unichain Sepolia Position Manager
+    unichainSepolia: { // 
+        positionManager: '0xf969aee60879c54baaed9f3ed26147db216fd664', // Unichain Sepolia Position Manager
         usdc: '0x31d0220469e10c4E71834a79b1f276d740d3768F', // USDC on Unichain Sepolia
-        poolManager: '0x4529A01c7A0410167c5740C487A8DE60232617bf', // Pool Manager
+        poolManager: '0x00b036b58a818b1bc34d502d3fe730db729e62ac', // Pool Manager
     },
 };
 

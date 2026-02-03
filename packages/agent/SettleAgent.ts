@@ -1,4 +1,3 @@
-// packages/sdk/src/agents/SettleAgent.ts
 // Agent Decision Engine for automated liquidity execution
 
 import type { Account } from 'viem';
