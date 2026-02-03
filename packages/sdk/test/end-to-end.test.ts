@@ -61,6 +61,7 @@ import type {
 import type { RiskMetrics } from '../src/types/risk';
 import type { LegReceipt } from '../src/types/leg-types';
 import { privateKeyToAccount } from 'viem/accounts';
+import { parseUnits } from 'viem';
 import type { Address } from 'viem';
 
 // ============================================================================
@@ -621,14 +622,18 @@ export class EndToEndOrchestrator {
             this.log('[Live] No wallet configured - running in simulation-only mode');
         }
 
-        // Build the liquidity deposit intent
+        // Convert human-readable amount to raw USDC base units (6 decimals)
+        const USDC_DECIMALS = 6;
+        const rawAmount = parseUnits(this.config.amount, USDC_DECIMALS).toString();
+
+        // Build the liquidity deposit intent with raw amount
         const intent: DepositLiquidityIntent = {
             poolId: this.config.poolId,
-            amount: this.config.amount,
+            amount: rawAmount, // Use raw amount (6 decimals) for risk simulation
         };
 
         this.log('[Live] Running risk simulation via SettleAgent...');
-        this.log(`[Live] Intent: pool=${intent.poolId.slice(0, 18)}..., amount=${intent.amount}`);
+        this.log(`[Live] Intent: pool=${intent.poolId.slice(0, 18)}..., amount=${this.config.amount} USDC (${rawAmount} raw)`);
 
         // Use simulateOnly() to get risk metrics and decision without executing
         // This runs RiskSimulator internally which:
@@ -745,11 +750,15 @@ export class EndToEndOrchestrator {
      * This is called when the agent decision is 'execute'.
      * Uses the executor directly instead of re-running risk simulation.
      *
+     * The amount is converted from human-readable format (e.g., "1.0" USDC)
+     * to raw base units (e.g., "1000000" for USDC with 6 decimals) before
+     * being passed to the UniswapLiquidityExecutor.
+     *
      * @param risk - Risk metrics at time of execution
      * @returns Execution result
      */
     private async executeLiquidityDeposit(risk: RiskMetrics): Promise<ExecutionResult> {
-        this.log('[Live] Executing liquidity deposit...');
+        this.log('[Live] Executing liquidity deposit via UniswapLiquidityExecutor...');
 
         // Check if executor is available
         if (!this.executor) {
@@ -772,24 +781,43 @@ export class EndToEndOrchestrator {
             };
         }
 
-        // Build deposit intent
+        // Convert human-readable amount to raw USDC base units (6 decimals)
+        // e.g., "1.0" -> "1000000", "0.5" -> "500000"
+        const USDC_DECIMALS = 6;
+        const rawAmount = parseUnits(this.config.amount, USDC_DECIMALS).toString();
+
+        this.log(`[Live] Amount conversion: ${this.config.amount} USDC -> ${rawAmount} raw units`);
+
+        // Build deposit intent with raw amount for UniswapLiquidityExecutor
         const intent: DepositLiquidityIntent = {
             poolId: this.config.poolId,
-            amount: this.config.amount,
+            amount: rawAmount, // Use raw amount (6 decimals) for executor
             recipient: this.config.recipient,
         };
 
-        this.log(`[Live] Depositing ${intent.amount} to pool ${intent.poolId.slice(0, 18)}...`);
+        this.log(`[Live] Depositing ${this.config.amount} USDC to pool ${intent.poolId.slice(0, 18)}...`);
         this.log(`[Live] Recipient: ${intent.recipient}`);
+        this.log(`[Live] Pool key: currency0=${this.config.poolKey.currency0.slice(0, 10)}..., currency1=${this.config.poolKey.currency1.slice(0, 10)}..., fee=${this.config.poolKey.fee}`);
 
         try {
             // Execute via UniswapLiquidityExecutor
+            // The executor handles:
+            // 1. USDC balance check
+            // 2. Allowance check and approval if needed
+            // 3. Minting liquidity position via PositionManager
             const result = await this.executor.depositFromIntent(intent, this.config.poolKey);
 
             if (result.success) {
-                this.log(`[Live] Deposit successful! TxHash: ${result.txHash}`);
+                this.log(`[Live] Deposit successful!`);
+                this.log(`[Live] TxHash: ${result.txHash}`);
                 if (result.positionId) {
-                    this.log(`[Live] Position ID: ${result.positionId}`);
+                    this.log(`[Live] Position NFT ID: ${result.positionId}`);
+                }
+                if (result.amount0) {
+                    this.log(`[Live] Amount0 deposited: ${result.amount0}`);
+                }
+                if (result.amount1) {
+                    this.log(`[Live] Amount1 deposited: ${result.amount1}`);
                 }
                 return {
                     status: 'completed',
@@ -1131,6 +1159,90 @@ export async function testLiveCCTPTransfer(): Promise<TestReport> {
     });
 }
 
+/**
+ * Uniswap execution test: Tests the full UniswapLiquidityExecutor integration
+ *
+ * This test validates the complete flow:
+ * 1. Amount conversion from human-readable to raw base units
+ * 2. Agent risk evaluation and decision making
+ * 3. UniswapLiquidityExecutor initialization with wallet
+ * 4. Pool key validation
+ * 5. Liquidity deposit via PositionManager
+ *
+ * In mock mode, simulates all steps without blockchain interaction.
+ * In live mode, requires PRIVATE_KEY and testnet configuration.
+ */
+export async function testUniswapExecution(): Promise<TestReport> {
+    console.log('\n🧪 TEST: Uniswap Liquidity Execution');
+    console.log('    Testing UniswapLiquidityExecutor integration');
+    console.log('    Flow: Agent Decision → Executor → PositionManager');
+
+    return runEndToEndTest({
+        mode: 'mock',
+        amount: '5.0', // 5 USDC
+        poolId: '0x0000000000000000000000000000000000000000000000000000000000000001',
+        recipient: '0x0000000000000000000000000000000000000001',
+        agentPolicy: {
+            max_slippage: 0.02,         // 2% max slippage
+            max_price_impact: 0.03,     // 3% max price impact
+            min_confidence: 0.75,       // 75% confidence required
+            retry_attempts: 1,
+            retry_delay_seconds: 1,
+            fallback_strategy: 'wait',
+        },
+        // Unichain Sepolia pool key for USDC/ETH
+        poolKey: {
+            currency0: '0x31d0220469e10c4E71834a79b1f276d740d3768F' as Address, // USDC
+            currency1: '0x0000000000000000000000000000000000000000' as Address, // ETH (native)
+            fee: 3000,        // 0.3% fee tier
+            tickSpacing: 60,  // Standard tick spacing for 0.3% pools
+            hooks: '0x0000000000000000000000000000000000000000' as Address, // No hooks
+        },
+    });
+}
+
+/**
+ * Live Uniswap execution test: Executes actual liquidity deposit on testnet
+ *
+ * Run with: LIVE_UNISWAP_TEST=true npx ts-node packages/sdk/test/end-to-end.test.ts
+ *
+ * Prerequisites:
+ * - PRIVATE_KEY set with funded testnet account
+ * - Account has USDC on Unichain Sepolia
+ * - Network RPC endpoints configured
+ */
+export async function testLiveUniswapExecution(): Promise<TestReport> {
+    console.log('\n🧪 TEST: Live Uniswap Execution');
+    console.log('    Executing real liquidity deposit on Unichain Sepolia');
+
+    const recipient = process.env.RECIPIENT_ADDRESS || process.env.PUBLIC_ADDRESS || '';
+
+    if (!recipient) {
+        console.warn('    ⚠️  No RECIPIENT_ADDRESS set, using zero address');
+    }
+
+    return runEndToEndTest({
+        mode: 'live',
+        amount: '0.1', // 0.1 USDC - small amount for testnet
+        recipient,
+        agentPolicy: {
+            max_slippage: 0.10,         // 10% max slippage for testnet
+            max_price_impact: 0.10,     // 10% max price impact for testnet
+            min_confidence: 0.30,       // Lower confidence for testnet
+            retry_attempts: 2,
+            retry_delay_seconds: 5,
+            fallback_strategy: 'wait',
+        },
+        poolKey: {
+            currency0: '0x31d0220469e10c4E71834a79b1f276d740d3768F' as Address, // USDC on Unichain Sepolia
+            currency1: '0x0000000000000000000000000000000000000000' as Address, // ETH
+            fee: 3000,
+            tickSpacing: 60,
+            hooks: '0x0000000000000000000000000000000000000000' as Address,
+        },
+    });
+}
+
 // ============================================================================
 // Main Entry Point
 // ============================================================================
@@ -1144,9 +1256,18 @@ async function main() {
     console.log('╚════════════════════════════════════════════════════════════╝');
 
     const isLiveTest = process.env.LIVE_TEST === 'true';
+    const isLiveUniswapTest = process.env.LIVE_UNISWAP_TEST === 'true';
     const results: { name: string; report: TestReport }[] = [];
 
-    if (isLiveTest) {
+    if (isLiveUniswapTest) {
+        // Run live Uniswap execution test
+        console.log('\n  Running LIVE Uniswap execution test');
+        console.log('    This will execute real transactions on Unichain Sepolia');
+        console.log('    Ensure PRIVATE_KEY is set and account has USDC\n');
+
+        const liveUniswapReport = await testLiveUniswapExecution();
+        results.push({ name: 'Live Uniswap Execution', report: liveUniswapReport });
+    } else if (isLiveTest) {
         // Run live CCTP transfer test
         console.log('\n⚠️  Running LIVE test against testnets');
         console.log('    This will execute real transactions on Base Sepolia and Arc Testnet\n');
@@ -1156,7 +1277,8 @@ async function main() {
     } else {
         // Run mock test scenarios demonstrating SettleAgent integration
         console.log('\n📋 Running mock test scenarios');
-        console.log('    Set LIVE_TEST=true to run against real testnets\n');
+        console.log('    Set LIVE_TEST=true to run against real testnets');
+        console.log('    Set LIVE_UNISWAP_TEST=true to test Uniswap execution\n');
         console.log('    SettleAgent Integration Tests:');
         console.log('    - Risk simulation via RiskSimulator');
         console.log('    - Decision making based on policy thresholds');
@@ -1182,6 +1304,10 @@ async function main() {
         // Test 5: Custom policy - demonstrates policy customization
         const policyReport = await testAgentPolicyCustomization();
         results.push({ name: 'Agent Policy Customization', report: policyReport });
+
+        // Test 6: Uniswap execution flow - demonstrates full executor integration
+        const uniswapReport = await testUniswapExecution();
+        results.push({ name: 'Uniswap Execution', report: uniswapReport });
     }
 
     // Print summary
@@ -1212,8 +1338,10 @@ async function main() {
     console.log('----------------------------------------');
 
     // Print transfer step details for live tests
-    if (isLiveTest && results.length > 0) {
+    if ((isLiveTest || isLiveUniswapTest) && results.length > 0) {
         const liveResult = results[0].report.result;
+
+        // Print CCTP transfer details if available
         if (liveResult.transfer.steps && liveResult.transfer.steps.length > 0) {
             console.log('\n📊 CCTP Transfer Step Details:');
             for (const step of liveResult.transfer.steps) {
@@ -1230,6 +1358,22 @@ async function main() {
                 console.log(`    ${statusIcon} ${step.step}${txInfo}${errorInfo}`);
             }
         }
+
+        // Print Uniswap execution details
+        if (liveResult.execution.status === 'completed' && liveResult.execution.txHash) {
+            console.log('\n📊 Uniswap Execution Details:');
+            console.log(`    ✓ Transaction: ${liveResult.execution.txHash}`);
+            if (liveResult.execution.positionId) {
+                console.log(`    ✓ Position NFT ID: ${liveResult.execution.positionId}`);
+            }
+        }
+
+        // Print risk metrics summary
+        console.log('\n📊 Risk Metrics Summary:');
+        console.log(`    Confidence: ${(liveResult.riskMetrics.execution_confidence * 100).toFixed(1)}%`);
+        console.log(`    Slippage P95: ${(liveResult.riskMetrics.slippage_p95 * 100).toFixed(2)}%`);
+        console.log(`    Price Impact: ${(liveResult.riskMetrics.price_impact * 100).toFixed(2)}%`);
+        console.log(`    Finality Delay P95: ${liveResult.riskMetrics.finality_delay_p95}s`);
     }
 
     // Exit with appropriate code
