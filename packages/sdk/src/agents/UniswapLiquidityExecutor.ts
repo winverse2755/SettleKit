@@ -1,4 +1,3 @@
-// packages/sdk/src/agents/UniswapLiquidityExecutor.ts
 // Wrapper for Uniswap v4 liquidity provision via PositionManager
 
 import {
@@ -322,6 +321,8 @@ export class UniswapLiquidityExecutor {
             abi: ERC20_ABI,
             functionName: 'approve',
             args: [positionManager, amount],
+            chain: CHAINS[this.chainKey],
+            account: this.account,
         });
 
         // Wait for transaction confirmation
@@ -425,6 +426,8 @@ export class UniswapLiquidityExecutor {
                 abi: POSITION_MANAGER_ABI,
                 functionName: 'mint',
                 args: [mintParams],
+                chain: CHAINS[this.chainKey],
+                account: this.account,
             });
 
             // Wait for transaction confirmation
