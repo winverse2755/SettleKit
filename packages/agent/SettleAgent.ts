@@ -2,7 +2,7 @@
 // Agent Decision Engine for automated liquidity execution
 
 import type { Account } from 'viem';
-import { RiskSimulator } from '../simulators/RiskSimulator';
+import { RiskSimulator } from '../sdk/src/simulators/RiskSimulator';
 import {
     UniswapLiquidityExecutor,
     type LiquidityDepositParams,
@@ -13,9 +13,9 @@ import type {
     DepositLiquidityIntent,
     ExecutionResult,
     ExecutionLog,
-} from '../types/agent';
-import type { RiskMetrics, SimulationParams } from '../types/risk';
-import type { ChainKey } from '../config/networks';
+} from '../sdk/src/types/agent';
+import type { RiskMetrics, SimulationParams } from '../sdk/src/types/risk';
+import type { ChainKey } from '../sdk/src/config/networks';
 
 /**
  * Default agent policy with conservative thresholds
