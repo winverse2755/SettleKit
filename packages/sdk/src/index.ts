@@ -14,4 +14,5 @@ export * from './utils/pool-utils';
 export * from './simulators/RiskSimulator';
 
 // Agents
+export * from './agents/SettleAgent';
 export * from './agents/UniswapLiquidityExecutor';
