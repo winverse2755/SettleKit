@@ -16,12 +16,14 @@
     "@wagmi/core": "^3.3.1",
     "dotenv": "^17.2.3",
     "ethers": "^6.16.0",
+    "node-fetch": "^3.3.2",
     "uuid": "^13.0.0",
     "viem": "^2.45.1",
     "wagmi": "^3.4.1"
   },
   "type": "module",
   "devDependencies": {
-    "@types/uuid": "^10.0.0"
+    "@types/uuid": "^10.0.0",
+    "typescript": "^5.9.3"
   }
 }
