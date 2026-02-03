@@ -7,5 +7,5 @@
     "strict": true,
     "outDir": "dist"
   },
-  "include": ["src", "test"]
+  "include": ["src", "test", "../agent/SettleAgent.ts", "../agent/UniswapLiquidityExecutor.ts"]
 }

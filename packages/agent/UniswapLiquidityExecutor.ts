@@ -13,9 +13,9 @@ import {
     parseUnits,
     maxUint256,
 } from 'viem';
-import { unichainSepolia, CHAINS, type ChainKey } from '../config/networks';
-import { getPoolState, type PoolState } from '../utils/pool-utils';
-import type { DepositLiquidityIntent } from '../types/agent';
+import { unichainSepolia, CHAINS, type ChainKey } from '../sdk/src/config/networks';
+import { getPoolState, type PoolState } from '../sdk/src/utils/pool-utils';
+import type { DepositLiquidityIntent } from '../sdk/src/types/agent';
 
 // Uniswap v4 PositionManager ABI (relevant functions for liquidity management)
 const POSITION_MANAGER_ABI = [
