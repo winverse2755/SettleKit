@@ -1,33 +1,128 @@
-// packages/sdk/src/legs/ArcTransferLeg.ts
-
 import { Leg } from './leg';
 import { LegEstimate, LegReceipt, RollbackStrategy } from '../types/leg-types';
-import { Signer, ethers } from 'ethers';
+
+import {
+    createWalletClient,
+    createPublicClient,
+    http,
+    parseUnits,
+    decodeEventLog,
+    keccak256
+} from 'viem';
+
+import { privateKeyToAccount } from 'viem/accounts';
+import { baseSepolia } from 'viem/chains';
 import fetch from 'node-fetch';
 
-type ArcTransferParams = {
-    amount: string; // in 6 decimals
-    recipient: string;
-};
+// ---------- helpers ----------
+function asHex(value: string): `0x${string}` {
+    if (!value.startsWith('0x')) {
+        throw new Error(`Invalid hex string: ${value}`);
+    }
+    return value as `0x${string}`;
+}
 
-const USDC_BASE = '0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA';
-const TOKEN_MESSENGER_BASE = '0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA';
-const MESSAGE_TRANSMITTER_ARC = '0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA';
+function addressToBytes32(address: string): `0x${string}` {
+    return `0x${address.slice(2).padStart(64, '0')}`;
+}
+
+// ---------- ENV ----------
+const {
+    USDC_BASE,
+    TOKEN_MESSENGER_BASE,
+    MESSAGE_TRANSMITTER_ARC,
+    ARC_DOMAIN,
+    BASE_RPC,
+    ARC_RPC,
+    PRIVATE_KEY,
+    CIRCLE_API_KEY
+} = process.env as Record<string, string>;
+
+// ---------- ARC CHAIN (custom) ----------
+const arcTestnet = {
+    id: 999999, // ⚠️ reemplazar por el real chainId de Arc testnet
+    name: 'Arc Testnet',
+    network: 'arc-testnet',
+    nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+    rpcUrls: {
+        default: { http: [ARC_RPC] }
+    }
+} as const;
+
+// ---------- ABIs ----------
+const ERC20_ABI = [
+    {
+        name: 'approve',
+        type: 'function',
+        stateMutability: 'nonpayable',
+        inputs: [
+            { name: 'spender', type: 'address' },
+            { name: 'amount', type: 'uint256' }
+        ],
+        outputs: [{ type: 'bool' }]
+    }
+] as const;
+
+const TOKEN_MESSENGER_ABI = [
+    {
+        name: 'depositForBurn',
+        type: 'function',
+        stateMutability: 'nonpayable',
+        inputs: [
+            { name: 'amount', type: 'uint256' },
+            { name: 'destinationDomain', type: 'uint32' },
+            { name: 'mintRecipient', type: 'bytes32' },
+            { name: 'burnToken', type: 'address' }
+        ],
+        outputs: []
+    },
+    {
+        type: 'event',
+        name: 'MessageSent',
+        inputs: [{ indexed: false, name: 'message', type: 'bytes' }]
+    }
+] as const;
+
+const MESSAGE_TRANSMITTER_ABI = [
+    {
+        name: 'receiveMessage',
+        type: 'function',
+        stateMutability: 'nonpayable',
+        inputs: [
+            { name: 'message', type: 'bytes' },
+            { name: 'attestation', type: 'bytes' }
+        ],
+        outputs: []
+    }
+] as const;
+
+// ===================================================
 
 type CircleAttestationResponse = {
     status: 'pending' | 'complete';
-    attestation: string;   // bytes
-    message: string;       // bytes
+    attestation?: `0x${string}`;
 };
+
+function isCircleAttestationResponse(
+    x: unknown
+): x is CircleAttestationResponse {
+    return (
+        typeof x === 'object' &&
+        x !== null &&
+        'status' in x &&
+        (x as any).status &&
+        (x as any).status !== undefined
+    );
+}
+
 
 export class ArcTransferLeg extends Leg {
     name = 'Arc USDC Transfer';
 
     private amount: string;
     private recipient: string;
-    private apiKey = process.env.CIRCLE_API_KEY!;
 
-    constructor(params: ArcTransferParams) {
+    constructor(params: { amount: string; recipient: string }) {
         super();
         this.amount = params.amount;
         this.recipient = params.recipient;
@@ -46,83 +141,126 @@ export class ArcTransferLeg extends Leg {
             gasEstimate: 300000n,
             estimatedTimeMs: 20000,
             failureProbability: 0.03,
-            notes: 'Estimated CCTP transfer Base → Arc',
+            notes: 'CCTP transfer Base → Arc'
         };
     }
 
-    async execute(signer: Signer): Promise<LegReceipt> {
-        const address = await signer.getAddress();
+    async execute(): Promise<LegReceipt> {
+        const account = privateKeyToAccount(asHex(PRIVATE_KEY));
 
-        // 1) Approve USDC
-        const usdc = new ethers.Contract(
-            USDC_BASE,
-            ['function approve(address spender, uint256 amount) public returns (bool)'],
-            signer
-        );
+        // ---------- clients ----------
+        const baseClient = createPublicClient({
+            chain: baseSepolia,
+            transport: http(BASE_RPC)
+        });
 
-        await usdc.approve(TOKEN_MESSENGER_BASE, this.amount);
+        const baseWallet = createWalletClient({
+            account,
+            chain: baseSepolia,
+            transport: http(BASE_RPC)
+        });
 
-        // 2) Burn USDC via TokenMessenger (CCTP)
-        const messenger = new ethers.Contract(
-            TOKEN_MESSENGER_BASE,
-            [
-                'function depositForBurn(uint256 amount, uint32 destinationDomain, bytes32 mintRecipient, address burnToken) external',
-            ],
-            signer
-        );
+        const arcClient = createPublicClient({
+            chain: arcTestnet,
+            transport: http(ARC_RPC)
+        });
 
-        const destinationDomain = 9999; // Arc domain from Circle docs
-        const mintRecipient = ethers.zeroPadValue(this.recipient, 32);
+        const arcWallet = createWalletClient({
+            account,
+            chain: arcTestnet,
+            transport: http(ARC_RPC)
+        });
 
-        const burnTx = await messenger.depositForBurn(
-            this.amount,
-            destinationDomain,
-            mintRecipient,
-            USDC_BASE
-        );
+        const amount = parseUnits(this.amount, 6);
 
-        const receipt = await burnTx.wait();
+        // ---------- 1) Approve ----------
+        await baseWallet.writeContract({
+            address: asHex(USDC_BASE),
+            abi: ERC20_ABI,
+            functionName: 'approve',
+            args: [asHex(TOKEN_MESSENGER_BASE), amount]
+        });
 
-        const messageHash = receipt.logs[0].topics[1]; // from event
+        // ---------- 2) Burn ----------
+        const burnTx = await baseWallet.writeContract({
+            address: asHex(TOKEN_MESSENGER_BASE),
+            abi: TOKEN_MESSENGER_ABI,
+            functionName: 'depositForBurn',
+            args: [
+                amount,
+                Number(ARC_DOMAIN),
+                addressToBytes32(this.recipient),
+                asHex(USDC_BASE)
+            ]
+        });
 
-        // 3) Wait for Circle attestation
-        const attestation = await this.waitForAttestation(messageHash);
+        const receipt = await baseClient.waitForTransactionReceipt({
+            hash: burnTx
+        });
 
-        // 4) Mint on Arc
-        const transmitter = new ethers.Contract(
-            MESSAGE_TRANSMITTER_ARC,
-            [
-                'function receiveMessage(bytes message, bytes attestation) external returns (bool)',
-            ],
-            signer
-        );
+        // ---------- extract message ----------
+        let messageBytes: `0x${string}` | undefined;
 
-        await transmitter.receiveMessage(attestation.message, attestation.attestation);
+        for (const log of receipt.logs) {
+            try {
+                const decoded = decodeEventLog({
+                    abi: TOKEN_MESSENGER_ABI,
+                    data: log.data,
+                    topics: log.topics
+                });
+
+                if (decoded.eventName === 'MessageSent') {
+                    messageBytes = decoded.args.message;
+                }
+            } catch { }
+        }
+
+        if (!messageBytes) throw new Error('Message not found');
+
+        // ---------- 3) Attestation ----------
+        const attestation = await this.waitForAttestation(messageBytes);
+
+        // ---------- 4) Mint on Arc ----------
+        const mintTx = await arcWallet.writeContract({
+            address: asHex(MESSAGE_TRANSMITTER_ARC),
+            abi: MESSAGE_TRANSMITTER_ABI,
+            functionName: 'receiveMessage',
+            args: [messageBytes, attestation]
+        });
+
+        await arcClient.waitForTransactionReceipt({ hash: mintTx });
 
         return {
-            txHash: burnTx.hash,
+            txHash: burnTx,
             chain: 'base',
-            success: true,
+            success: true
         };
     }
 
-    async waitForAttestation(messageHash: string): Promise<CircleAttestationResponse> {
+    async waitForAttestation(message: `0x${string}`): Promise<`0x${string}`> {
+        const hash = keccak256(message);
+
         while (true) {
-            const res = await fetch(
-                `https://iris-api-sandbox.circle.com/attestations/${messageHash}`,
+            const raw = await fetch(
+                `https://iris-api-sandbox.circle.com/attestations/${hash}`,
                 {
-                    headers: { Authorization: `Bearer ${this.apiKey}` },
+                    headers: { Authorization: `Bearer ${CIRCLE_API_KEY}` }
                 }
             );
 
-            const json = (await res.json()) as CircleAttestationResponse;
+            const data = await raw.json();
 
-            if (json.status === 'complete') return json;
+            if (!isCircleAttestationResponse(data)) {
+                throw new Error('Invalid attestation response from Circle');
+            }
 
-            await new Promise((r) => setTimeout(r, 2000));
+            if (data.status === 'complete' && data.attestation) {
+                return data.attestation; // ahora TypeScript sabe que es `0x${string}`
+            }
+
+            await new Promise(r => setTimeout(r, 2000));
         }
     }
-
 
     async verify(): Promise<boolean> {
         return true;
