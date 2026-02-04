@@ -11,6 +11,8 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@circle-fin/adapter-viem-v2": "^1.4.0",
+    "@circle-fin/bridge-kit": "^1.5.0",
     "@morpho-org/blue-sdk-ethers": "^3.0.0",
     "@uniswap/v4-core": "^1.0.2",
     "@uniswap/v4-sdk": "^1.27.0",
