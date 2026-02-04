@@ -6,7 +6,7 @@
  * 2. SettleAgent - Risk evaluation and decision making
  * 3. UniswapLiquidityExecutor - Uniswap v4 liquidity deposit
  *
- * Flow: USDC on Base → Arc Hub (CCTP) → USDC on Arc/Unichain → SettleAgent → Uniswap Pool
+ * Flow: USDC on Base → Arc Hub (CCTP) → USDC on Unichain → SettleAgent → Uniswap Pool
  *
  * ## SettleAgent Integration
  *
@@ -2023,6 +2023,33 @@ export async function testLiveUniswapExecution(): Promise<DetailedTestReport> {
     }, { verbose: true });
 }
 
+/**
+ * Combined live test: CCTP Transfer + Uniswap Execution
+ * 
+ * Runs both live tests sequentially:
+ * 1. CCTP Transfer from Base Sepolia to Arc Testnet
+ * 2. Uniswap liquidity deposit on Unichain Sepolia
+ * 
+ * Run with: LIVE_FULL_TEST=true npx ts-node packages/sdk/test/end-to-end.test.ts
+ */
+export async function testLiveCCTPAndUniswap(): Promise<{
+    cctpResult: DetailedTestReport;
+    uniswapResult: DetailedTestReport;
+}> {
+    console.log('\n🧪 TEST: Live CCTP + Uniswap Combined');
+    console.log('   Mode: LIVE - Full end-to-end flow');
+    console.log('   1. CCTP Transfer: Base Sepolia → Arc Testnet');
+    console.log('   2. Uniswap Deposit: Unichain Sepolia\n');
+
+    // Run CCTP Transfer first
+    const cctpResult = await testLiveCCTPTransfer();
+    
+    // Run Uniswap Execution second
+    const uniswapResult = await testLiveUniswapExecution();
+
+    return { cctpResult, uniswapResult };
+}
+
 // ============================================================================
 // Main Entry Point
 // ============================================================================
@@ -2170,6 +2197,7 @@ function printSuiteSummary(
 async function main() {
     printSuiteHeader();
 
+    const isLiveFullTest = process.env.LIVE_FULL_TEST === 'true';
     const isLiveTest = process.env.LIVE_TEST === 'true';
     const isLiveUniswapTest = process.env.LIVE_UNISWAP_TEST === 'true';
     const exportResults = process.env.EXPORT_RESULTS === 'true';
@@ -2185,7 +2213,18 @@ async function main() {
         jsonOutput,
     };
 
-    if (isLiveUniswapTest) {
+    if (isLiveFullTest) {
+        // Run combined CCTP + Uniswap test
+        console.log('🔴 Running LIVE combined CCTP + Uniswap test');
+        console.log('   This will execute real transactions on:');
+        console.log('   • Base Sepolia → Arc Testnet (CCTP Transfer)');
+        console.log('   • Unichain Sepolia (Uniswap Liquidity Deposit)');
+        console.log('   Ensure PRIVATE_KEY is set and account has USDC\n');
+
+        const { cctpResult, uniswapResult } = await testLiveCCTPAndUniswap();
+        results.push({ name: 'Live CCTP Transfer', report: cctpResult });
+        results.push({ name: 'Live Uniswap Execution', report: uniswapResult });
+    } else if (isLiveUniswapTest) {
         // Run live Uniswap execution test
         console.log('🔴 Running LIVE Uniswap execution test');
         console.log('   This will execute real transactions on Unichain Sepolia');
@@ -2204,6 +2243,7 @@ async function main() {
         // Run mock test scenarios demonstrating SettleAgent integration
         console.log('📋 Running mock test scenarios\n');
         console.log('   Environment Variables:');
+        console.log('   • LIVE_FULL_TEST=true    - Run combined CCTP + Uniswap test');
         console.log('   • LIVE_TEST=true         - Run against real testnets');
         console.log('   • LIVE_UNISWAP_TEST=true - Test Uniswap execution');
         console.log('   • EXPORT_RESULTS=true    - Export results to JSON');
@@ -2241,7 +2281,7 @@ async function main() {
     }
 
     // Print comprehensive summary
-    printSuiteSummary(results, isLiveTest || isLiveUniswapTest);
+    printSuiteSummary(results, isLiveTest || isLiveUniswapTest || isLiveFullTest);
 
     // Export results if requested
     if (exportResults) {
