@@ -478,7 +478,7 @@ export interface DetailedTestReport extends TestReport {
     performance: PerformanceMetrics;
     /** Environment information */
     environment: {
-        mode: 'mock' | 'live';
+        mode: 'live';
         nodeVersion: string;
         platform: string;
         timestamp: string;
@@ -616,8 +616,8 @@ export function exportTestResults(
  * Test configuration for the end-to-end orchestrator
  */
 export interface TestConfig {
-    /** Mode: 'mock' uses simulated data, 'live' interacts with real testnets */
-    mode: 'mock' | 'live';
+    /** Mode: 'live' interacts with real testnets */
+    mode: 'live';
     /** USDC amount in human-readable format (e.g., "1.0" = 1 USDC) */
     amount: string;
     /** Target Uniswap v4 pool ID */
@@ -680,7 +680,7 @@ export interface E2ETestResult {
     execution: ExecutionResult;
     /** Test metadata */
     metadata: {
-        mode: 'mock' | 'live';
+        mode: 'live';
         startTime: number;
         endTime: number;
         durationMs: number;
