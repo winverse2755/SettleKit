@@ -544,7 +544,7 @@ export function formatRiskMetrics(risk: RiskMetrics, indent: number = 4): string
         `${prefix}Price Impact: ${(risk.price_impact * 100).toFixed(2)}%`,
         `${prefix}Finality Delay P50/P95: ${risk.finality_delay_p50}s / ${risk.finality_delay_p95}s`,
         `${prefix}Capital at Risk: ${risk.capital_at_risk_seconds}s`,
-        `${prefix}Pool Liquidity: ${BigInt(risk.pool_liquidity_depth).toLocaleString()} wei`,
+        `${prefix}Pool Liquidity: ${risk.pool_liquidity_depth}`,
         `${prefix}Recommended Action: ${risk.recommended_action}`,
     ].join('\n');
 }
@@ -1539,7 +1539,7 @@ export async function runEndToEndTest(
     // Default test configuration
     const defaultConfig: TestConfig = {
         mode: 'live',
-        amount: '5.0', // 1 USDC (human-readable format, ArcTransferLeg uses parseUnits internally)
+        amount: '0.5', // 0.5 USDC (human-readable format, ArcTransferLeg uses parseUnits internally)
         poolId: '0x0000000000000000000000000000000000000000000000000000000000000001',
         recipient:
             process.env.RECIPIENT_ADDRESS ||
