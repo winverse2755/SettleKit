@@ -1911,9 +1911,6 @@ function printSuiteSummary(
 async function main() {
     printSuiteHeader();
 
-    const isLiveFullTest = process.env.LIVE_FULL_TEST === 'true';
-    const isLiveTest = process.env.LIVE_TEST === 'true';
-    const isLiveUniswapTest = process.env.LIVE_UNISWAP_TEST === 'true';
     const exportResults = process.env.EXPORT_RESULTS === 'true';
     const verboseLogging = process.env.VERBOSE !== 'false';
     const jsonOutput = process.env.JSON_OUTPUT === 'true';
@@ -1927,43 +1924,24 @@ async function main() {
         jsonOutput,
     };
 
-    if (isLiveFullTest) {
-        // Run combined CCTP + Uniswap test
-        console.log('🔴 Running LIVE combined CCTP + Uniswap test');
-        console.log('   This will execute real transactions on:');
-        console.log('   • Base Sepolia → Arc Testnet (CCTP Transfer)');
-        console.log('   • Unichain Sepolia (Uniswap Liquidity Deposit)');
-        console.log('   Ensure PRIVATE_KEY is set and account has USDC\n');
+    // Run combined CCTP + Uniswap live tests
+    console.log('🔴 Running LIVE end-to-end tests');
+    console.log('   This will execute real transactions on:');
+    console.log('   • Base Sepolia → Arc Testnet (CCTP Transfer)');
+    console.log('   • Unichain Sepolia (Uniswap Liquidity Deposit)');
+    console.log('   Ensure PRIVATE_KEY is set and account has USDC');
+    console.log('');
+    console.log('   Environment Variables:');
+    console.log('   • EXPORT_RESULTS=true - Export results to JSON');
+    console.log('   • VERBOSE=false       - Reduce log verbosity');
+    console.log('   • JSON_OUTPUT=true    - Output logs as JSON\n');
 
-        const { cctpResult, uniswapResult } = await testLiveCCTPAndUniswap();
-        results.push({ name: 'Live CCTP Transfer', report: cctpResult });
-        results.push({ name: 'Live Uniswap Execution', report: uniswapResult });
-    } else if (isLiveUniswapTest) {
-        // Run live Uniswap execution test
-        console.log('🔴 Running LIVE Uniswap execution test');
-        console.log('   This will execute real transactions on Unichain Sepolia');
-        console.log('   Ensure PRIVATE_KEY is set and account has USDC\n');
-
-        const liveUniswapReport = await testLiveUniswapExecution();
-        results.push({ name: 'Live Uniswap Execution', report: liveUniswapReport });
-    } else {
-        // Default: Run live CCTP transfer test
-        console.log('🔴 Running LIVE CCTP test against testnets');
-        console.log('   This will execute real transactions on Base Sepolia and Arc Testnet');
-        console.log('');
-        console.log('   Environment Variables:');
-        console.log('   • LIVE_FULL_TEST=true    - Run combined CCTP + Uniswap test');
-        console.log('   • LIVE_UNISWAP_TEST=true - Test Uniswap execution only');
-        console.log('   • EXPORT_RESULTS=true    - Export results to JSON');
-        console.log('   • VERBOSE=false          - Reduce log verbosity');
-        console.log('   • JSON_OUTPUT=true       - Output logs as JSON\n');
-
-        const liveReport = await testLiveCCTPTransfer();
-        results.push({ name: 'Live CCTP Transfer', report: liveReport });
-    }
+    const { cctpResult, uniswapResult } = await testLiveCCTPAndUniswap();
+    results.push({ name: 'Live CCTP Transfer', report: cctpResult });
+    results.push({ name: 'Live Uniswap Execution', report: uniswapResult });
 
     // Print comprehensive summary
-    printSuiteSummary(results, isLiveTest || isLiveUniswapTest || isLiveFullTest);
+    printSuiteSummary(results, true);
 
     // Export results if requested
     if (exportResults) {
