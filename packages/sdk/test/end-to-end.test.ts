@@ -701,36 +701,6 @@ export interface TestReport {
     logs: string[];
 }
 
-// ============================================================================
-// Mock Data for Testing
-// ============================================================================
-
-/**
- * Mock risk metrics for testing without blockchain interaction
- */
-const MOCK_RISK_METRICS: RiskMetrics = {
-    finality_delay_p50: 15,
-    finality_delay_p95: 45,
-    capital_at_risk_seconds: 60,
-    slippage_p50: 0.002, // 0.2%
-    slippage_p95: 0.005, // 0.5%
-    price_impact: 0.003, // 0.3%
-    pool_liquidity_depth: '10000000000', // $10,000 USDC
-    execution_confidence: 0.95, // 95%
-    recommended_action: 'execute',
-};
-
-/**
- * Mock execution result for simulation mode
- */
-const MOCK_EXECUTION_RESULT: ExecutionResult = {
-    status: 'completed',
-    txHash: '0xmock_tx_hash_' + Date.now().toString(16),
-    positionId: '12345',
-    risk: MOCK_RISK_METRICS,
-    timestamp: Date.now(),
-};
-
 // EndToEndOrchestrator Class
 
 /**
@@ -1207,27 +1177,7 @@ export class EndToEndOrchestrator {
         risk: RiskMetrics;
         decision: AgentDecision;
     }> {
-        if (this.config.mode === 'mock') {
-            this.log('[Mock] Using simulated risk metrics...');
-            await this.sleep(50);
-
-            // Create agent to use its decision logic even in mock mode
-            // This ensures consistent decision-making based on the agent policy
-            const agent = new SettleAgent(
-                this.config.agentPolicy || {},
-                undefined, // no account for simulation
-                'unichainSepolia'
-            );
-
-            const decision = agent.makeDecision(MOCK_RISK_METRICS);
-
-            return {
-                risk: MOCK_RISK_METRICS,
-                decision,
-            };
-        }
-
-        // Live mode: Initialize SettleAgent for risk simulation and decision making
+        // Initialize SettleAgent for risk simulation and decision making
         this.log('[Live] Initializing SettleAgent for risk evaluation...');
 
         const privateKey = process.env.PRIVATE_KEY as `0x${string}` | undefined;
@@ -1304,37 +1254,7 @@ export class EndToEndOrchestrator {
         const maxRetries = policy.retry_attempts ?? 3;
         const retryDelaySeconds = policy.retry_delay_seconds ?? 30;
 
-        if (this.config.mode === 'mock') {
-            this.log('[Mock] Simulating execution...');
-            await this.sleep(100);
-
-            switch (decision) {
-                case 'execute':
-                    return {
-                        ...MOCK_EXECUTION_RESULT,
-                        risk,
-                        timestamp: Date.now(),
-                    };
-
-                case 'wait':
-                    return {
-                        status: 'aborted',
-                        reason: 'Mock mode: wait decision simulated as abort after max retries',
-                        risk,
-                        timestamp: Date.now(),
-                    };
-
-                case 'abort':
-                    return {
-                        status: 'aborted',
-                        reason: 'Risk thresholds exceeded',
-                        risk,
-                        timestamp: Date.now(),
-                    };
-            }
-        }
-
-        // Live mode: Execute based on decision
+        // Execute based on decision
         this.log(`[Live] Processing decision: ${decision}`);
 
         switch (decision) {
