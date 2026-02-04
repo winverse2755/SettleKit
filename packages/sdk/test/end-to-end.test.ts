@@ -39,7 +39,11 @@
  * @see UniswapLiquidityExecutor - packages/agent/UniswapLiquidityExecutor.ts
  */
 
-import 'dotenv/config';
+import * as dotenv from 'dotenv';
+import * as path from 'path';
+
+// Load .env from project root (two levels up from packages/sdk/)
+dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
 import { ArcTransferLeg } from '../src/legs/ArcTransferLeg';
 import {
@@ -64,7 +68,6 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { parseUnits } from 'viem';
 import type { Address } from 'viem';
 import * as fs from 'fs';
-import * as path from 'path';
 
 // ============================================================================
 // Logger Implementation
@@ -1672,8 +1675,8 @@ export async function runEndToEndTest(
 ): Promise<DetailedTestReport> {
     // Default test configuration
     const defaultConfig: TestConfig = {
-        mode: 'mock',
-        amount: '1.0', // 1 USDC (human-readable format, ArcTransferLeg uses parseUnits internally)
+        mode: 'live',
+        amount: '5.0', // 1 USDC (human-readable format, ArcTransferLeg uses parseUnits internally)
         poolId: '0x0000000000000000000000000000000000000000000000000000000000000001',
         recipient:
             process.env.RECIPIENT_ADDRESS ||
