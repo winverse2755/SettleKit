@@ -943,8 +943,7 @@ export class EndToEndOrchestrator {
     /**
      * Execute the CCTP transfer from Base to Arc
      *
-     * In mock mode, simulates a successful transfer with realistic delays.
-     * In live mode, uses ArcTransferLeg for actual blockchain interaction.
+     * Uses ArcTransferLeg for actual blockchain interaction via BridgeKit.
      *
      * CCTP Transfer Steps:
      * 1. Approve USDC spending on Base
@@ -965,62 +964,7 @@ export class EndToEndOrchestrator {
     }> {
         const steps: TransferStepDetails[] = [];
 
-        if (this.config.mode === 'mock') {
-            this.log('[Mock] Simulating CCTP transfer...');
-
-            // Step 1: Approve (simulated)
-            this.log('[Mock] Step 1/4: Approving USDC spending...');
-            steps.push({
-                step: 'approve',
-                status: 'completed',
-                txHash: '0xmock_approve_' + Date.now().toString(16),
-                timestamp: Date.now(),
-            });
-            await this.sleep(50);
-
-            // Step 2: Burn (simulated)
-            this.log('[Mock] Step 2/4: Burning USDC on Base...');
-            const burnTxHash = '0xmock_burn_' + Date.now().toString(16);
-            steps.push({
-                step: 'burn',
-                status: 'completed',
-                txHash: burnTxHash,
-                timestamp: Date.now(),
-            });
-            await this.sleep(50);
-
-            // Step 3: Attestation (simulated)
-            this.log('[Mock] Step 3/4: Waiting for Circle attestation...');
-            steps.push({
-                step: 'attestation',
-                status: 'completed',
-                timestamp: Date.now(),
-            });
-            await this.sleep(50);
-
-            // Step 4: Mint (simulated)
-            this.log('[Mock] Step 4/4: Minting USDC on Arc...');
-            steps.push({
-                step: 'mint',
-                status: 'completed',
-                txHash: '0xmock_mint_' + Date.now().toString(16),
-                timestamp: Date.now(),
-            });
-            await this.sleep(50);
-
-            this.log('[Mock] CCTP transfer simulation completed successfully');
-
-            return {
-                success: true,
-                txHash: burnTxHash,
-                chain: 'base',
-                steps,
-                amount: this.config.amount,
-                recipient: this.config.recipient,
-            };
-        }
-
-        // Live mode: Validate environment and execute actual transfer
+        // Validate environment and execute actual transfer
         this.log('[Live] Executing CCTP transfer via ArcTransferLeg...');
 
         // Validate required environment variables
@@ -1162,8 +1106,7 @@ export class EndToEndOrchestrator {
     /**
      * Evaluate risk using the SettleAgent's simulator
      *
-     * In mock mode, returns preset risk metrics.
-     * In live mode, runs actual risk simulation via SettleAgent.
+     * Runs actual risk simulation via SettleAgent.
      *
      * The SettleAgent uses RiskSimulator internally to:
      * - Estimate Arc network latency (CCTP transfer timing)
