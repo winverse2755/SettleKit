@@ -1674,116 +1674,6 @@ function printDetailedReport(report: DetailedTestReport): void {
 // Test Scenarios
 
 /**
- * Happy path: Transfer succeeds, risk is acceptable, liquidity deposited
- */
-export async function testHappyPath(): Promise<DetailedTestReport> {
-    console.log('\n🧪 TEST: Happy Path');
-    console.log('   Expected: Transfer succeeds, risk acceptable, liquidity deposited\n');
-    
-    return runEndToEndTest({
-        mode: 'mock',
-        amount: '1.0', // 1 USDC
-        agentPolicy: {
-            max_slippage: 0.02, // Generous slippage tolerance
-            min_confidence: 0.70, // Lower confidence threshold
-        },
-    }, { verbose: false });
-}
-
-/**
- * High slippage: Transfer succeeds, agent waits/aborts due to slippage
- */
-export async function testHighSlippage(): Promise<DetailedTestReport> {
-    console.log('\n🧪 TEST: High Slippage Scenario');
-    console.log('   Expected: Transfer succeeds, agent aborts due to slippage threshold\n');
-    
-    return runEndToEndTest({
-        mode: 'mock',
-        amount: '1.0', // 1 USDC
-        agentPolicy: {
-            max_slippage: 0.001, // Very tight slippage (0.1%)
-            min_confidence: 0.80,
-        },
-    }, { verbose: false });
-}
-
-/**
- * Low confidence: Agent aborts due to low confidence
- */
-export async function testLowConfidence(): Promise<DetailedTestReport> {
-    console.log('\n🧪 TEST: Low Confidence Scenario');
-    console.log('   Expected: Transfer succeeds, agent aborts due to confidence threshold\n');
-    
-    return runEndToEndTest({
-        mode: 'mock',
-        amount: '1.0', // 1 USDC
-        agentPolicy: {
-            max_slippage: 0.01,
-            min_confidence: 0.99, // Very high confidence required
-        },
-    }, { verbose: false });
-}
-
-/**
- * Agent retry behavior: Tests the SettleAgent's retry logic
- *
- * Demonstrates how the agent handles 'wait' decisions:
- * - Uses configurable retry_attempts and retry_delay_seconds
- * - Re-evaluates risk after each retry delay
- * - Eventually aborts if conditions don't improve within max retries
- */
-export async function testAgentRetryBehavior(): Promise<DetailedTestReport> {
-    console.log('\n🧪 TEST: Agent Retry Behavior');
-    console.log('   Testing SettleAgent retry logic with wait decisions');
-    console.log('   Expected: Demonstrates retry_attempts and retry_delay_seconds\n');
-
-    return runEndToEndTest({
-        mode: 'mock',
-        amount: '1.0', // 1 USDC
-        agentPolicy: {
-            max_slippage: 0.01,
-            max_price_impact: 0.02,
-            min_confidence: 0.80,
-            // Retry configuration
-            retry_attempts: 2,          // Allow 2 retries
-            retry_delay_seconds: 1,     // Short delay for testing
-            fallback_strategy: 'wait',  // Use wait instead of immediate abort
-        },
-    }, { verbose: false });
-}
-
-/**
- * Agent policy customization: Tests the SettleAgent with custom thresholds
- *
- * Demonstrates how agent policy affects decision making:
- * - max_slippage: Maximum acceptable slippage
- * - max_price_impact: Maximum acceptable price impact
- * - min_confidence: Minimum required confidence score
- * - retry_attempts: Number of retries for 'wait' decisions
- * - fallback_strategy: What to do when slippage threshold is exceeded
- */
-export async function testAgentPolicyCustomization(): Promise<DetailedTestReport> {
-    console.log('\n🧪 TEST: Agent Policy Customization');
-    console.log('   Testing SettleAgent with custom conservative policy');
-    console.log('   Expected: Agent aborts due to strict policy thresholds\n');
-
-    return runEndToEndTest({
-        mode: 'mock',
-        amount: '10.0', // 10 USDC - larger amount
-        agentPolicy: {
-            // Conservative thresholds
-            max_slippage: 0.005,        // 0.5% max slippage
-            max_price_impact: 0.01,     // 1% max price impact
-            min_confidence: 0.90,       // 90% confidence required
-            max_latency_seconds: 60,    // 1 minute max latency
-            retry_attempts: 1,
-            retry_delay_seconds: 2,
-            fallback_strategy: 'abort', // Abort on threshold violations
-        },
-    }, { verbose: false });
-}
-
-/**
  * Live CCTP transfer test: Requires environment variables to be set
  * Run with: LIVE_TEST=true npx ts-node packages/sdk/test/end-to-end.test.ts
  */
@@ -1801,48 +1691,6 @@ export async function testLiveCCTPTransfer(): Promise<DetailedTestReport> {
             min_confidence: 0.50, // Lower confidence for testnet
         },
     }, { verbose: true });
-}
-
-/**
- * Uniswap execution test: Tests the full UniswapLiquidityExecutor integration
- *
- * This test validates the complete flow:
- * 1. Amount conversion from human-readable to raw base units
- * 2. Agent risk evaluation and decision making
- * 3. UniswapLiquidityExecutor initialization with wallet
- * 4. Pool key validation
- * 5. Liquidity deposit via PositionManager
- *
- * In mock mode, simulates all steps without blockchain interaction.
- * In live mode, requires PRIVATE_KEY and testnet configuration.
- */
-export async function testUniswapExecution(): Promise<DetailedTestReport> {
-    console.log('\n🧪 TEST: Uniswap Liquidity Execution');
-    console.log('   Testing UniswapLiquidityExecutor integration');
-    console.log('   Flow: Agent Decision → Executor → PositionManager\n');
-
-    return runEndToEndTest({
-        mode: 'mock',
-        amount: '5.0', // 5 USDC
-        poolId: '0x0000000000000000000000000000000000000000000000000000000000000001',
-        recipient: '0x0000000000000000000000000000000000000001',
-        agentPolicy: {
-            max_slippage: 0.02,         // 2% max slippage
-            max_price_impact: 0.03,     // 3% max price impact
-            min_confidence: 0.75,       // 75% confidence required
-            retry_attempts: 1,
-            retry_delay_seconds: 1,
-            fallback_strategy: 'wait',
-        },
-        // Unichain Sepolia pool key for USDC/ETH
-        poolKey: {
-            currency0: '0x31d0220469e10c4E71834a79b1f276d740d3768F' as Address, // USDC
-            currency1: '0x0000000000000000000000000000000000000000' as Address, // ETH (native)
-            fee: 3000,        // 0.3% fee tier
-            tickSpacing: 60,  // Standard tick spacing for 0.3% pools
-            hooks: '0x0000000000000000000000000000000000000000' as Address, // No hooks
-        },
-    }, { verbose: false });
 }
 
 /**
@@ -2098,52 +1946,20 @@ async function main() {
 
         const liveUniswapReport = await testLiveUniswapExecution();
         results.push({ name: 'Live Uniswap Execution', report: liveUniswapReport });
-    } else if (isLiveTest) {
-        // Run live CCTP transfer test
-        console.log('🔴 Running LIVE test against testnets');
-        console.log('   This will execute real transactions on Base Sepolia and Arc Testnet\n');
-
-        const liveReport = await testLiveCCTPTransfer();
-        results.push({ name: 'Live CCTP Transfer', report: liveReport });
     } else {
-        // Run mock test scenarios demonstrating SettleAgent integration
-        console.log('📋 Running mock test scenarios\n');
+        // Default: Run live CCTP transfer test
+        console.log('🔴 Running LIVE CCTP test against testnets');
+        console.log('   This will execute real transactions on Base Sepolia and Arc Testnet');
+        console.log('');
         console.log('   Environment Variables:');
         console.log('   • LIVE_FULL_TEST=true    - Run combined CCTP + Uniswap test');
-        console.log('   • LIVE_TEST=true         - Run against real testnets');
-        console.log('   • LIVE_UNISWAP_TEST=true - Test Uniswap execution');
+        console.log('   • LIVE_UNISWAP_TEST=true - Test Uniswap execution only');
         console.log('   • EXPORT_RESULTS=true    - Export results to JSON');
         console.log('   • VERBOSE=false          - Reduce log verbosity');
         console.log('   • JSON_OUTPUT=true       - Output logs as JSON\n');
-        console.log('   SettleAgent Integration Tests:');
-        console.log('   • Risk simulation via RiskSimulator');
-        console.log('   • Decision making based on policy thresholds');
-        console.log('   • Retry logic for wait decisions');
-        console.log('   • Execution via UniswapLiquidityExecutor\n');
 
-        // Test 1: Happy path - demonstrates successful execution
-        const happyPathReport = await testHappyPath();
-        results.push({ name: 'Happy Path', report: happyPathReport });
-
-        // Test 2: High slippage - demonstrates slippage threshold enforcement
-        const highSlippageReport = await testHighSlippage();
-        results.push({ name: 'High Slippage', report: highSlippageReport });
-
-        // Test 3: Low confidence - demonstrates confidence threshold enforcement
-        const lowConfidenceReport = await testLowConfidence();
-        results.push({ name: 'Low Confidence', report: lowConfidenceReport });
-
-        // Test 4: Agent retry behavior - demonstrates wait/retry logic
-        const retryReport = await testAgentRetryBehavior();
-        results.push({ name: 'Agent Retry Behavior', report: retryReport });
-
-        // Test 5: Custom policy - demonstrates policy customization
-        const policyReport = await testAgentPolicyCustomization();
-        results.push({ name: 'Agent Policy Customization', report: policyReport });
-
-        // Test 6: Uniswap execution flow - demonstrates full executor integration
-        const uniswapReport = await testUniswapExecution();
-        results.push({ name: 'Uniswap Execution', report: uniswapReport });
+        const liveReport = await testLiveCCTPTransfer();
+        results.push({ name: 'Live CCTP Transfer', report: liveReport });
     }
 
     // Print comprehensive summary
