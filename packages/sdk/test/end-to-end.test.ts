@@ -65,7 +65,7 @@ import type {
 import type { RiskMetrics } from '../src/types/risk';
 import type { LegReceipt } from '../src/types/leg-types';
 import { privateKeyToAccount } from 'viem/accounts';
-import { parseUnits } from 'viem';
+import { parseUnits, encodeAbiParameters, keccak256 } from 'viem';
 import type { Address } from 'viem';
 import * as fs from 'fs';
 
@@ -609,6 +609,43 @@ export function exportTestResults(
 }
 
 // ============================================================================
+// Pool Utility Functions
+// ============================================================================
+
+/**
+ * Compute the Uniswap v4 pool ID from pool key parameters.
+ * The pool ID is calculated as keccak256(abi.encode(poolKey)).
+ *
+ * @param poolKey - The pool key containing currency0, currency1, fee, tickSpacing, and hooks
+ * @returns The computed pool ID as a hex string
+ */
+export function computePoolId(poolKey: {
+    currency0: Address;
+    currency1: Address;
+    fee: number;
+    tickSpacing: number;
+    hooks: Address;
+}): `0x${string}` {
+    const encoded = encodeAbiParameters(
+        [
+            { type: 'address' },
+            { type: 'address' },
+            { type: 'uint24' },
+            { type: 'int24' },
+            { type: 'address' },
+        ],
+        [
+            poolKey.currency0,
+            poolKey.currency1,
+            poolKey.fee,
+            poolKey.tickSpacing,
+            poolKey.hooks,
+        ]
+    );
+    return keccak256(encoded);
+}
+
+// ============================================================================
 // Configuration Types
 // ============================================================================
 
@@ -620,14 +657,20 @@ export interface TestConfig {
     mode: 'live';
     /** USDC amount in human-readable format (e.g., "1.0" = 1 USDC) */
     amount: string;
-    /** Target Uniswap v4 pool ID */
-    poolId: string;
     /** Recipient address for the transfer and liquidity position */
     recipient: string;
     /** Optional: Custom agent policy overrides */
     agentPolicy?: Partial<AgentPolicy>;
-    /** Optional: Pool key for Uniswap v4 (required for live execution) */
-    poolKey?: LiquidityDepositParams['poolKey'];
+    /** Pool key for Uniswap v4 (required for live execution) */
+    poolKey: {
+        currency0: Address;
+        currency1: Address;
+        fee: number;
+        tickSpacing: number;
+        hooks: Address;
+    };
+    /** Optional: Direct pool ID (overrides computed poolId from poolKey) */
+    poolId?: `0x${string}`;
 }
 
 /**
@@ -732,6 +775,7 @@ export class EndToEndOrchestrator {
     private logs: string[] = [];
     private logger: TestLogger;
     private perfTracker: PerformanceTracker;
+    private _poolId: `0x${string}` | null = null;
 
     /**
      * Create a new EndToEndOrchestrator
@@ -743,6 +787,17 @@ export class EndToEndOrchestrator {
         this.config = config;
         this.logger = new TestLogger(loggerConfig);
         this.perfTracker = new PerformanceTracker();
+    }
+
+    /**
+     * Get the computed pool ID from the pool key.
+     * The pool ID is cached after first computation.
+     */
+    get poolId(): `0x${string}` {
+        if (!this._poolId) {
+            this._poolId = this.config.poolId ?? computePoolId(this.config.poolKey);
+        }
+        return this._poolId;
     }
 
     /**
@@ -759,7 +814,7 @@ export class EndToEndOrchestrator {
         this.logger.section('End-to-End Integration Test');
         this.logger.info(`Mode: ${this.config.mode}`, { phase: 'init' });
         this.logger.info(`Amount: ${this.config.amount} USDC`, { phase: 'init' });
-        this.logger.info(`Pool ID: ${this.config.poolId.slice(0, 18)}...`, { phase: 'init' });
+        this.logger.info(`Pool ID: ${this.poolId.slice(0, 18)}...`, { phase: 'init' });
         this.logger.info(`Recipient: ${this.config.recipient.slice(0, 18)}...`, { phase: 'init' });
 
         // Log agent policy configuration
@@ -782,7 +837,7 @@ export class EndToEndOrchestrator {
 
         this.log(`Starting End-to-End Test (${this.config.mode} mode)`);
         this.log(`Amount: ${this.config.amount} USDC (raw)`);
-        this.log(`Pool ID: ${this.config.poolId}`);
+        this.log(`Pool ID: ${this.poolId}`);
         this.log(`Recipient: ${this.config.recipient}`);
 
         try {
@@ -1153,7 +1208,7 @@ export class EndToEndOrchestrator {
 
         // Build the liquidity deposit intent with raw amount
         const intent: DepositLiquidityIntent = {
-            poolId: this.config.poolId,
+            poolId: this.poolId,
             amount: rawAmount, // Use raw amount (6 decimals) for risk simulation
         };
 
@@ -1285,7 +1340,7 @@ export class EndToEndOrchestrator {
 
         // Build deposit intent with raw amount for UniswapLiquidityExecutor
         const intent: DepositLiquidityIntent = {
-            poolId: this.config.poolId,
+            poolId: this.poolId,
             amount: rawAmount, // Use raw amount (6 decimals) for executor
             recipient: this.config.recipient,
         };
@@ -1537,10 +1592,10 @@ export async function runEndToEndTest(
     options: Omit<TestRunOptions, 'config'> = {}
 ): Promise<DetailedTestReport> {
     // Default test configuration
+    // Note: poolId is computed from poolKey using computePoolId() in EndToEndOrchestrator
     const defaultConfig: TestConfig = {
         mode: 'live',
         amount: '0.5', // 0.5 USDC (human-readable format, ArcTransferLeg uses parseUnits internally)
-        poolId: '0x0000000000000000000000000000000000000000000000000000000000000001',
         recipient:
             process.env.RECIPIENT_ADDRESS ||
             '0x0000000000000000000000000000000000000001',
@@ -1551,14 +1606,17 @@ export async function runEndToEndTest(
             retry_attempts: 2,
             retry_delay_seconds: 5,
         },
-        // Default pool key for Unichain Sepolia
+        // Pool key for Unichain Sepolia - poolId is derived from this via keccak256(abi.encode(poolKey))
         poolKey: {
-            currency0: '0x31d0220469e10c4E71834a79b1f276d740d3768F' as Address, // USDC
-            currency1: '0x0000000000000000000000000000000000000000' as Address, // ETH
-            fee: 3000, // 0.3%
-            tickSpacing: 60,
+            currency0: '0x0000000000000000000000000000000000000000' as Address, // NATIVE (ETH)
+            currency1: '0x31d0220469e10c4e71834a79b1f276d740d3768f' as Address, // USDC
+            fee: 3000, // 0.30% fee
+            tickSpacing: 60, // Standard for 0.30% pools
             hooks: '0x0000000000000000000000000000000000000000' as Address,
         },
+        // Pool ID computed from poolKey via keccak256(abi.encode(poolKey))
+        // This pool is already initialized on Unichain Sepolia with price ~$4008/ETH
+        poolId: '0x1927686e9757bb312fc499e480536d466c788dcdc86a1b62c82643157f05b603',
     };
 
     const mergedConfig: TestConfig = { ...defaultConfig, ...config };
@@ -1728,10 +1786,10 @@ export async function testLiveUniswapExecution(): Promise<DetailedTestReport> {
             fallback_strategy: 'wait',
         },
         poolKey: {
-            currency0: '0x31d0220469e10c4E71834a79b1f276d740d3768F' as Address, // USDC on Unichain Sepolia
-            currency1: '0x0000000000000000000000000000000000000000' as Address, // ETH
-            fee: 3000,
-            tickSpacing: 60,
+            currency0: '0x0000000000000000000000000000000000000000' as Address, // NATIVE (ETH)
+            currency1: '0x31d0220469e10c4e71834a79b1f276d740d3768f' as Address, // USDC on Unichain Sepolia
+            fee: 3000, // 0.30% fee
+            tickSpacing: 60, // Standard for 0.30% pools
             hooks: '0x0000000000000000000000000000000000000000' as Address,
         },
     }, { verbose: true });
