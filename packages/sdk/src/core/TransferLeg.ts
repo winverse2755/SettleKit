@@ -1,4 +1,4 @@
-export type Chain = 'base' | 'arc' | 'polygon' | 'ethereum';
+export type Chain = 'base' | 'arc' | 'unichain';
 
 export class TransferLeg {
     constructor(

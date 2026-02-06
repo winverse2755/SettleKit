@@ -3,10 +3,11 @@
  *
  * Wire together all components for a complete cross-chain liquidity provision flow:
  * 1. ArcTransferLeg - CCTP transfer from Base to Arc
- * 2. SettleAgent - Risk evaluation and decision making
- * 3. UniswapLiquidityExecutor - Uniswap v4 liquidity deposit
+ * 2. HubToUnichainLeg - CCTP transfer from Arc to Unichain
+ * 3. SettleAgent - Risk evaluation and decision making
+ * 4. UniswapLiquidityExecutor - Uniswap v4 liquidity deposit
  *
- * Flow: USDC on Base → Arc Hub (CCTP) → USDC on Unichain → SettleAgent → Uniswap Pool
+ * Flow: USDC on Base → Arc Hub (CCTP) → Unichain (CCTP) → SettleAgent → Uniswap Pool
  *
  * ## SettleAgent Integration
  *
@@ -46,6 +47,7 @@ import * as path from 'path';
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
 import { ArcTransferLeg } from '../src/legs/ArcTransferLeg';
+import { HubToUnichainLeg } from '../src/legs/HubToUnichainLeg';
 import {
     SettleAgent,
     createSettleAgent,
@@ -675,13 +677,16 @@ export interface TestConfig {
 }
 
 /**
- * Required environment variables for live CCTP transfer
+ * Required environment variables for live CCTP transfer (Base → Arc → Unichain)
  */
 interface CCTPEnvironmentConfig {
     PRIVATE_KEY: string;
     BASE_RPC: string;
     ARC_RPC: string;
+    UNICHAIN_RPC: string;
     USDC_BASE: string;
+    USDC_ARC: string;
+    USDC_UNICHAIN: string;
     TOKEN_MESSENGER_BASE: string;
     MESSAGE_TRANSMITTER_ARC: string;
     ARC_DOMAIN: string;
@@ -703,7 +708,7 @@ interface TransferStepDetails {
  * Result of the end-to-end test flow
  */
 export interface E2ETestResult {
-    /** Transfer phase result */
+    /** Transfer phase result (combined legs) */
     transfer: {
         success: boolean;
         txHash?: string;
@@ -715,6 +720,10 @@ export interface E2ETestResult {
         amount?: string;
         /** Recipient address */
         recipient?: string;
+        /** Leg 1: Base → Arc receipt */
+        leg1Receipt?: LegReceipt;
+        /** Leg 2: Arc → Unichain receipt */
+        leg2Receipt?: LegReceipt;
     };
     /** Risk metrics from simulation */
     riskMetrics: RiskMetrics;
@@ -842,10 +851,10 @@ export class EndToEndOrchestrator {
         this.log(`Recipient: ${this.config.recipient}`);
 
         try {
-            // Step 1: Execute CCTP Transfer (Base → Arc)
-            this.logger.subsection('Phase 1: CCTP Transfer (Base → Arc)');
+            // Step 1: Execute CCTP Transfer (Base → Arc → Unichain)
+            this.logger.subsection('Phase 1: CCTP Transfer (Base → Arc → Unichain)');
             this.perfTracker.startPhase('transfer');
-            this.log('\n--- Step 1: CCTP Transfer ---');
+            this.log('\n--- Step 1: CCTP Transfer (2 legs) ---');
             const transferResult = await this.executeTransfer();
             const transferDuration = this.perfTracker.endPhase('transfer');
 
@@ -997,17 +1006,24 @@ export class EndToEndOrchestrator {
     }
 
     /**
-     * Execute the CCTP transfer from Base to Arc
+     * Execute the CCTP transfer through both legs: Base → Arc → Unichain
      *
-     * Uses ArcTransferLeg for actual blockchain interaction via BridgeKit.
+     * Uses ArcTransferLeg and HubToUnichainLeg for actual blockchain interaction via BridgeKit.
      *
-     * CCTP Transfer Steps:
-     * 1. Approve USDC spending on Base
-     * 2. Burn USDC via TokenMessenger (depositForBurn)
-     * 3. Wait for Circle attestation
-     * 4. Mint USDC on Arc via MessageTransmitter (receiveMessage)
+     * Complete Transfer Flow:
+     * Leg 1 (Base → Arc):
+     *   1. Approve USDC spending on Base
+     *   2. Burn USDC via TokenMessenger (depositForBurn)
+     *   3. Wait for Circle attestation
+     *   4. Mint USDC on Arc via MessageTransmitter (receiveMessage)
      *
-     * @returns Transfer result with detailed step information
+     * Leg 2 (Arc → Unichain):
+     *   5. Approve USDC spending on Arc
+     *   6. Burn USDC via TokenMessenger (depositForBurn)
+     *   7. Wait for Circle attestation
+     *   8. Mint USDC on Unichain via MessageTransmitter (receiveMessage)
+     *
+     * @returns Transfer result with detailed step information for both legs
      */
     private async executeTransfer(): Promise<{
         success: boolean;
@@ -1017,11 +1033,13 @@ export class EndToEndOrchestrator {
         steps?: TransferStepDetails[];
         amount?: string;
         recipient?: string;
+        leg1Receipt?: LegReceipt;
+        leg2Receipt?: LegReceipt;
     }> {
         const steps: TransferStepDetails[] = [];
 
         // Validate environment and execute actual transfer
-        this.log('[Live] Executing CCTP transfer via ArcTransferLeg...');
+        this.log('[Live] Executing 2-leg CCTP transfer: Base → Arc → Unichain...');
 
         // Validate required environment variables
         const envValidation = this.validateCCTPEnvironment();
@@ -1036,22 +1054,32 @@ export class EndToEndOrchestrator {
         this.log('[Live] Environment validation passed');
         this.log(`[Live] Transferring ${this.config.amount} USDC to ${this.config.recipient}`);
 
+        let leg1Receipt: LegReceipt | undefined;
+        let leg2Receipt: LegReceipt | undefined;
+
         try {
+            // ════════════════════════════════════════════════════════════════
+            // LEG 1: Base → Arc (ArcTransferLeg)
+            // ════════════════════════════════════════════════════════════════
+            this.log('[Live] ─────────────────────────────────────────────────');
+            this.log('[Live] LEG 1: Base Sepolia → Arc Hub (CCTP)');
+            this.log('[Live] ─────────────────────────────────────────────────');
+
             // Create ArcTransferLeg instance
             const arcTransfer = new ArcTransferLeg({
                 amount: this.config.amount,
                 recipient: this.config.recipient,
             });
 
-            // Get transfer estimate
-            const estimate = await arcTransfer.estimate();
-            this.log(`[Live] Transfer estimate:`);
-            this.log(`  - Gas: ${estimate.gasEstimate}`);
-            this.log(`  - Estimated time: ${estimate.estimatedTimeMs}ms`);
-            this.log(`  - Failure probability: ${(estimate.failureProbability * 100).toFixed(1)}%`);
+            // Get transfer estimate for Leg 1
+            const estimate1 = await arcTransfer.estimate();
+            this.log(`[Live] Leg 1 estimate:`);
+            this.log(`  - Gas: ${estimate1.gasEstimate}`);
+            this.log(`  - Estimated time: ${estimate1.estimatedTimeMs}ms`);
+            this.log(`  - Failure probability: ${(estimate1.failureProbability * 100).toFixed(1)}%`);
 
             // Step 1: Approve (logged by ArcTransferLeg internally)
-            this.log('[Live] Step 1/4: Approving USDC spending on Base...');
+            this.log('[Live] Leg 1 Step 1/4: Approving USDC spending on Base...');
             steps.push({
                 step: 'approve',
                 status: 'pending',
@@ -1059,23 +1087,27 @@ export class EndToEndOrchestrator {
             });
 
             // Step 2-4: Execute the full transfer (ArcTransferLeg handles all steps)
-            this.log('[Live] Step 2/4: Initiating burn on Base (depositForBurn)...');
+            this.log('[Live] Leg 1 Step 2/4: Initiating burn on Base (depositForBurn)...');
             steps.push({
                 step: 'burn',
                 status: 'pending',
                 timestamp: Date.now(),
             });
 
-            // Execute the transfer
-            const receipt: LegReceipt = await arcTransfer.execute();
+            // Execute Leg 1
+            leg1Receipt = await arcTransfer.execute();
+
+            if (!leg1Receipt.success) {
+                throw new Error(`Leg 1 (Base → Arc) failed: ${leg1Receipt.txHash || 'unknown error'}`);
+            }
 
             // Update step statuses on success
             steps[0].status = 'completed';
             steps[1].status = 'completed';
-            steps[1].txHash = receipt.txHash;
+            steps[1].txHash = leg1Receipt.txHash;
 
             // Add attestation step (handled inside execute)
-            this.log('[Live] Step 3/4: Circle attestation received');
+            this.log('[Live] Leg 1 Step 3/4: Circle attestation received');
             steps.push({
                 step: 'attestation',
                 status: 'completed',
@@ -1083,22 +1115,99 @@ export class EndToEndOrchestrator {
             });
 
             // Add mint step (handled inside execute)
-            this.log('[Live] Step 4/4: USDC minted on Arc');
+            this.log('[Live] Leg 1 Step 4/4: USDC minted on Arc');
             steps.push({
                 step: 'mint',
                 status: 'completed',
                 timestamp: Date.now(),
             });
 
-            this.log('[Live] CCTP transfer completed successfully!');
+            this.log(`[Live] ✓ Leg 1 completed successfully! TxHash: ${leg1Receipt.txHash}`);
+
+            // ════════════════════════════════════════════════════════════════
+            // LEG 2: Arc → Unichain (HubToUnichainLeg)
+            // ════════════════════════════════════════════════════════════════
+            this.log('[Live] ─────────────────────────────────────────────────');
+            this.log('[Live] LEG 2: Arc Hub → Unichain (CCTP)');
+            this.log('[Live] ─────────────────────────────────────────────────');
+
+            // Create HubToUnichainLeg instance
+            const hubToUnichain = new HubToUnichainLeg({
+                amount: this.config.amount,
+                recipient: this.config.recipient,
+            });
+
+            // Get transfer estimate for Leg 2
+            const estimate2 = await hubToUnichain.estimate();
+            this.log(`[Live] Leg 2 estimate:`);
+            this.log(`  - Gas: ${estimate2.gasEstimate}`);
+            this.log(`  - Estimated time: ${estimate2.estimatedTimeMs}ms`);
+            this.log(`  - Failure probability: ${(estimate2.failureProbability * 100).toFixed(1)}%`);
+
+            // Step 5: Approve on Arc
+            this.log('[Live] Leg 2 Step 1/4: Approving USDC spending on Arc...');
+            steps.push({
+                step: 'approve',
+                status: 'pending',
+                timestamp: Date.now(),
+            });
+
+            // Step 6-8: Execute the full transfer (HubToUnichainLeg handles all steps)
+            this.log('[Live] Leg 2 Step 2/4: Initiating burn on Arc (depositForBurn)...');
+            steps.push({
+                step: 'burn',
+                status: 'pending',
+                timestamp: Date.now(),
+            });
+
+            // Execute Leg 2
+            leg2Receipt = await hubToUnichain.execute();
+
+            if (!leg2Receipt.success) {
+                throw new Error(`Leg 2 (Arc → Unichain) failed: ${leg2Receipt.txHash || 'unknown error'}`);
+            }
+
+            // Update step statuses on success
+            steps[4].status = 'completed';
+            steps[5].status = 'completed';
+            steps[5].txHash = leg2Receipt.txHash;
+
+            // Add attestation step (handled inside execute)
+            this.log('[Live] Leg 2 Step 3/4: Circle attestation received');
+            steps.push({
+                step: 'attestation',
+                status: 'completed',
+                timestamp: Date.now(),
+            });
+
+            // Add mint step (handled inside execute)
+            this.log('[Live] Leg 2 Step 4/4: USDC minted on Unichain');
+            steps.push({
+                step: 'mint',
+                status: 'completed',
+                timestamp: Date.now(),
+            });
+
+            this.log(`[Live] ✓ Leg 2 completed successfully! TxHash: ${leg2Receipt.txHash}`);
+
+            // ════════════════════════════════════════════════════════════════
+            // SUMMARY
+            // ════════════════════════════════════════════════════════════════
+            this.log('[Live] ─────────────────────────────────────────────────');
+            this.log('[Live] TRANSFER COMPLETE: Base → Arc → Unichain');
+            this.log('[Live] ─────────────────────────────────────────────────');
+            this.log(`[Live] Leg 1 (Base → Arc): ${leg1Receipt.txHash}`);
+            this.log(`[Live] Leg 2 (Arc → Unichain): ${leg2Receipt.txHash}`);
 
             return {
-                success: receipt.success,
-                txHash: receipt.txHash,
-                chain: receipt.chain,
+                success: true,
+                txHash: leg2Receipt.txHash, // Final tx hash is from Leg 2
+                chain: leg2Receipt.chain, // Final chain is Unichain
                 steps,
                 amount: this.config.amount,
                 recipient: this.config.recipient,
+                leg1Receipt,
+                leg2Receipt,
             };
         } catch (error) {
             const errorMessage =
@@ -1117,12 +1226,15 @@ export class EndToEndOrchestrator {
                 success: false,
                 error: errorMessage,
                 steps,
+                leg1Receipt,
+                leg2Receipt,
             };
         }
     }
 
     /**
      * Validate that all required environment variables for CCTP transfer are set
+     * (Base → Arc → Unichain)
      *
      * @returns Validation result with missing variables if any
      */
@@ -1135,7 +1247,10 @@ export class EndToEndOrchestrator {
             'PRIVATE_KEY',
             'BASE_RPC',
             'ARC_RPC',
+            'UNICHAIN_RPC',
             'USDC_BASE',
+            'USDC_ARC',
+            'USDC_UNICHAIN',
             'TOKEN_MESSENGER_BASE',
             'MESSAGE_TRANSMITTER_ARC',
             'ARC_DOMAIN',
@@ -1853,7 +1968,7 @@ function printSuiteHeader(): void {
     console.log('║       SettleKit End-to-End Integration Test Suite               ║');
     console.log('║                                                                  ║');
     console.log('║       Cross-Chain Liquidity Provision Flow Testing              ║');
-    console.log('║       Base (USDC) → Arc Hub (CCTP) → Uniswap v4 Pool            ║');
+    console.log('║       Base → Arc (CCTP) → Unichain (CCTP) → Uniswap v4 Pool    ║');
     console.log('║                                                                  ║');
     console.log('╚══════════════════════════════════════════════════════════════════╝');
     console.log('\n');
@@ -2001,8 +2116,9 @@ async function main() {
 
     // Run single unified end-to-end flow
     console.log('🔴 Running LIVE end-to-end test');
-    console.log('   This will execute a single full flow:');
-    console.log('   • Phase 1: CCTP Transfer (Base Sepolia → Arc Testnet)');
+    console.log('   This will execute the complete cross-chain flow:');
+    console.log('   • Phase 1: CCTP Transfer Leg 1 (Base Sepolia → Arc Testnet)');
+    console.log('   • Phase 1: CCTP Transfer Leg 2 (Arc Testnet → Unichain Sepolia)');
     console.log('   • Phase 2: Risk Evaluation');
     console.log('   • Phase 3: Uniswap Liquidity Deposit (Unichain Sepolia)');
     console.log('   Ensure PRIVATE_KEY is set and account has USDC');
