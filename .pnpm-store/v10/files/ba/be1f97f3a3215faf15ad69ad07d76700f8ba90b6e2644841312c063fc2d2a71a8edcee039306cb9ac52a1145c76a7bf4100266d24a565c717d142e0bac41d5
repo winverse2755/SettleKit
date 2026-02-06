@@ -1,0 +1,12 @@
+import type { Provider } from "ethers";
+import { AccrualPosition, type Address, type MarketId, type MarketParams, Position } from "@morpho-org/blue-sdk";
+import type { FetchOptions } from "../types";
+export declare function fetchPosition(user: Address, marketId: MarketId, runner: {
+    provider: Provider;
+}, { chainId, overrides }?: FetchOptions): Promise<Position>;
+export declare function fetchAccrualPosition(user: Address, marketId: MarketId, runner: {
+    provider: Provider;
+}, options?: FetchOptions): Promise<AccrualPosition>;
+export declare function fetchAccrualPositionFromConfig(user: Address, config: MarketParams, runner: {
+    provider: Provider;
+}, options?: FetchOptions): Promise<AccrualPosition>;

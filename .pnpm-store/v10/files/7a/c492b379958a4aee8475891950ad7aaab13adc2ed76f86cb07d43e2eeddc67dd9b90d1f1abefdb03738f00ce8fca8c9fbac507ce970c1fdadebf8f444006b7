@@ -1,0 +1,111 @@
+import { type ContractRunner } from "ethers";
+import type { AaveV2LendingPoolCollateralManager, AaveV2LendingPoolCollateralManagerInterface } from "../../../../../../protocols/aave/protocol-v2/protocol/lendingpool/AaveV2LendingPoolCollateralManager";
+export declare class AaveV2LendingPoolCollateralManager__factory {
+    static readonly abi: readonly [{
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: true;
+            readonly internalType: "address";
+            readonly name: "collateral";
+            readonly type: "address";
+        }, {
+            readonly indexed: true;
+            readonly internalType: "address";
+            readonly name: "principal";
+            readonly type: "address";
+        }, {
+            readonly indexed: true;
+            readonly internalType: "address";
+            readonly name: "user";
+            readonly type: "address";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "uint256";
+            readonly name: "debtToCover";
+            readonly type: "uint256";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "uint256";
+            readonly name: "liquidatedCollateralAmount";
+            readonly type: "uint256";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "address";
+            readonly name: "liquidator";
+            readonly type: "address";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "bool";
+            readonly name: "receiveAToken";
+            readonly type: "bool";
+        }];
+        readonly name: "LiquidationCall";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: true;
+            readonly internalType: "address";
+            readonly name: "reserve";
+            readonly type: "address";
+        }, {
+            readonly indexed: true;
+            readonly internalType: "address";
+            readonly name: "user";
+            readonly type: "address";
+        }];
+        readonly name: "ReserveUsedAsCollateralDisabled";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: true;
+            readonly internalType: "address";
+            readonly name: "reserve";
+            readonly type: "address";
+        }, {
+            readonly indexed: true;
+            readonly internalType: "address";
+            readonly name: "user";
+            readonly type: "address";
+        }];
+        readonly name: "ReserveUsedAsCollateralEnabled";
+        readonly type: "event";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address";
+            readonly name: "collateralAsset";
+            readonly type: "address";
+        }, {
+            readonly internalType: "address";
+            readonly name: "debtAsset";
+            readonly type: "address";
+        }, {
+            readonly internalType: "address";
+            readonly name: "user";
+            readonly type: "address";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "debtToCover";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "bool";
+            readonly name: "receiveAToken";
+            readonly type: "bool";
+        }];
+        readonly name: "liquidationCall";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "string";
+            readonly name: "";
+            readonly type: "string";
+        }];
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }];
+    static createInterface(): AaveV2LendingPoolCollateralManagerInterface;
+    static connect(address: string, runner?: ContractRunner | null): AaveV2LendingPoolCollateralManager;
+}

@@ -1,0 +1,33 @@
+import { type ContractRunner } from "ethers";
+import type { IERC1363Receiver, IERC1363ReceiverInterface } from "../../interfaces/IERC1363Receiver";
+export declare class IERC1363Receiver__factory {
+    static readonly abi: readonly [{
+        readonly inputs: readonly [{
+            readonly internalType: "address";
+            readonly name: "operator";
+            readonly type: "address";
+        }, {
+            readonly internalType: "address";
+            readonly name: "from";
+            readonly type: "address";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "amount";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "bytes";
+            readonly name: "data";
+            readonly type: "bytes";
+        }];
+        readonly name: "onTransferReceived";
+        readonly outputs: readonly [{
+            readonly internalType: "bytes4";
+            readonly name: "";
+            readonly type: "bytes4";
+        }];
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }];
+    static createInterface(): IERC1363ReceiverInterface;
+    static connect(address: string, runner?: ContractRunner | null): IERC1363Receiver;
+}

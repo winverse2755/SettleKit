@@ -1,0 +1,791 @@
+import { type ContractRunner } from "ethers";
+import type { ActionMiscV3, ActionMiscV3Interface } from "../../../../protocols/pendle/router/ActionMiscV3";
+export declare class ActionMiscV3__factory {
+    static readonly abi: readonly [{
+        readonly inputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "actualPYOut";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "requiredPYOut";
+            readonly type: "uint256";
+        }];
+        readonly name: "RouterInsufficientPYOut";
+        readonly type: "error";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "actualSyOut";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "requiredSyOut";
+            readonly type: "uint256";
+        }];
+        readonly name: "RouterInsufficientSyOut";
+        readonly type: "error";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "actualTokenOut";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "requiredTokenOut";
+            readonly type: "uint256";
+        }];
+        readonly name: "RouterInsufficientTokenOut";
+        readonly type: "error";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "bool";
+            readonly name: "success";
+            readonly type: "bool";
+        }, {
+            readonly internalType: "bytes";
+            readonly name: "res";
+            readonly type: "bytes";
+        }];
+        readonly name: "SimulationResults";
+        readonly type: "error";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: true;
+            readonly internalType: "address";
+            readonly name: "caller";
+            readonly type: "address";
+        }, {
+            readonly indexed: true;
+            readonly internalType: "address";
+            readonly name: "receiver";
+            readonly type: "address";
+        }, {
+            readonly indexed: true;
+            readonly internalType: "address";
+            readonly name: "YT";
+            readonly type: "address";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "uint256";
+            readonly name: "netSyIn";
+            readonly type: "uint256";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "uint256";
+            readonly name: "netPyOut";
+            readonly type: "uint256";
+        }];
+        readonly name: "MintPyFromSy";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: true;
+            readonly internalType: "address";
+            readonly name: "caller";
+            readonly type: "address";
+        }, {
+            readonly indexed: true;
+            readonly internalType: "address";
+            readonly name: "tokenIn";
+            readonly type: "address";
+        }, {
+            readonly indexed: true;
+            readonly internalType: "address";
+            readonly name: "YT";
+            readonly type: "address";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "address";
+            readonly name: "receiver";
+            readonly type: "address";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "uint256";
+            readonly name: "netTokenIn";
+            readonly type: "uint256";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "uint256";
+            readonly name: "netPyOut";
+            readonly type: "uint256";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "uint256";
+            readonly name: "netSyInterm";
+            readonly type: "uint256";
+        }];
+        readonly name: "MintPyFromToken";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: true;
+            readonly internalType: "address";
+            readonly name: "caller";
+            readonly type: "address";
+        }, {
+            readonly indexed: true;
+            readonly internalType: "address";
+            readonly name: "tokenIn";
+            readonly type: "address";
+        }, {
+            readonly indexed: true;
+            readonly internalType: "address";
+            readonly name: "SY";
+            readonly type: "address";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "address";
+            readonly name: "receiver";
+            readonly type: "address";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "uint256";
+            readonly name: "netTokenIn";
+            readonly type: "uint256";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "uint256";
+            readonly name: "netSyOut";
+            readonly type: "uint256";
+        }];
+        readonly name: "MintSyFromToken";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: true;
+            readonly internalType: "address";
+            readonly name: "caller";
+            readonly type: "address";
+        }, {
+            readonly indexed: true;
+            readonly internalType: "address";
+            readonly name: "receiver";
+            readonly type: "address";
+        }, {
+            readonly indexed: true;
+            readonly internalType: "address";
+            readonly name: "YT";
+            readonly type: "address";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "uint256";
+            readonly name: "netPyIn";
+            readonly type: "uint256";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "uint256";
+            readonly name: "netSyOut";
+            readonly type: "uint256";
+        }];
+        readonly name: "RedeemPyToSy";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: true;
+            readonly internalType: "address";
+            readonly name: "caller";
+            readonly type: "address";
+        }, {
+            readonly indexed: true;
+            readonly internalType: "address";
+            readonly name: "tokenOut";
+            readonly type: "address";
+        }, {
+            readonly indexed: true;
+            readonly internalType: "address";
+            readonly name: "YT";
+            readonly type: "address";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "address";
+            readonly name: "receiver";
+            readonly type: "address";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "uint256";
+            readonly name: "netPyIn";
+            readonly type: "uint256";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "uint256";
+            readonly name: "netTokenOut";
+            readonly type: "uint256";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "uint256";
+            readonly name: "netSyInterm";
+            readonly type: "uint256";
+        }];
+        readonly name: "RedeemPyToToken";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: true;
+            readonly internalType: "address";
+            readonly name: "caller";
+            readonly type: "address";
+        }, {
+            readonly indexed: true;
+            readonly internalType: "address";
+            readonly name: "tokenOut";
+            readonly type: "address";
+        }, {
+            readonly indexed: true;
+            readonly internalType: "address";
+            readonly name: "SY";
+            readonly type: "address";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "address";
+            readonly name: "receiver";
+            readonly type: "address";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "uint256";
+            readonly name: "netSyIn";
+            readonly type: "uint256";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "uint256";
+            readonly name: "netTokenOut";
+            readonly type: "uint256";
+        }];
+        readonly name: "RedeemSyToToken";
+        readonly type: "event";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address[]";
+            readonly name: "markets";
+            readonly type: "address[]";
+        }];
+        readonly name: "boostMarkets";
+        readonly outputs: readonly [];
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address";
+            readonly name: "receiver";
+            readonly type: "address";
+        }, {
+            readonly internalType: "address";
+            readonly name: "YT";
+            readonly type: "address";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "netSyIn";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "minPyOut";
+            readonly type: "uint256";
+        }];
+        readonly name: "mintPyFromSy";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "netPyOut";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address";
+            readonly name: "receiver";
+            readonly type: "address";
+        }, {
+            readonly internalType: "address";
+            readonly name: "YT";
+            readonly type: "address";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "minPyOut";
+            readonly type: "uint256";
+        }, {
+            readonly components: readonly [{
+                readonly internalType: "address";
+                readonly name: "tokenIn";
+                readonly type: "address";
+            }, {
+                readonly internalType: "uint256";
+                readonly name: "netTokenIn";
+                readonly type: "uint256";
+            }, {
+                readonly internalType: "address";
+                readonly name: "tokenMintSy";
+                readonly type: "address";
+            }, {
+                readonly internalType: "address";
+                readonly name: "pendleSwap";
+                readonly type: "address";
+            }, {
+                readonly components: readonly [{
+                    readonly internalType: "enum SwapType";
+                    readonly name: "swapType";
+                    readonly type: "uint8";
+                }, {
+                    readonly internalType: "address";
+                    readonly name: "extRouter";
+                    readonly type: "address";
+                }, {
+                    readonly internalType: "bytes";
+                    readonly name: "extCalldata";
+                    readonly type: "bytes";
+                }, {
+                    readonly internalType: "bool";
+                    readonly name: "needScale";
+                    readonly type: "bool";
+                }];
+                readonly internalType: "struct SwapData";
+                readonly name: "swapData";
+                readonly type: "tuple";
+            }];
+            readonly internalType: "struct TokenInput";
+            readonly name: "input";
+            readonly type: "tuple";
+        }];
+        readonly name: "mintPyFromToken";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "netPyOut";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "netSyInterm";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "payable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address";
+            readonly name: "receiver";
+            readonly type: "address";
+        }, {
+            readonly internalType: "address";
+            readonly name: "SY";
+            readonly type: "address";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "minSyOut";
+            readonly type: "uint256";
+        }, {
+            readonly components: readonly [{
+                readonly internalType: "address";
+                readonly name: "tokenIn";
+                readonly type: "address";
+            }, {
+                readonly internalType: "uint256";
+                readonly name: "netTokenIn";
+                readonly type: "uint256";
+            }, {
+                readonly internalType: "address";
+                readonly name: "tokenMintSy";
+                readonly type: "address";
+            }, {
+                readonly internalType: "address";
+                readonly name: "pendleSwap";
+                readonly type: "address";
+            }, {
+                readonly components: readonly [{
+                    readonly internalType: "enum SwapType";
+                    readonly name: "swapType";
+                    readonly type: "uint8";
+                }, {
+                    readonly internalType: "address";
+                    readonly name: "extRouter";
+                    readonly type: "address";
+                }, {
+                    readonly internalType: "bytes";
+                    readonly name: "extCalldata";
+                    readonly type: "bytes";
+                }, {
+                    readonly internalType: "bool";
+                    readonly name: "needScale";
+                    readonly type: "bool";
+                }];
+                readonly internalType: "struct SwapData";
+                readonly name: "swapData";
+                readonly type: "tuple";
+            }];
+            readonly internalType: "struct TokenInput";
+            readonly name: "input";
+            readonly type: "tuple";
+        }];
+        readonly name: "mintSyFromToken";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "netSyOut";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "payable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly components: readonly [{
+                readonly internalType: "bool";
+                readonly name: "allowFailure";
+                readonly type: "bool";
+            }, {
+                readonly internalType: "bytes";
+                readonly name: "callData";
+                readonly type: "bytes";
+            }];
+            readonly internalType: "struct IPActionMiscV3.Call3[]";
+            readonly name: "calls";
+            readonly type: "tuple[]";
+        }];
+        readonly name: "multicall";
+        readonly outputs: readonly [{
+            readonly components: readonly [{
+                readonly internalType: "bool";
+                readonly name: "success";
+                readonly type: "bool";
+            }, {
+                readonly internalType: "bytes";
+                readonly name: "returnData";
+                readonly type: "bytes";
+            }];
+            readonly internalType: "struct IPActionMiscV3.Result[]";
+            readonly name: "res";
+            readonly type: "tuple[]";
+        }];
+        readonly stateMutability: "payable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address";
+            readonly name: "user";
+            readonly type: "address";
+        }, {
+            readonly internalType: "address[]";
+            readonly name: "sys";
+            readonly type: "address[]";
+        }, {
+            readonly internalType: "address[]";
+            readonly name: "yts";
+            readonly type: "address[]";
+        }, {
+            readonly internalType: "address[]";
+            readonly name: "markets";
+            readonly type: "address[]";
+        }];
+        readonly name: "redeemDueInterestAndRewards";
+        readonly outputs: readonly [];
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address";
+            readonly name: "receiver";
+            readonly type: "address";
+        }, {
+            readonly internalType: "address";
+            readonly name: "YT";
+            readonly type: "address";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "netPyIn";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "minSyOut";
+            readonly type: "uint256";
+        }];
+        readonly name: "redeemPyToSy";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "netSyOut";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address";
+            readonly name: "receiver";
+            readonly type: "address";
+        }, {
+            readonly internalType: "address";
+            readonly name: "YT";
+            readonly type: "address";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "netPyIn";
+            readonly type: "uint256";
+        }, {
+            readonly components: readonly [{
+                readonly internalType: "address";
+                readonly name: "tokenOut";
+                readonly type: "address";
+            }, {
+                readonly internalType: "uint256";
+                readonly name: "minTokenOut";
+                readonly type: "uint256";
+            }, {
+                readonly internalType: "address";
+                readonly name: "tokenRedeemSy";
+                readonly type: "address";
+            }, {
+                readonly internalType: "address";
+                readonly name: "pendleSwap";
+                readonly type: "address";
+            }, {
+                readonly components: readonly [{
+                    readonly internalType: "enum SwapType";
+                    readonly name: "swapType";
+                    readonly type: "uint8";
+                }, {
+                    readonly internalType: "address";
+                    readonly name: "extRouter";
+                    readonly type: "address";
+                }, {
+                    readonly internalType: "bytes";
+                    readonly name: "extCalldata";
+                    readonly type: "bytes";
+                }, {
+                    readonly internalType: "bool";
+                    readonly name: "needScale";
+                    readonly type: "bool";
+                }];
+                readonly internalType: "struct SwapData";
+                readonly name: "swapData";
+                readonly type: "tuple";
+            }];
+            readonly internalType: "struct TokenOutput";
+            readonly name: "output";
+            readonly type: "tuple";
+        }];
+        readonly name: "redeemPyToToken";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "netTokenOut";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "netSyInterm";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address";
+            readonly name: "receiver";
+            readonly type: "address";
+        }, {
+            readonly internalType: "address";
+            readonly name: "SY";
+            readonly type: "address";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "netSyIn";
+            readonly type: "uint256";
+        }, {
+            readonly components: readonly [{
+                readonly internalType: "address";
+                readonly name: "tokenOut";
+                readonly type: "address";
+            }, {
+                readonly internalType: "uint256";
+                readonly name: "minTokenOut";
+                readonly type: "uint256";
+            }, {
+                readonly internalType: "address";
+                readonly name: "tokenRedeemSy";
+                readonly type: "address";
+            }, {
+                readonly internalType: "address";
+                readonly name: "pendleSwap";
+                readonly type: "address";
+            }, {
+                readonly components: readonly [{
+                    readonly internalType: "enum SwapType";
+                    readonly name: "swapType";
+                    readonly type: "uint8";
+                }, {
+                    readonly internalType: "address";
+                    readonly name: "extRouter";
+                    readonly type: "address";
+                }, {
+                    readonly internalType: "bytes";
+                    readonly name: "extCalldata";
+                    readonly type: "bytes";
+                }, {
+                    readonly internalType: "bool";
+                    readonly name: "needScale";
+                    readonly type: "bool";
+                }];
+                readonly internalType: "struct SwapData";
+                readonly name: "swapData";
+                readonly type: "tuple";
+            }];
+            readonly internalType: "struct TokenOutput";
+            readonly name: "output";
+            readonly type: "tuple";
+        }];
+        readonly name: "redeemSyToToken";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "netTokenOut";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address";
+            readonly name: "target";
+            readonly type: "address";
+        }, {
+            readonly internalType: "bytes";
+            readonly name: "data";
+            readonly type: "bytes";
+        }];
+        readonly name: "simulate";
+        readonly outputs: readonly [];
+        readonly stateMutability: "payable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address";
+            readonly name: "receiver";
+            readonly type: "address";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "minTokenOut";
+            readonly type: "uint256";
+        }, {
+            readonly components: readonly [{
+                readonly internalType: "address";
+                readonly name: "tokenIn";
+                readonly type: "address";
+            }, {
+                readonly internalType: "uint256";
+                readonly name: "netTokenIn";
+                readonly type: "uint256";
+            }, {
+                readonly internalType: "address";
+                readonly name: "tokenMintSy";
+                readonly type: "address";
+            }, {
+                readonly internalType: "address";
+                readonly name: "pendleSwap";
+                readonly type: "address";
+            }, {
+                readonly components: readonly [{
+                    readonly internalType: "enum SwapType";
+                    readonly name: "swapType";
+                    readonly type: "uint8";
+                }, {
+                    readonly internalType: "address";
+                    readonly name: "extRouter";
+                    readonly type: "address";
+                }, {
+                    readonly internalType: "bytes";
+                    readonly name: "extCalldata";
+                    readonly type: "bytes";
+                }, {
+                    readonly internalType: "bool";
+                    readonly name: "needScale";
+                    readonly type: "bool";
+                }];
+                readonly internalType: "struct SwapData";
+                readonly name: "swapData";
+                readonly type: "tuple";
+            }];
+            readonly internalType: "struct TokenInput";
+            readonly name: "inp";
+            readonly type: "tuple";
+        }];
+        readonly name: "swapTokenToToken";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "netTokenOut";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "payable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address";
+            readonly name: "receiver";
+            readonly type: "address";
+        }, {
+            readonly internalType: "address";
+            readonly name: "SY";
+            readonly type: "address";
+        }, {
+            readonly components: readonly [{
+                readonly internalType: "address";
+                readonly name: "tokenIn";
+                readonly type: "address";
+            }, {
+                readonly internalType: "uint256";
+                readonly name: "netTokenIn";
+                readonly type: "uint256";
+            }, {
+                readonly internalType: "address";
+                readonly name: "tokenMintSy";
+                readonly type: "address";
+            }, {
+                readonly internalType: "address";
+                readonly name: "pendleSwap";
+                readonly type: "address";
+            }, {
+                readonly components: readonly [{
+                    readonly internalType: "enum SwapType";
+                    readonly name: "swapType";
+                    readonly type: "uint8";
+                }, {
+                    readonly internalType: "address";
+                    readonly name: "extRouter";
+                    readonly type: "address";
+                }, {
+                    readonly internalType: "bytes";
+                    readonly name: "extCalldata";
+                    readonly type: "bytes";
+                }, {
+                    readonly internalType: "bool";
+                    readonly name: "needScale";
+                    readonly type: "bool";
+                }];
+                readonly internalType: "struct SwapData";
+                readonly name: "swapData";
+                readonly type: "tuple";
+            }];
+            readonly internalType: "struct TokenInput";
+            readonly name: "input";
+            readonly type: "tuple";
+        }, {
+            readonly internalType: "address";
+            readonly name: "tokenRedeemSy";
+            readonly type: "address";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "minTokenOut";
+            readonly type: "uint256";
+        }];
+        readonly name: "swapTokenToTokenViaSy";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "netTokenOut";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "netSyInterm";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "payable";
+        readonly type: "function";
+    }];
+    static createInterface(): ActionMiscV3Interface;
+    static connect(address: string, runner?: ContractRunner | null): ActionMiscV3;
+}

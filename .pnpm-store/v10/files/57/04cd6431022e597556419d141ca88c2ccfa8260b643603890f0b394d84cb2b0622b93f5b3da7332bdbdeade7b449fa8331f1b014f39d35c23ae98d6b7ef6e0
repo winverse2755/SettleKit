@@ -1,0 +1,130 @@
+import type { BaseContract, BytesLike, FunctionFragment, Result, Interface, EventFragment, AddressLike, ContractRunner, ContractMethod, Listener } from "ethers";
+import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, TypedLogDescription, TypedListener, TypedContractMethod } from "../../../../common";
+export interface MainnetBulkerInterface extends Interface {
+    getFunction(nameOrSignature: "ACTION_CLAIM_REWARD" | "ACTION_SUPPLY_ASSET" | "ACTION_SUPPLY_NATIVE_TOKEN" | "ACTION_SUPPLY_STETH" | "ACTION_TRANSFER_ASSET" | "ACTION_WITHDRAW_ASSET" | "ACTION_WITHDRAW_NATIVE_TOKEN" | "ACTION_WITHDRAW_STETH" | "admin" | "invoke" | "steth" | "sweepNativeToken" | "sweepToken" | "transferAdmin" | "wrappedNativeToken" | "wsteth"): FunctionFragment;
+    getEvent(nameOrSignatureOrTopic: "AdminTransferred"): EventFragment;
+    encodeFunctionData(functionFragment: "ACTION_CLAIM_REWARD", values?: undefined): string;
+    encodeFunctionData(functionFragment: "ACTION_SUPPLY_ASSET", values?: undefined): string;
+    encodeFunctionData(functionFragment: "ACTION_SUPPLY_NATIVE_TOKEN", values?: undefined): string;
+    encodeFunctionData(functionFragment: "ACTION_SUPPLY_STETH", values?: undefined): string;
+    encodeFunctionData(functionFragment: "ACTION_TRANSFER_ASSET", values?: undefined): string;
+    encodeFunctionData(functionFragment: "ACTION_WITHDRAW_ASSET", values?: undefined): string;
+    encodeFunctionData(functionFragment: "ACTION_WITHDRAW_NATIVE_TOKEN", values?: undefined): string;
+    encodeFunctionData(functionFragment: "ACTION_WITHDRAW_STETH", values?: undefined): string;
+    encodeFunctionData(functionFragment: "admin", values?: undefined): string;
+    encodeFunctionData(functionFragment: "invoke", values: [BytesLike[], BytesLike[]]): string;
+    encodeFunctionData(functionFragment: "steth", values?: undefined): string;
+    encodeFunctionData(functionFragment: "sweepNativeToken", values: [AddressLike]): string;
+    encodeFunctionData(functionFragment: "sweepToken", values: [AddressLike, AddressLike]): string;
+    encodeFunctionData(functionFragment: "transferAdmin", values: [AddressLike]): string;
+    encodeFunctionData(functionFragment: "wrappedNativeToken", values?: undefined): string;
+    encodeFunctionData(functionFragment: "wsteth", values?: undefined): string;
+    decodeFunctionResult(functionFragment: "ACTION_CLAIM_REWARD", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "ACTION_SUPPLY_ASSET", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "ACTION_SUPPLY_NATIVE_TOKEN", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "ACTION_SUPPLY_STETH", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "ACTION_TRANSFER_ASSET", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "ACTION_WITHDRAW_ASSET", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "ACTION_WITHDRAW_NATIVE_TOKEN", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "ACTION_WITHDRAW_STETH", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "admin", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "invoke", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "steth", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "sweepNativeToken", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "sweepToken", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "transferAdmin", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "wrappedNativeToken", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "wsteth", data: BytesLike): Result;
+}
+export declare namespace AdminTransferredEvent {
+    type InputTuple = [oldAdmin: AddressLike, newAdmin: AddressLike];
+    type OutputTuple = [oldAdmin: string, newAdmin: string];
+    interface OutputObject {
+        oldAdmin: string;
+        newAdmin: string;
+    }
+    type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+    type Filter = TypedDeferredTopicFilter<Event>;
+    type Log = TypedEventLog<Event>;
+    type LogDescription = TypedLogDescription<Event>;
+}
+export interface MainnetBulker extends BaseContract {
+    connect(runner?: ContractRunner | null): MainnetBulker;
+    waitForDeployment(): Promise<this>;
+    interface: MainnetBulkerInterface;
+    queryFilter<TCEvent extends TypedContractEvent>(event: TCEvent, fromBlockOrBlockhash?: string | number | undefined, toBlock?: string | number | undefined): Promise<Array<TypedEventLog<TCEvent>>>;
+    queryFilter<TCEvent extends TypedContractEvent>(filter: TypedDeferredTopicFilter<TCEvent>, fromBlockOrBlockhash?: string | number | undefined, toBlock?: string | number | undefined): Promise<Array<TypedEventLog<TCEvent>>>;
+    on<TCEvent extends TypedContractEvent>(event: TCEvent, listener: TypedListener<TCEvent>): Promise<this>;
+    on<TCEvent extends TypedContractEvent>(filter: TypedDeferredTopicFilter<TCEvent>, listener: TypedListener<TCEvent>): Promise<this>;
+    once<TCEvent extends TypedContractEvent>(event: TCEvent, listener: TypedListener<TCEvent>): Promise<this>;
+    once<TCEvent extends TypedContractEvent>(filter: TypedDeferredTopicFilter<TCEvent>, listener: TypedListener<TCEvent>): Promise<this>;
+    listeners<TCEvent extends TypedContractEvent>(event: TCEvent): Promise<Array<TypedListener<TCEvent>>>;
+    listeners(eventName?: string): Promise<Array<Listener>>;
+    removeAllListeners<TCEvent extends TypedContractEvent>(event?: TCEvent): Promise<this>;
+    ACTION_CLAIM_REWARD: TypedContractMethod<[], [string], "view">;
+    ACTION_SUPPLY_ASSET: TypedContractMethod<[], [string], "view">;
+    ACTION_SUPPLY_NATIVE_TOKEN: TypedContractMethod<[], [string], "view">;
+    ACTION_SUPPLY_STETH: TypedContractMethod<[], [string], "view">;
+    ACTION_TRANSFER_ASSET: TypedContractMethod<[], [string], "view">;
+    ACTION_WITHDRAW_ASSET: TypedContractMethod<[], [string], "view">;
+    ACTION_WITHDRAW_NATIVE_TOKEN: TypedContractMethod<[], [string], "view">;
+    ACTION_WITHDRAW_STETH: TypedContractMethod<[], [string], "view">;
+    admin: TypedContractMethod<[], [string], "view">;
+    invoke: TypedContractMethod<[
+        actions: BytesLike[],
+        data: BytesLike[]
+    ], [
+        void
+    ], "payable">;
+    steth: TypedContractMethod<[], [string], "view">;
+    sweepNativeToken: TypedContractMethod<[
+        recipient: AddressLike
+    ], [
+        void
+    ], "nonpayable">;
+    sweepToken: TypedContractMethod<[
+        recipient: AddressLike,
+        asset: AddressLike
+    ], [
+        void
+    ], "nonpayable">;
+    transferAdmin: TypedContractMethod<[
+        newAdmin: AddressLike
+    ], [
+        void
+    ], "nonpayable">;
+    wrappedNativeToken: TypedContractMethod<[], [string], "view">;
+    wsteth: TypedContractMethod<[], [string], "view">;
+    getFunction<T extends ContractMethod = ContractMethod>(key: string | FunctionFragment): T;
+    getFunction(nameOrSignature: "ACTION_CLAIM_REWARD"): TypedContractMethod<[], [string], "view">;
+    getFunction(nameOrSignature: "ACTION_SUPPLY_ASSET"): TypedContractMethod<[], [string], "view">;
+    getFunction(nameOrSignature: "ACTION_SUPPLY_NATIVE_TOKEN"): TypedContractMethod<[], [string], "view">;
+    getFunction(nameOrSignature: "ACTION_SUPPLY_STETH"): TypedContractMethod<[], [string], "view">;
+    getFunction(nameOrSignature: "ACTION_TRANSFER_ASSET"): TypedContractMethod<[], [string], "view">;
+    getFunction(nameOrSignature: "ACTION_WITHDRAW_ASSET"): TypedContractMethod<[], [string], "view">;
+    getFunction(nameOrSignature: "ACTION_WITHDRAW_NATIVE_TOKEN"): TypedContractMethod<[], [string], "view">;
+    getFunction(nameOrSignature: "ACTION_WITHDRAW_STETH"): TypedContractMethod<[], [string], "view">;
+    getFunction(nameOrSignature: "admin"): TypedContractMethod<[], [string], "view">;
+    getFunction(nameOrSignature: "invoke"): TypedContractMethod<[
+        actions: BytesLike[],
+        data: BytesLike[]
+    ], [
+        void
+    ], "payable">;
+    getFunction(nameOrSignature: "steth"): TypedContractMethod<[], [string], "view">;
+    getFunction(nameOrSignature: "sweepNativeToken"): TypedContractMethod<[recipient: AddressLike], [void], "nonpayable">;
+    getFunction(nameOrSignature: "sweepToken"): TypedContractMethod<[
+        recipient: AddressLike,
+        asset: AddressLike
+    ], [
+        void
+    ], "nonpayable">;
+    getFunction(nameOrSignature: "transferAdmin"): TypedContractMethod<[newAdmin: AddressLike], [void], "nonpayable">;
+    getFunction(nameOrSignature: "wrappedNativeToken"): TypedContractMethod<[], [string], "view">;
+    getFunction(nameOrSignature: "wsteth"): TypedContractMethod<[], [string], "view">;
+    getEvent(key: "AdminTransferred"): TypedContractEvent<AdminTransferredEvent.InputTuple, AdminTransferredEvent.OutputTuple, AdminTransferredEvent.OutputObject>;
+    filters: {
+        "AdminTransferred(address,address)": TypedContractEvent<AdminTransferredEvent.InputTuple, AdminTransferredEvent.OutputTuple, AdminTransferredEvent.OutputObject>;
+        AdminTransferred: TypedContractEvent<AdminTransferredEvent.InputTuple, AdminTransferredEvent.OutputTuple, AdminTransferredEvent.OutputObject>;
+    };
+}

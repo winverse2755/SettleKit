@@ -1,0 +1,794 @@
+import type { BaseContract, BigNumberish, BytesLike, FunctionFragment, Result, Interface, AddressLike, ContractRunner, ContractMethod, Listener } from "ethers";
+import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, TypedListener, TypedContractMethod } from "../../../common";
+export declare namespace Types {
+    type IndexesStruct = {
+        p2pSupplyIndex: BigNumberish;
+        p2pBorrowIndex: BigNumberish;
+        poolSupplyIndex: BigNumberish;
+        poolBorrowIndex: BigNumberish;
+    };
+    type IndexesStructOutput = [
+        p2pSupplyIndex: bigint,
+        p2pBorrowIndex: bigint,
+        poolSupplyIndex: bigint,
+        poolBorrowIndex: bigint
+    ] & {
+        p2pSupplyIndex: bigint;
+        p2pBorrowIndex: bigint;
+        poolSupplyIndex: bigint;
+        poolBorrowIndex: bigint;
+    };
+    type MarketPauseStatusStruct = {
+        isSupplyPaused: boolean;
+        isBorrowPaused: boolean;
+        isWithdrawPaused: boolean;
+        isRepayPaused: boolean;
+        isLiquidateCollateralPaused: boolean;
+        isLiquidateBorrowPaused: boolean;
+        isDeprecated: boolean;
+    };
+    type MarketPauseStatusStructOutput = [
+        isSupplyPaused: boolean,
+        isBorrowPaused: boolean,
+        isWithdrawPaused: boolean,
+        isRepayPaused: boolean,
+        isLiquidateCollateralPaused: boolean,
+        isLiquidateBorrowPaused: boolean,
+        isDeprecated: boolean
+    ] & {
+        isSupplyPaused: boolean;
+        isBorrowPaused: boolean;
+        isWithdrawPaused: boolean;
+        isRepayPaused: boolean;
+        isLiquidateCollateralPaused: boolean;
+        isLiquidateBorrowPaused: boolean;
+        isDeprecated: boolean;
+    };
+    type LiquidityDataStruct = {
+        collateralEth: BigNumberish;
+        borrowableEth: BigNumberish;
+        maxDebtEth: BigNumberish;
+        debtEth: BigNumberish;
+    };
+    type LiquidityDataStructOutput = [
+        collateralEth: bigint,
+        borrowableEth: bigint,
+        maxDebtEth: bigint,
+        debtEth: bigint
+    ] & {
+        collateralEth: bigint;
+        borrowableEth: bigint;
+        maxDebtEth: bigint;
+        debtEth: bigint;
+    };
+    type AssetLiquidityDataStruct = {
+        decimals: BigNumberish;
+        tokenUnit: BigNumberish;
+        liquidationThreshold: BigNumberish;
+        ltv: BigNumberish;
+        underlyingPrice: BigNumberish;
+        collateralEth: BigNumberish;
+        debtEth: BigNumberish;
+    };
+    type AssetLiquidityDataStructOutput = [
+        decimals: bigint,
+        tokenUnit: bigint,
+        liquidationThreshold: bigint,
+        ltv: bigint,
+        underlyingPrice: bigint,
+        collateralEth: bigint,
+        debtEth: bigint
+    ] & {
+        decimals: bigint;
+        tokenUnit: bigint;
+        liquidationThreshold: bigint;
+        ltv: bigint;
+        underlyingPrice: bigint;
+        collateralEth: bigint;
+        debtEth: bigint;
+    };
+}
+export interface MorphoAaveV2LensInterface extends Interface {
+    getFunction(nameOrSignature: "DEFAULT_LIQUIDATION_CLOSE_FACTOR" | "HEALTH_FACTOR_LIQUIDATION_THRESHOLD" | "ST_ETH" | "ST_ETH_BASE_REBASE_INDEX" | "addressesProvider" | "computeLiquidationRepayAmount" | "getAdvancedMarketData" | "getAllMarkets" | "getAverageBorrowRatePerYear" | "getAverageSupplyRatePerYear" | "getCurrentBorrowBalanceInOf" | "getCurrentP2PBorrowIndex" | "getCurrentP2PSupplyIndex" | "getCurrentSupplyBalanceInOf" | "getCurrentUserBorrowRatePerYear" | "getCurrentUserSupplyRatePerYear" | "getEnteredMarkets" | "getIndexes" | "getMainMarketData" | "getMarketConfiguration" | "getMarketPauseStatus" | "getNextUserBorrowRatePerYear" | "getNextUserSupplyRatePerYear" | "getRatesPerYear" | "getTotalBorrow" | "getTotalMarketBorrow" | "getTotalMarketSupply" | "getTotalSupply" | "getUserBalanceStates" | "getUserHealthFactor" | "getUserHypotheticalBalanceStates" | "getUserHypotheticalHealthFactor" | "getUserLiquidityDataForAsset" | "getUserMaxCapacitiesForAsset" | "isLiquidatable(address)" | "isLiquidatable(address,address)" | "isMarketCreated" | "isMarketCreatedAndNotPaused" | "isMarketCreatedAndNotPausedNorPartiallyPaused" | "morpho" | "pool"): FunctionFragment;
+    encodeFunctionData(functionFragment: "DEFAULT_LIQUIDATION_CLOSE_FACTOR", values?: undefined): string;
+    encodeFunctionData(functionFragment: "HEALTH_FACTOR_LIQUIDATION_THRESHOLD", values?: undefined): string;
+    encodeFunctionData(functionFragment: "ST_ETH", values?: undefined): string;
+    encodeFunctionData(functionFragment: "ST_ETH_BASE_REBASE_INDEX", values?: undefined): string;
+    encodeFunctionData(functionFragment: "addressesProvider", values?: undefined): string;
+    encodeFunctionData(functionFragment: "computeLiquidationRepayAmount", values: [AddressLike, AddressLike, AddressLike]): string;
+    encodeFunctionData(functionFragment: "getAdvancedMarketData", values: [AddressLike]): string;
+    encodeFunctionData(functionFragment: "getAllMarkets", values?: undefined): string;
+    encodeFunctionData(functionFragment: "getAverageBorrowRatePerYear", values: [AddressLike]): string;
+    encodeFunctionData(functionFragment: "getAverageSupplyRatePerYear", values: [AddressLike]): string;
+    encodeFunctionData(functionFragment: "getCurrentBorrowBalanceInOf", values: [AddressLike, AddressLike]): string;
+    encodeFunctionData(functionFragment: "getCurrentP2PBorrowIndex", values: [AddressLike]): string;
+    encodeFunctionData(functionFragment: "getCurrentP2PSupplyIndex", values: [AddressLike]): string;
+    encodeFunctionData(functionFragment: "getCurrentSupplyBalanceInOf", values: [AddressLike, AddressLike]): string;
+    encodeFunctionData(functionFragment: "getCurrentUserBorrowRatePerYear", values: [AddressLike, AddressLike]): string;
+    encodeFunctionData(functionFragment: "getCurrentUserSupplyRatePerYear", values: [AddressLike, AddressLike]): string;
+    encodeFunctionData(functionFragment: "getEnteredMarkets", values: [AddressLike]): string;
+    encodeFunctionData(functionFragment: "getIndexes", values: [AddressLike]): string;
+    encodeFunctionData(functionFragment: "getMainMarketData", values: [AddressLike]): string;
+    encodeFunctionData(functionFragment: "getMarketConfiguration", values: [AddressLike]): string;
+    encodeFunctionData(functionFragment: "getMarketPauseStatus", values: [AddressLike]): string;
+    encodeFunctionData(functionFragment: "getNextUserBorrowRatePerYear", values: [AddressLike, AddressLike, BigNumberish]): string;
+    encodeFunctionData(functionFragment: "getNextUserSupplyRatePerYear", values: [AddressLike, AddressLike, BigNumberish]): string;
+    encodeFunctionData(functionFragment: "getRatesPerYear", values: [AddressLike]): string;
+    encodeFunctionData(functionFragment: "getTotalBorrow", values?: undefined): string;
+    encodeFunctionData(functionFragment: "getTotalMarketBorrow", values: [AddressLike]): string;
+    encodeFunctionData(functionFragment: "getTotalMarketSupply", values: [AddressLike]): string;
+    encodeFunctionData(functionFragment: "getTotalSupply", values?: undefined): string;
+    encodeFunctionData(functionFragment: "getUserBalanceStates", values: [AddressLike]): string;
+    encodeFunctionData(functionFragment: "getUserHealthFactor", values: [AddressLike]): string;
+    encodeFunctionData(functionFragment: "getUserHypotheticalBalanceStates", values: [AddressLike, AddressLike, BigNumberish, BigNumberish]): string;
+    encodeFunctionData(functionFragment: "getUserHypotheticalHealthFactor", values: [AddressLike, AddressLike, BigNumberish, BigNumberish]): string;
+    encodeFunctionData(functionFragment: "getUserLiquidityDataForAsset", values: [AddressLike, AddressLike, AddressLike]): string;
+    encodeFunctionData(functionFragment: "getUserMaxCapacitiesForAsset", values: [AddressLike, AddressLike]): string;
+    encodeFunctionData(functionFragment: "isLiquidatable(address)", values: [AddressLike]): string;
+    encodeFunctionData(functionFragment: "isLiquidatable(address,address)", values: [AddressLike, AddressLike]): string;
+    encodeFunctionData(functionFragment: "isMarketCreated", values: [AddressLike]): string;
+    encodeFunctionData(functionFragment: "isMarketCreatedAndNotPaused", values: [AddressLike]): string;
+    encodeFunctionData(functionFragment: "isMarketCreatedAndNotPausedNorPartiallyPaused", values: [AddressLike]): string;
+    encodeFunctionData(functionFragment: "morpho", values?: undefined): string;
+    encodeFunctionData(functionFragment: "pool", values?: undefined): string;
+    decodeFunctionResult(functionFragment: "DEFAULT_LIQUIDATION_CLOSE_FACTOR", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "HEALTH_FACTOR_LIQUIDATION_THRESHOLD", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "ST_ETH", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "ST_ETH_BASE_REBASE_INDEX", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "addressesProvider", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "computeLiquidationRepayAmount", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getAdvancedMarketData", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getAllMarkets", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getAverageBorrowRatePerYear", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getAverageSupplyRatePerYear", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getCurrentBorrowBalanceInOf", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getCurrentP2PBorrowIndex", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getCurrentP2PSupplyIndex", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getCurrentSupplyBalanceInOf", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getCurrentUserBorrowRatePerYear", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getCurrentUserSupplyRatePerYear", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getEnteredMarkets", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getIndexes", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getMainMarketData", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getMarketConfiguration", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getMarketPauseStatus", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getNextUserBorrowRatePerYear", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getNextUserSupplyRatePerYear", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getRatesPerYear", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getTotalBorrow", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getTotalMarketBorrow", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getTotalMarketSupply", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getTotalSupply", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getUserBalanceStates", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getUserHealthFactor", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getUserHypotheticalBalanceStates", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getUserHypotheticalHealthFactor", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getUserLiquidityDataForAsset", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getUserMaxCapacitiesForAsset", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "isLiquidatable(address)", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "isLiquidatable(address,address)", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "isMarketCreated", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "isMarketCreatedAndNotPaused", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "isMarketCreatedAndNotPausedNorPartiallyPaused", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "morpho", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "pool", data: BytesLike): Result;
+}
+export interface MorphoAaveV2Lens extends BaseContract {
+    connect(runner?: ContractRunner | null): MorphoAaveV2Lens;
+    waitForDeployment(): Promise<this>;
+    interface: MorphoAaveV2LensInterface;
+    queryFilter<TCEvent extends TypedContractEvent>(event: TCEvent, fromBlockOrBlockhash?: string | number | undefined, toBlock?: string | number | undefined): Promise<Array<TypedEventLog<TCEvent>>>;
+    queryFilter<TCEvent extends TypedContractEvent>(filter: TypedDeferredTopicFilter<TCEvent>, fromBlockOrBlockhash?: string | number | undefined, toBlock?: string | number | undefined): Promise<Array<TypedEventLog<TCEvent>>>;
+    on<TCEvent extends TypedContractEvent>(event: TCEvent, listener: TypedListener<TCEvent>): Promise<this>;
+    on<TCEvent extends TypedContractEvent>(filter: TypedDeferredTopicFilter<TCEvent>, listener: TypedListener<TCEvent>): Promise<this>;
+    once<TCEvent extends TypedContractEvent>(event: TCEvent, listener: TypedListener<TCEvent>): Promise<this>;
+    once<TCEvent extends TypedContractEvent>(filter: TypedDeferredTopicFilter<TCEvent>, listener: TypedListener<TCEvent>): Promise<this>;
+    listeners<TCEvent extends TypedContractEvent>(event: TCEvent): Promise<Array<TypedListener<TCEvent>>>;
+    listeners(eventName?: string): Promise<Array<Listener>>;
+    removeAllListeners<TCEvent extends TypedContractEvent>(event?: TCEvent): Promise<this>;
+    DEFAULT_LIQUIDATION_CLOSE_FACTOR: TypedContractMethod<[], [bigint], "view">;
+    HEALTH_FACTOR_LIQUIDATION_THRESHOLD: TypedContractMethod<[
+    ], [
+        bigint
+    ], "view">;
+    ST_ETH: TypedContractMethod<[], [string], "view">;
+    ST_ETH_BASE_REBASE_INDEX: TypedContractMethod<[], [bigint], "view">;
+    addressesProvider: TypedContractMethod<[], [string], "view">;
+    computeLiquidationRepayAmount: TypedContractMethod<[
+        _user: AddressLike,
+        _poolTokenBorrowed: AddressLike,
+        _poolTokenCollateral: AddressLike
+    ], [
+        bigint
+    ], "view">;
+    getAdvancedMarketData: TypedContractMethod<[
+        _poolToken: AddressLike
+    ], [
+        [
+            Types.IndexesStructOutput,
+            bigint,
+            bigint,
+            bigint
+        ] & {
+            indexes: Types.IndexesStructOutput;
+            lastUpdateTimestamp: bigint;
+            p2pSupplyDelta: bigint;
+            p2pBorrowDelta: bigint;
+        }
+    ], "view">;
+    getAllMarkets: TypedContractMethod<[], [string[]], "view">;
+    getAverageBorrowRatePerYear: TypedContractMethod<[
+        _poolToken: AddressLike
+    ], [
+        [
+            bigint,
+            bigint,
+            bigint
+        ] & {
+            avgBorrowRatePerYear: bigint;
+            p2pBorrowAmount: bigint;
+            poolBorrowAmount: bigint;
+        }
+    ], "view">;
+    getAverageSupplyRatePerYear: TypedContractMethod<[
+        _poolToken: AddressLike
+    ], [
+        [
+            bigint,
+            bigint,
+            bigint
+        ] & {
+            avgSupplyRatePerYear: bigint;
+            p2pSupplyAmount: bigint;
+            poolSupplyAmount: bigint;
+        }
+    ], "view">;
+    getCurrentBorrowBalanceInOf: TypedContractMethod<[
+        _poolToken: AddressLike,
+        _user: AddressLike
+    ], [
+        [
+            bigint,
+            bigint,
+            bigint
+        ] & {
+            balanceInP2P: bigint;
+            balanceOnPool: bigint;
+            totalBalance: bigint;
+        }
+    ], "view">;
+    getCurrentP2PBorrowIndex: TypedContractMethod<[
+        _poolToken: AddressLike
+    ], [
+        bigint
+    ], "view">;
+    getCurrentP2PSupplyIndex: TypedContractMethod<[
+        _poolToken: AddressLike
+    ], [
+        bigint
+    ], "view">;
+    getCurrentSupplyBalanceInOf: TypedContractMethod<[
+        _poolToken: AddressLike,
+        _user: AddressLike
+    ], [
+        [
+            bigint,
+            bigint,
+            bigint
+        ] & {
+            balanceInP2P: bigint;
+            balanceOnPool: bigint;
+            totalBalance: bigint;
+        }
+    ], "view">;
+    getCurrentUserBorrowRatePerYear: TypedContractMethod<[
+        _poolToken: AddressLike,
+        _user: AddressLike
+    ], [
+        bigint
+    ], "view">;
+    getCurrentUserSupplyRatePerYear: TypedContractMethod<[
+        _poolToken: AddressLike,
+        _user: AddressLike
+    ], [
+        bigint
+    ], "view">;
+    getEnteredMarkets: TypedContractMethod<[
+        _user: AddressLike
+    ], [
+        string[]
+    ], "view">;
+    getIndexes: TypedContractMethod<[
+        _poolToken: AddressLike
+    ], [
+        Types.IndexesStructOutput
+    ], "view">;
+    getMainMarketData: TypedContractMethod<[
+        _poolToken: AddressLike
+    ], [
+        [
+            bigint,
+            bigint,
+            bigint,
+            bigint,
+            bigint,
+            bigint
+        ] & {
+            avgSupplyRatePerYear: bigint;
+            avgBorrowRatePerYear: bigint;
+            p2pSupplyAmount: bigint;
+            p2pBorrowAmount: bigint;
+            poolSupplyAmount: bigint;
+            poolBorrowAmount: bigint;
+        }
+    ], "view">;
+    getMarketConfiguration: TypedContractMethod<[
+        _poolToken: AddressLike
+    ], [
+        [
+            string,
+            boolean,
+            boolean,
+            boolean,
+            boolean,
+            bigint,
+            bigint,
+            bigint,
+            bigint,
+            bigint,
+            bigint
+        ] & {
+            underlying: string;
+            isCreated: boolean;
+            isP2PDisabled: boolean;
+            isPaused: boolean;
+            isPartiallyPaused: boolean;
+            reserveFactor: bigint;
+            p2pIndexCursor: bigint;
+            loanToValue: bigint;
+            liquidationThreshold: bigint;
+            liquidationBonus: bigint;
+            decimals: bigint;
+        }
+    ], "view">;
+    getMarketPauseStatus: TypedContractMethod<[
+        _poolToken: AddressLike
+    ], [
+        Types.MarketPauseStatusStructOutput
+    ], "view">;
+    getNextUserBorrowRatePerYear: TypedContractMethod<[
+        _poolToken: AddressLike,
+        _user: AddressLike,
+        _amount: BigNumberish
+    ], [
+        [
+            bigint,
+            bigint,
+            bigint,
+            bigint
+        ] & {
+            nextBorrowRatePerYear: bigint;
+            balanceInP2P: bigint;
+            balanceOnPool: bigint;
+            totalBalance: bigint;
+        }
+    ], "view">;
+    getNextUserSupplyRatePerYear: TypedContractMethod<[
+        _poolToken: AddressLike,
+        _user: AddressLike,
+        _amount: BigNumberish
+    ], [
+        [
+            bigint,
+            bigint,
+            bigint,
+            bigint
+        ] & {
+            nextSupplyRatePerYear: bigint;
+            balanceInP2P: bigint;
+            balanceOnPool: bigint;
+            totalBalance: bigint;
+        }
+    ], "view">;
+    getRatesPerYear: TypedContractMethod<[
+        _poolToken: AddressLike
+    ], [
+        [bigint, bigint, bigint, bigint]
+    ], "view">;
+    getTotalBorrow: TypedContractMethod<[
+    ], [
+        [
+            bigint,
+            bigint,
+            bigint
+        ] & {
+            p2pBorrowAmount: bigint;
+            poolBorrowAmount: bigint;
+            totalBorrowAmount: bigint;
+        }
+    ], "view">;
+    getTotalMarketBorrow: TypedContractMethod<[
+        _poolToken: AddressLike
+    ], [
+        [bigint, bigint] & {
+            p2pBorrowAmount: bigint;
+            poolBorrowAmount: bigint;
+        }
+    ], "view">;
+    getTotalMarketSupply: TypedContractMethod<[
+        _poolToken: AddressLike
+    ], [
+        [bigint, bigint] & {
+            p2pSupplyAmount: bigint;
+            poolSupplyAmount: bigint;
+        }
+    ], "view">;
+    getTotalSupply: TypedContractMethod<[
+    ], [
+        [
+            bigint,
+            bigint,
+            bigint
+        ] & {
+            p2pSupplyAmount: bigint;
+            poolSupplyAmount: bigint;
+            totalSupplyAmount: bigint;
+        }
+    ], "view">;
+    getUserBalanceStates: TypedContractMethod<[
+        _user: AddressLike
+    ], [
+        Types.LiquidityDataStructOutput
+    ], "view">;
+    getUserHealthFactor: TypedContractMethod<[
+        _user: AddressLike
+    ], [
+        bigint
+    ], "view">;
+    getUserHypotheticalBalanceStates: TypedContractMethod<[
+        _user: AddressLike,
+        _poolToken: AddressLike,
+        _withdrawnAmount: BigNumberish,
+        _borrowedAmount: BigNumberish
+    ], [
+        Types.LiquidityDataStructOutput
+    ], "view">;
+    getUserHypotheticalHealthFactor: TypedContractMethod<[
+        _user: AddressLike,
+        _poolToken: AddressLike,
+        _withdrawnAmount: BigNumberish,
+        _borrowedAmount: BigNumberish
+    ], [
+        bigint
+    ], "view">;
+    getUserLiquidityDataForAsset: TypedContractMethod<[
+        _user: AddressLike,
+        _poolToken: AddressLike,
+        _oracle: AddressLike
+    ], [
+        Types.AssetLiquidityDataStructOutput
+    ], "view">;
+    getUserMaxCapacitiesForAsset: TypedContractMethod<[
+        _user: AddressLike,
+        _poolToken: AddressLike
+    ], [
+        [bigint, bigint] & {
+            withdrawable: bigint;
+            borrowable: bigint;
+        }
+    ], "view">;
+    "isLiquidatable(address)": TypedContractMethod<[
+        _user: AddressLike
+    ], [
+        boolean
+    ], "view">;
+    "isLiquidatable(address,address)": TypedContractMethod<[
+        _user: AddressLike,
+        _poolToken: AddressLike
+    ], [
+        boolean
+    ], "view">;
+    isMarketCreated: TypedContractMethod<[
+        _poolToken: AddressLike
+    ], [
+        boolean
+    ], "view">;
+    isMarketCreatedAndNotPaused: TypedContractMethod<[
+        arg0: AddressLike
+    ], [
+        boolean
+    ], "view">;
+    isMarketCreatedAndNotPausedNorPartiallyPaused: TypedContractMethod<[
+        arg0: AddressLike
+    ], [
+        boolean
+    ], "view">;
+    morpho: TypedContractMethod<[], [string], "view">;
+    pool: TypedContractMethod<[], [string], "view">;
+    getFunction<T extends ContractMethod = ContractMethod>(key: string | FunctionFragment): T;
+    getFunction(nameOrSignature: "DEFAULT_LIQUIDATION_CLOSE_FACTOR"): TypedContractMethod<[], [bigint], "view">;
+    getFunction(nameOrSignature: "HEALTH_FACTOR_LIQUIDATION_THRESHOLD"): TypedContractMethod<[], [bigint], "view">;
+    getFunction(nameOrSignature: "ST_ETH"): TypedContractMethod<[], [string], "view">;
+    getFunction(nameOrSignature: "ST_ETH_BASE_REBASE_INDEX"): TypedContractMethod<[], [bigint], "view">;
+    getFunction(nameOrSignature: "addressesProvider"): TypedContractMethod<[], [string], "view">;
+    getFunction(nameOrSignature: "computeLiquidationRepayAmount"): TypedContractMethod<[
+        _user: AddressLike,
+        _poolTokenBorrowed: AddressLike,
+        _poolTokenCollateral: AddressLike
+    ], [
+        bigint
+    ], "view">;
+    getFunction(nameOrSignature: "getAdvancedMarketData"): TypedContractMethod<[
+        _poolToken: AddressLike
+    ], [
+        [
+            Types.IndexesStructOutput,
+            bigint,
+            bigint,
+            bigint
+        ] & {
+            indexes: Types.IndexesStructOutput;
+            lastUpdateTimestamp: bigint;
+            p2pSupplyDelta: bigint;
+            p2pBorrowDelta: bigint;
+        }
+    ], "view">;
+    getFunction(nameOrSignature: "getAllMarkets"): TypedContractMethod<[], [string[]], "view">;
+    getFunction(nameOrSignature: "getAverageBorrowRatePerYear"): TypedContractMethod<[
+        _poolToken: AddressLike
+    ], [
+        [
+            bigint,
+            bigint,
+            bigint
+        ] & {
+            avgBorrowRatePerYear: bigint;
+            p2pBorrowAmount: bigint;
+            poolBorrowAmount: bigint;
+        }
+    ], "view">;
+    getFunction(nameOrSignature: "getAverageSupplyRatePerYear"): TypedContractMethod<[
+        _poolToken: AddressLike
+    ], [
+        [
+            bigint,
+            bigint,
+            bigint
+        ] & {
+            avgSupplyRatePerYear: bigint;
+            p2pSupplyAmount: bigint;
+            poolSupplyAmount: bigint;
+        }
+    ], "view">;
+    getFunction(nameOrSignature: "getCurrentBorrowBalanceInOf"): TypedContractMethod<[
+        _poolToken: AddressLike,
+        _user: AddressLike
+    ], [
+        [
+            bigint,
+            bigint,
+            bigint
+        ] & {
+            balanceInP2P: bigint;
+            balanceOnPool: bigint;
+            totalBalance: bigint;
+        }
+    ], "view">;
+    getFunction(nameOrSignature: "getCurrentP2PBorrowIndex"): TypedContractMethod<[_poolToken: AddressLike], [bigint], "view">;
+    getFunction(nameOrSignature: "getCurrentP2PSupplyIndex"): TypedContractMethod<[_poolToken: AddressLike], [bigint], "view">;
+    getFunction(nameOrSignature: "getCurrentSupplyBalanceInOf"): TypedContractMethod<[
+        _poolToken: AddressLike,
+        _user: AddressLike
+    ], [
+        [
+            bigint,
+            bigint,
+            bigint
+        ] & {
+            balanceInP2P: bigint;
+            balanceOnPool: bigint;
+            totalBalance: bigint;
+        }
+    ], "view">;
+    getFunction(nameOrSignature: "getCurrentUserBorrowRatePerYear"): TypedContractMethod<[
+        _poolToken: AddressLike,
+        _user: AddressLike
+    ], [
+        bigint
+    ], "view">;
+    getFunction(nameOrSignature: "getCurrentUserSupplyRatePerYear"): TypedContractMethod<[
+        _poolToken: AddressLike,
+        _user: AddressLike
+    ], [
+        bigint
+    ], "view">;
+    getFunction(nameOrSignature: "getEnteredMarkets"): TypedContractMethod<[_user: AddressLike], [string[]], "view">;
+    getFunction(nameOrSignature: "getIndexes"): TypedContractMethod<[
+        _poolToken: AddressLike
+    ], [
+        Types.IndexesStructOutput
+    ], "view">;
+    getFunction(nameOrSignature: "getMainMarketData"): TypedContractMethod<[
+        _poolToken: AddressLike
+    ], [
+        [
+            bigint,
+            bigint,
+            bigint,
+            bigint,
+            bigint,
+            bigint
+        ] & {
+            avgSupplyRatePerYear: bigint;
+            avgBorrowRatePerYear: bigint;
+            p2pSupplyAmount: bigint;
+            p2pBorrowAmount: bigint;
+            poolSupplyAmount: bigint;
+            poolBorrowAmount: bigint;
+        }
+    ], "view">;
+    getFunction(nameOrSignature: "getMarketConfiguration"): TypedContractMethod<[
+        _poolToken: AddressLike
+    ], [
+        [
+            string,
+            boolean,
+            boolean,
+            boolean,
+            boolean,
+            bigint,
+            bigint,
+            bigint,
+            bigint,
+            bigint,
+            bigint
+        ] & {
+            underlying: string;
+            isCreated: boolean;
+            isP2PDisabled: boolean;
+            isPaused: boolean;
+            isPartiallyPaused: boolean;
+            reserveFactor: bigint;
+            p2pIndexCursor: bigint;
+            loanToValue: bigint;
+            liquidationThreshold: bigint;
+            liquidationBonus: bigint;
+            decimals: bigint;
+        }
+    ], "view">;
+    getFunction(nameOrSignature: "getMarketPauseStatus"): TypedContractMethod<[
+        _poolToken: AddressLike
+    ], [
+        Types.MarketPauseStatusStructOutput
+    ], "view">;
+    getFunction(nameOrSignature: "getNextUserBorrowRatePerYear"): TypedContractMethod<[
+        _poolToken: AddressLike,
+        _user: AddressLike,
+        _amount: BigNumberish
+    ], [
+        [
+            bigint,
+            bigint,
+            bigint,
+            bigint
+        ] & {
+            nextBorrowRatePerYear: bigint;
+            balanceInP2P: bigint;
+            balanceOnPool: bigint;
+            totalBalance: bigint;
+        }
+    ], "view">;
+    getFunction(nameOrSignature: "getNextUserSupplyRatePerYear"): TypedContractMethod<[
+        _poolToken: AddressLike,
+        _user: AddressLike,
+        _amount: BigNumberish
+    ], [
+        [
+            bigint,
+            bigint,
+            bigint,
+            bigint
+        ] & {
+            nextSupplyRatePerYear: bigint;
+            balanceInP2P: bigint;
+            balanceOnPool: bigint;
+            totalBalance: bigint;
+        }
+    ], "view">;
+    getFunction(nameOrSignature: "getRatesPerYear"): TypedContractMethod<[
+        _poolToken: AddressLike
+    ], [
+        [bigint, bigint, bigint, bigint]
+    ], "view">;
+    getFunction(nameOrSignature: "getTotalBorrow"): TypedContractMethod<[
+    ], [
+        [
+            bigint,
+            bigint,
+            bigint
+        ] & {
+            p2pBorrowAmount: bigint;
+            poolBorrowAmount: bigint;
+            totalBorrowAmount: bigint;
+        }
+    ], "view">;
+    getFunction(nameOrSignature: "getTotalMarketBorrow"): TypedContractMethod<[
+        _poolToken: AddressLike
+    ], [
+        [bigint, bigint] & {
+            p2pBorrowAmount: bigint;
+            poolBorrowAmount: bigint;
+        }
+    ], "view">;
+    getFunction(nameOrSignature: "getTotalMarketSupply"): TypedContractMethod<[
+        _poolToken: AddressLike
+    ], [
+        [bigint, bigint] & {
+            p2pSupplyAmount: bigint;
+            poolSupplyAmount: bigint;
+        }
+    ], "view">;
+    getFunction(nameOrSignature: "getTotalSupply"): TypedContractMethod<[
+    ], [
+        [
+            bigint,
+            bigint,
+            bigint
+        ] & {
+            p2pSupplyAmount: bigint;
+            poolSupplyAmount: bigint;
+            totalSupplyAmount: bigint;
+        }
+    ], "view">;
+    getFunction(nameOrSignature: "getUserBalanceStates"): TypedContractMethod<[
+        _user: AddressLike
+    ], [
+        Types.LiquidityDataStructOutput
+    ], "view">;
+    getFunction(nameOrSignature: "getUserHealthFactor"): TypedContractMethod<[_user: AddressLike], [bigint], "view">;
+    getFunction(nameOrSignature: "getUserHypotheticalBalanceStates"): TypedContractMethod<[
+        _user: AddressLike,
+        _poolToken: AddressLike,
+        _withdrawnAmount: BigNumberish,
+        _borrowedAmount: BigNumberish
+    ], [
+        Types.LiquidityDataStructOutput
+    ], "view">;
+    getFunction(nameOrSignature: "getUserHypotheticalHealthFactor"): TypedContractMethod<[
+        _user: AddressLike,
+        _poolToken: AddressLike,
+        _withdrawnAmount: BigNumberish,
+        _borrowedAmount: BigNumberish
+    ], [
+        bigint
+    ], "view">;
+    getFunction(nameOrSignature: "getUserLiquidityDataForAsset"): TypedContractMethod<[
+        _user: AddressLike,
+        _poolToken: AddressLike,
+        _oracle: AddressLike
+    ], [
+        Types.AssetLiquidityDataStructOutput
+    ], "view">;
+    getFunction(nameOrSignature: "getUserMaxCapacitiesForAsset"): TypedContractMethod<[
+        _user: AddressLike,
+        _poolToken: AddressLike
+    ], [
+        [bigint, bigint] & {
+            withdrawable: bigint;
+            borrowable: bigint;
+        }
+    ], "view">;
+    getFunction(nameOrSignature: "isLiquidatable(address)"): TypedContractMethod<[_user: AddressLike], [boolean], "view">;
+    getFunction(nameOrSignature: "isLiquidatable(address,address)"): TypedContractMethod<[
+        _user: AddressLike,
+        _poolToken: AddressLike
+    ], [
+        boolean
+    ], "view">;
+    getFunction(nameOrSignature: "isMarketCreated"): TypedContractMethod<[_poolToken: AddressLike], [boolean], "view">;
+    getFunction(nameOrSignature: "isMarketCreatedAndNotPaused"): TypedContractMethod<[arg0: AddressLike], [boolean], "view">;
+    getFunction(nameOrSignature: "isMarketCreatedAndNotPausedNorPartiallyPaused"): TypedContractMethod<[arg0: AddressLike], [boolean], "view">;
+    getFunction(nameOrSignature: "morpho"): TypedContractMethod<[], [string], "view">;
+    getFunction(nameOrSignature: "pool"): TypedContractMethod<[], [string], "view">;
+    filters: {};
+}

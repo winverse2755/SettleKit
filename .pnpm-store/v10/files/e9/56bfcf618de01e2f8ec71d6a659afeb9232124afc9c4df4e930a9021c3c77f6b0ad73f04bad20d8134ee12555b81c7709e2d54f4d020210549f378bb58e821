@@ -1,0 +1,21 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.fetchVaultConfig = fetchVaultConfig;
+const ethers_types_1 = require("ethers-types");
+const blue_sdk_1 = require("@morpho-org/blue-sdk");
+const Token_1 = require("./Token");
+async function fetchVaultConfig(address, runner, options = {}) {
+    options.chainId ??= Number((await runner.provider.getNetwork()).chainId);
+    const mm = ethers_types_1.MetaMorpho__factory.connect(address, runner);
+    const { overrides = {} } = options;
+    const [token, asset, decimalsOffset] = await Promise.all([
+        (0, Token_1.fetchToken)(address, runner, options), // TODO: avoid fetching decimals
+        mm.asset(),
+        mm.DECIMALS_OFFSET(overrides),
+    ]);
+    return new blue_sdk_1.VaultConfig({
+        ...token,
+        asset,
+        decimalsOffset,
+    });
+}

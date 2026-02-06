@@ -1,0 +1,82 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getPermitMessage = void 0;
+const blue_sdk_1 = require("@morpho-org/blue-sdk");
+const utils_1 = require("./utils");
+/**
+ * Permit signature for ERC20 tokens, following EIP-2612.
+ * Docs: https://eips.ethereum.org/EIPS/eip-2612
+ */
+const getPermitMessage = ({ deadline, owner, nonce, spender, erc20, allowance }, chainId) => {
+    const { usdc, dai } = (0, blue_sdk_1.getChainAddresses)(chainId);
+    const domain = erc20.eip5267Domain?.eip712Domain ?? {
+        name: erc20.name,
+        version: erc20.address === usdc ? "2" : "1",
+        chainId,
+        verifyingContract: erc20.address,
+    };
+    if (erc20.address === dai)
+        return (0, utils_1.getMessage)(domain, {
+            Permit: [
+                {
+                    name: "holder",
+                    type: "address",
+                },
+                {
+                    name: "spender",
+                    type: "address",
+                },
+                {
+                    name: "nonce",
+                    type: "uint256",
+                },
+                {
+                    name: "expiry",
+                    type: "uint256",
+                },
+                {
+                    name: "allowed",
+                    type: "bool",
+                },
+            ],
+        }, {
+            holder: owner,
+            spender,
+            allowed: allowance > 0n,
+            nonce,
+            expiry: deadline,
+        });
+    const types = {
+        Permit: [
+            {
+                name: "owner",
+                type: "address",
+            },
+            {
+                name: "spender",
+                type: "address",
+            },
+            {
+                name: "value",
+                type: "uint256",
+            },
+            {
+                name: "nonce",
+                type: "uint256",
+            },
+            {
+                name: "deadline",
+                type: "uint256",
+            },
+        ],
+    };
+    const value = {
+        owner,
+        spender,
+        value: allowance,
+        nonce,
+        deadline,
+    };
+    return (0, utils_1.getMessage)(domain, types, value);
+};
+exports.getPermitMessage = getPermitMessage;

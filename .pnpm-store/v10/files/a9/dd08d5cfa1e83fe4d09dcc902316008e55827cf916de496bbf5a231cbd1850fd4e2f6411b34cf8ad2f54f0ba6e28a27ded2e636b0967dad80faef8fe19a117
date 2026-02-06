@@ -1,0 +1,1278 @@
+import { type ContractRunner } from "ethers";
+import type { StEth, StEthInterface } from "../../../token/ERC20/StEth";
+export declare class StEth__factory {
+    static readonly abi: readonly [{
+        readonly constant: false;
+        readonly inputs: readonly [];
+        readonly name: "resume";
+        readonly outputs: readonly [];
+        readonly payable: false;
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "name";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "string";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "pure";
+        readonly type: "function";
+    }, {
+        readonly constant: false;
+        readonly inputs: readonly [];
+        readonly name: "stop";
+        readonly outputs: readonly [];
+        readonly payable: false;
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "hasInitialized";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "bool";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: false;
+        readonly inputs: readonly [{
+            readonly name: "_spender";
+            readonly type: "address";
+        }, {
+            readonly name: "_amount";
+            readonly type: "uint256";
+        }];
+        readonly name: "approve";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "bool";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "STAKING_CONTROL_ROLE";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "bytes32";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: false;
+        readonly inputs: readonly [{
+            readonly name: "_depositContract";
+            readonly type: "address";
+        }, {
+            readonly name: "_oracle";
+            readonly type: "address";
+        }, {
+            readonly name: "_operators";
+            readonly type: "address";
+        }, {
+            readonly name: "_treasury";
+            readonly type: "address";
+        }, {
+            readonly name: "_insuranceFund";
+            readonly type: "address";
+        }];
+        readonly name: "initialize";
+        readonly outputs: readonly [];
+        readonly payable: false;
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "getInsuranceFund";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "address";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "totalSupply";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [{
+            readonly name: "_ethAmount";
+            readonly type: "uint256";
+        }];
+        readonly name: "getSharesByPooledEth";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "isStakingPaused";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "bool";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: false;
+        readonly inputs: readonly [{
+            readonly name: "_sender";
+            readonly type: "address";
+        }, {
+            readonly name: "_recipient";
+            readonly type: "address";
+        }, {
+            readonly name: "_amount";
+            readonly type: "uint256";
+        }];
+        readonly name: "transferFrom";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "bool";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "getOperators";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "address";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [{
+            readonly name: "_script";
+            readonly type: "bytes";
+        }];
+        readonly name: "getEVMScriptExecutor";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "address";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: false;
+        readonly inputs: readonly [{
+            readonly name: "_maxStakeLimit";
+            readonly type: "uint256";
+        }, {
+            readonly name: "_stakeLimitIncreasePerBlock";
+            readonly type: "uint256";
+        }];
+        readonly name: "setStakingLimit";
+        readonly outputs: readonly [];
+        readonly payable: false;
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "RESUME_ROLE";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "bytes32";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "decimals";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "uint8";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "pure";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "getRecoveryVault";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "address";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "DEPOSIT_ROLE";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "bytes32";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "DEPOSIT_SIZE";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "getTotalPooledEther";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "PAUSE_ROLE";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "bytes32";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: false;
+        readonly inputs: readonly [{
+            readonly name: "_spender";
+            readonly type: "address";
+        }, {
+            readonly name: "_addedValue";
+            readonly type: "uint256";
+        }];
+        readonly name: "increaseAllowance";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "bool";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "getTreasury";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "address";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "isStopped";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "bool";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "MANAGE_WITHDRAWAL_KEY";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "bytes32";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "getBufferedEther";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: false;
+        readonly inputs: readonly [];
+        readonly name: "receiveELRewards";
+        readonly outputs: readonly [];
+        readonly payable: true;
+        readonly stateMutability: "payable";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "getELRewardsWithdrawalLimit";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "SIGNATURE_LENGTH";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "getWithdrawalCredentials";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "bytes32";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "getCurrentStakeLimit";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: false;
+        readonly inputs: readonly [{
+            readonly name: "_limitPoints";
+            readonly type: "uint16";
+        }];
+        readonly name: "setELRewardsWithdrawalLimit";
+        readonly outputs: readonly [];
+        readonly payable: false;
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly constant: false;
+        readonly inputs: readonly [{
+            readonly name: "_beaconValidators";
+            readonly type: "uint256";
+        }, {
+            readonly name: "_beaconBalance";
+            readonly type: "uint256";
+        }];
+        readonly name: "handleOracleReport";
+        readonly outputs: readonly [];
+        readonly payable: false;
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "getStakeLimitFullInfo";
+        readonly outputs: readonly [{
+            readonly name: "isStakingPaused";
+            readonly type: "bool";
+        }, {
+            readonly name: "isStakingLimitSet";
+            readonly type: "bool";
+        }, {
+            readonly name: "currentStakeLimit";
+            readonly type: "uint256";
+        }, {
+            readonly name: "maxStakeLimit";
+            readonly type: "uint256";
+        }, {
+            readonly name: "maxStakeLimitGrowthBlocks";
+            readonly type: "uint256";
+        }, {
+            readonly name: "prevStakeLimit";
+            readonly type: "uint256";
+        }, {
+            readonly name: "prevStakeBlockNumber";
+            readonly type: "uint256";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "SET_EL_REWARDS_WITHDRAWAL_LIMIT_ROLE";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "bytes32";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "getELRewardsVault";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "address";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [{
+            readonly name: "_account";
+            readonly type: "address";
+        }];
+        readonly name: "balanceOf";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: false;
+        readonly inputs: readonly [];
+        readonly name: "resumeStaking";
+        readonly outputs: readonly [];
+        readonly payable: false;
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "getFeeDistribution";
+        readonly outputs: readonly [{
+            readonly name: "treasuryFeeBasisPoints";
+            readonly type: "uint16";
+        }, {
+            readonly name: "insuranceFeeBasisPoints";
+            readonly type: "uint16";
+        }, {
+            readonly name: "operatorsFeeBasisPoints";
+            readonly type: "uint16";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [{
+            readonly name: "_sharesAmount";
+            readonly type: "uint256";
+        }];
+        readonly name: "getPooledEthByShares";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: false;
+        readonly inputs: readonly [{
+            readonly name: "_executionLayerRewardsVault";
+            readonly type: "address";
+        }];
+        readonly name: "setELRewardsVault";
+        readonly outputs: readonly [];
+        readonly payable: false;
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [{
+            readonly name: "token";
+            readonly type: "address";
+        }];
+        readonly name: "allowRecoverability";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "bool";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "MANAGE_PROTOCOL_CONTRACTS_ROLE";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "bytes32";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "appId";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "bytes32";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "getOracle";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "address";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "getInitializationBlock";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: false;
+        readonly inputs: readonly [{
+            readonly name: "_treasuryFeeBasisPoints";
+            readonly type: "uint16";
+        }, {
+            readonly name: "_insuranceFeeBasisPoints";
+            readonly type: "uint16";
+        }, {
+            readonly name: "_operatorsFeeBasisPoints";
+            readonly type: "uint16";
+        }];
+        readonly name: "setFeeDistribution";
+        readonly outputs: readonly [];
+        readonly payable: false;
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly constant: false;
+        readonly inputs: readonly [{
+            readonly name: "_feeBasisPoints";
+            readonly type: "uint16";
+        }];
+        readonly name: "setFee";
+        readonly outputs: readonly [];
+        readonly payable: false;
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly constant: false;
+        readonly inputs: readonly [{
+            readonly name: "_recipient";
+            readonly type: "address";
+        }, {
+            readonly name: "_sharesAmount";
+            readonly type: "uint256";
+        }];
+        readonly name: "transferShares";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly constant: false;
+        readonly inputs: readonly [{
+            readonly name: "_maxDeposits";
+            readonly type: "uint256";
+        }];
+        readonly name: "depositBufferedEther";
+        readonly outputs: readonly [];
+        readonly payable: false;
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "symbol";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "string";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "pure";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "MANAGE_FEE";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "bytes32";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: false;
+        readonly inputs: readonly [{
+            readonly name: "_token";
+            readonly type: "address";
+        }];
+        readonly name: "transferToVault";
+        readonly outputs: readonly [];
+        readonly payable: false;
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [{
+            readonly name: "_sender";
+            readonly type: "address";
+        }, {
+            readonly name: "_role";
+            readonly type: "bytes32";
+        }, {
+            readonly name: "_params";
+            readonly type: "uint256[]";
+        }];
+        readonly name: "canPerform";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "bool";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: false;
+        readonly inputs: readonly [{
+            readonly name: "_referral";
+            readonly type: "address";
+        }];
+        readonly name: "submit";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly payable: true;
+        readonly stateMutability: "payable";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "WITHDRAWAL_CREDENTIALS_LENGTH";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: false;
+        readonly inputs: readonly [{
+            readonly name: "_spender";
+            readonly type: "address";
+        }, {
+            readonly name: "_subtractedValue";
+            readonly type: "uint256";
+        }];
+        readonly name: "decreaseAllowance";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "bool";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "getEVMScriptRegistry";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "address";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "PUBKEY_LENGTH";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "SET_EL_REWARDS_VAULT_ROLE";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "bytes32";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: false;
+        readonly inputs: readonly [{
+            readonly name: "_recipient";
+            readonly type: "address";
+        }, {
+            readonly name: "_amount";
+            readonly type: "uint256";
+        }];
+        readonly name: "transfer";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "bool";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "getDepositContract";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "address";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "getBeaconStat";
+        readonly outputs: readonly [{
+            readonly name: "depositedValidators";
+            readonly type: "uint256";
+        }, {
+            readonly name: "beaconValidators";
+            readonly type: "uint256";
+        }, {
+            readonly name: "beaconBalance";
+            readonly type: "uint256";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: false;
+        readonly inputs: readonly [];
+        readonly name: "removeStakingLimit";
+        readonly outputs: readonly [];
+        readonly payable: false;
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "BURN_ROLE";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "bytes32";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "getFee";
+        readonly outputs: readonly [{
+            readonly name: "feeBasisPoints";
+            readonly type: "uint16";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "kernel";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "address";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "getTotalShares";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [{
+            readonly name: "_owner";
+            readonly type: "address";
+        }, {
+            readonly name: "_spender";
+            readonly type: "address";
+        }];
+        readonly name: "allowance";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "isPetrified";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "bool";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: false;
+        readonly inputs: readonly [{
+            readonly name: "_oracle";
+            readonly type: "address";
+        }, {
+            readonly name: "_treasury";
+            readonly type: "address";
+        }, {
+            readonly name: "_insuranceFund";
+            readonly type: "address";
+        }];
+        readonly name: "setProtocolContracts";
+        readonly outputs: readonly [];
+        readonly payable: false;
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly constant: false;
+        readonly inputs: readonly [{
+            readonly name: "_withdrawalCredentials";
+            readonly type: "bytes32";
+        }];
+        readonly name: "setWithdrawalCredentials";
+        readonly outputs: readonly [];
+        readonly payable: false;
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "STAKING_PAUSE_ROLE";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "bytes32";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: false;
+        readonly inputs: readonly [];
+        readonly name: "depositBufferedEther";
+        readonly outputs: readonly [];
+        readonly payable: false;
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly constant: false;
+        readonly inputs: readonly [{
+            readonly name: "_account";
+            readonly type: "address";
+        }, {
+            readonly name: "_sharesAmount";
+            readonly type: "uint256";
+        }];
+        readonly name: "burnShares";
+        readonly outputs: readonly [{
+            readonly name: "newTotalShares";
+            readonly type: "uint256";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [{
+            readonly name: "_account";
+            readonly type: "address";
+        }];
+        readonly name: "sharesOf";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly constant: false;
+        readonly inputs: readonly [];
+        readonly name: "pauseStaking";
+        readonly outputs: readonly [];
+        readonly payable: false;
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly constant: true;
+        readonly inputs: readonly [];
+        readonly name: "getTotalELRewardsCollected";
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly payable: false;
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly payable: true;
+        readonly stateMutability: "payable";
+        readonly type: "fallback";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: true;
+            readonly name: "executor";
+            readonly type: "address";
+        }, {
+            readonly indexed: false;
+            readonly name: "script";
+            readonly type: "bytes";
+        }, {
+            readonly indexed: false;
+            readonly name: "input";
+            readonly type: "bytes";
+        }, {
+            readonly indexed: false;
+            readonly name: "returnData";
+            readonly type: "bytes";
+        }];
+        readonly name: "ScriptResult";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: true;
+            readonly name: "vault";
+            readonly type: "address";
+        }, {
+            readonly indexed: true;
+            readonly name: "token";
+            readonly type: "address";
+        }, {
+            readonly indexed: false;
+            readonly name: "amount";
+            readonly type: "uint256";
+        }];
+        readonly name: "RecoverToVault";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: true;
+            readonly name: "from";
+            readonly type: "address";
+        }, {
+            readonly indexed: true;
+            readonly name: "to";
+            readonly type: "address";
+        }, {
+            readonly indexed: false;
+            readonly name: "sharesValue";
+            readonly type: "uint256";
+        }];
+        readonly name: "TransferShares";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: true;
+            readonly name: "account";
+            readonly type: "address";
+        }, {
+            readonly indexed: false;
+            readonly name: "preRebaseTokenAmount";
+            readonly type: "uint256";
+        }, {
+            readonly indexed: false;
+            readonly name: "postRebaseTokenAmount";
+            readonly type: "uint256";
+        }, {
+            readonly indexed: false;
+            readonly name: "sharesAmount";
+            readonly type: "uint256";
+        }];
+        readonly name: "SharesBurnt";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [];
+        readonly name: "Stopped";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [];
+        readonly name: "Resumed";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: true;
+            readonly name: "from";
+            readonly type: "address";
+        }, {
+            readonly indexed: true;
+            readonly name: "to";
+            readonly type: "address";
+        }, {
+            readonly indexed: false;
+            readonly name: "value";
+            readonly type: "uint256";
+        }];
+        readonly name: "Transfer";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: true;
+            readonly name: "owner";
+            readonly type: "address";
+        }, {
+            readonly indexed: true;
+            readonly name: "spender";
+            readonly type: "address";
+        }, {
+            readonly indexed: false;
+            readonly name: "value";
+            readonly type: "uint256";
+        }];
+        readonly name: "Approval";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [];
+        readonly name: "StakingPaused";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [];
+        readonly name: "StakingResumed";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: false;
+            readonly name: "maxStakeLimit";
+            readonly type: "uint256";
+        }, {
+            readonly indexed: false;
+            readonly name: "stakeLimitIncreasePerBlock";
+            readonly type: "uint256";
+        }];
+        readonly name: "StakingLimitSet";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [];
+        readonly name: "StakingLimitRemoved";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: false;
+            readonly name: "oracle";
+            readonly type: "address";
+        }, {
+            readonly indexed: false;
+            readonly name: "treasury";
+            readonly type: "address";
+        }, {
+            readonly indexed: false;
+            readonly name: "insuranceFund";
+            readonly type: "address";
+        }];
+        readonly name: "ProtocolContactsSet";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: false;
+            readonly name: "feeBasisPoints";
+            readonly type: "uint16";
+        }];
+        readonly name: "FeeSet";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: false;
+            readonly name: "treasuryFeeBasisPoints";
+            readonly type: "uint16";
+        }, {
+            readonly indexed: false;
+            readonly name: "insuranceFeeBasisPoints";
+            readonly type: "uint16";
+        }, {
+            readonly indexed: false;
+            readonly name: "operatorsFeeBasisPoints";
+            readonly type: "uint16";
+        }];
+        readonly name: "FeeDistributionSet";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: false;
+            readonly name: "amount";
+            readonly type: "uint256";
+        }];
+        readonly name: "ELRewardsReceived";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: false;
+            readonly name: "limitPoints";
+            readonly type: "uint256";
+        }];
+        readonly name: "ELRewardsWithdrawalLimitSet";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: false;
+            readonly name: "withdrawalCredentials";
+            readonly type: "bytes32";
+        }];
+        readonly name: "WithdrawalCredentialsSet";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: false;
+            readonly name: "executionLayerRewardsVault";
+            readonly type: "address";
+        }];
+        readonly name: "ELRewardsVaultSet";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: true;
+            readonly name: "sender";
+            readonly type: "address";
+        }, {
+            readonly indexed: false;
+            readonly name: "amount";
+            readonly type: "uint256";
+        }, {
+            readonly indexed: false;
+            readonly name: "referral";
+            readonly type: "address";
+        }];
+        readonly name: "Submitted";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: false;
+            readonly name: "amount";
+            readonly type: "uint256";
+        }];
+        readonly name: "Unbuffered";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: true;
+            readonly name: "sender";
+            readonly type: "address";
+        }, {
+            readonly indexed: false;
+            readonly name: "tokenAmount";
+            readonly type: "uint256";
+        }, {
+            readonly indexed: false;
+            readonly name: "sentFromBuffer";
+            readonly type: "uint256";
+        }, {
+            readonly indexed: true;
+            readonly name: "pubkeyHash";
+            readonly type: "bytes32";
+        }, {
+            readonly indexed: false;
+            readonly name: "etherAmount";
+            readonly type: "uint256";
+        }];
+        readonly name: "Withdrawal";
+        readonly type: "event";
+    }];
+    static createInterface(): StEthInterface;
+    static connect(address: string, runner?: ContractRunner | null): StEth;
+}

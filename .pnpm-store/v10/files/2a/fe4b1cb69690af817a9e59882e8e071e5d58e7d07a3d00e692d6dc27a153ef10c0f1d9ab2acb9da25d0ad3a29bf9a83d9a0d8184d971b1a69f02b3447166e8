@@ -1,0 +1,127 @@
+import { type ContractRunner } from "ethers";
+import type { ChainlinkOracle, ChainlinkOracleInterface } from "../../../../protocols/morpho/blue/ChainlinkOracle";
+export declare class ChainlinkOracle__factory {
+    static readonly abi: readonly [{
+        readonly type: "constructor";
+        readonly inputs: readonly [{
+            readonly name: "vault";
+            readonly type: "address";
+            readonly internalType: "contract IERC4626";
+        }, {
+            readonly name: "baseFeed1";
+            readonly type: "address";
+            readonly internalType: "contract AggregatorV3Interface";
+        }, {
+            readonly name: "baseFeed2";
+            readonly type: "address";
+            readonly internalType: "contract AggregatorV3Interface";
+        }, {
+            readonly name: "quoteFeed1";
+            readonly type: "address";
+            readonly internalType: "contract AggregatorV3Interface";
+        }, {
+            readonly name: "quoteFeed2";
+            readonly type: "address";
+            readonly internalType: "contract AggregatorV3Interface";
+        }, {
+            readonly name: "vaultConversionSample";
+            readonly type: "uint256";
+            readonly internalType: "uint256";
+        }, {
+            readonly name: "baseTokenDecimals";
+            readonly type: "uint256";
+            readonly internalType: "uint256";
+        }, {
+            readonly name: "quoteTokenDecimals";
+            readonly type: "uint256";
+            readonly internalType: "uint256";
+        }];
+        readonly stateMutability: "nonpayable";
+    }, {
+        readonly type: "function";
+        readonly name: "BASE_FEED_1";
+        readonly inputs: readonly [];
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "address";
+            readonly internalType: "contract AggregatorV3Interface";
+        }];
+        readonly stateMutability: "view";
+    }, {
+        readonly type: "function";
+        readonly name: "BASE_FEED_2";
+        readonly inputs: readonly [];
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "address";
+            readonly internalType: "contract AggregatorV3Interface";
+        }];
+        readonly stateMutability: "view";
+    }, {
+        readonly type: "function";
+        readonly name: "QUOTE_FEED_1";
+        readonly inputs: readonly [];
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "address";
+            readonly internalType: "contract AggregatorV3Interface";
+        }];
+        readonly stateMutability: "view";
+    }, {
+        readonly type: "function";
+        readonly name: "QUOTE_FEED_2";
+        readonly inputs: readonly [];
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "address";
+            readonly internalType: "contract AggregatorV3Interface";
+        }];
+        readonly stateMutability: "view";
+    }, {
+        readonly type: "function";
+        readonly name: "SCALE_FACTOR";
+        readonly inputs: readonly [];
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "uint256";
+            readonly internalType: "uint256";
+        }];
+        readonly stateMutability: "view";
+    }, {
+        readonly type: "function";
+        readonly name: "VAULT";
+        readonly inputs: readonly [];
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "address";
+            readonly internalType: "contract IERC4626";
+        }];
+        readonly stateMutability: "view";
+    }, {
+        readonly type: "function";
+        readonly name: "VAULT_CONVERSION_SAMPLE";
+        readonly inputs: readonly [];
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "uint256";
+            readonly internalType: "uint256";
+        }];
+        readonly stateMutability: "view";
+    }, {
+        readonly type: "function";
+        readonly name: "price";
+        readonly inputs: readonly [];
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "uint256";
+            readonly internalType: "uint256";
+        }];
+        readonly stateMutability: "view";
+    }, {
+        readonly type: "error";
+        readonly name: "MathOverflowedMulDiv";
+        readonly inputs: readonly [];
+    }];
+    static createInterface(): ChainlinkOracleInterface;
+    static connect(address: string, runner?: ContractRunner | null): ChainlinkOracle;
+}

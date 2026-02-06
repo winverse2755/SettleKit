@@ -1,0 +1,188 @@
+import { type ContractRunner } from "ethers";
+import type { PendlePtOracle, PendlePtOracleInterface } from "../../../../protocols/pendle/oracles/PendlePtOracle";
+export declare class PendlePtOracle__factory {
+    static readonly abi: readonly [{
+        readonly inputs: readonly [{
+            readonly internalType: "uint16";
+            readonly name: "_blockCycleNumerator";
+            readonly type: "uint16";
+        }];
+        readonly stateMutability: "nonpayable";
+        readonly type: "constructor";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "blockCycleNumerator";
+            readonly type: "uint256";
+        }];
+        readonly name: "InvalidBlockRate";
+        readonly type: "error";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "uint32";
+            readonly name: "duration";
+            readonly type: "uint32";
+        }, {
+            readonly internalType: "uint32";
+            readonly name: "cardinalityRequired";
+            readonly type: "uint32";
+        }];
+        readonly name: "TwapDurationTooLarge";
+        readonly type: "error";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: false;
+            readonly internalType: "uint8";
+            readonly name: "version";
+            readonly type: "uint8";
+        }];
+        readonly name: "Initialized";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: true;
+            readonly internalType: "address";
+            readonly name: "previousOwner";
+            readonly type: "address";
+        }, {
+            readonly indexed: true;
+            readonly internalType: "address";
+            readonly name: "newOwner";
+            readonly type: "address";
+        }];
+        readonly name: "OwnershipTransferred";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: false;
+            readonly internalType: "uint16";
+            readonly name: "newBlockCycleNumerator";
+            readonly type: "uint16";
+        }];
+        readonly name: "SetBlockCycleNumerator";
+        readonly type: "event";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "BLOCK_CYCLE_DENOMINATOR";
+        readonly outputs: readonly [{
+            readonly internalType: "uint16";
+            readonly name: "";
+            readonly type: "uint16";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "blockCycleNumerator";
+        readonly outputs: readonly [{
+            readonly internalType: "uint16";
+            readonly name: "";
+            readonly type: "uint16";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "claimOwnership";
+        readonly outputs: readonly [];
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address";
+            readonly name: "market";
+            readonly type: "address";
+        }, {
+            readonly internalType: "uint32";
+            readonly name: "duration";
+            readonly type: "uint32";
+        }];
+        readonly name: "getOracleState";
+        readonly outputs: readonly [{
+            readonly internalType: "bool";
+            readonly name: "increaseCardinalityRequired";
+            readonly type: "bool";
+        }, {
+            readonly internalType: "uint16";
+            readonly name: "cardinalityRequired";
+            readonly type: "uint16";
+        }, {
+            readonly internalType: "bool";
+            readonly name: "oldestObservationSatisfied";
+            readonly type: "bool";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address";
+            readonly name: "market";
+            readonly type: "address";
+        }, {
+            readonly internalType: "uint32";
+            readonly name: "duration";
+            readonly type: "uint32";
+        }];
+        readonly name: "getPtToAssetRate";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "ptToAssetRate";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "owner";
+        readonly outputs: readonly [{
+            readonly internalType: "address";
+            readonly name: "";
+            readonly type: "address";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "pendingOwner";
+        readonly outputs: readonly [{
+            readonly internalType: "address";
+            readonly name: "";
+            readonly type: "address";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "uint16";
+            readonly name: "newBlockCycleNumerator";
+            readonly type: "uint16";
+        }];
+        readonly name: "setBlockCycleNumerator";
+        readonly outputs: readonly [];
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address";
+            readonly name: "newOwner";
+            readonly type: "address";
+        }, {
+            readonly internalType: "bool";
+            readonly name: "direct";
+            readonly type: "bool";
+        }, {
+            readonly internalType: "bool";
+            readonly name: "renounce";
+            readonly type: "bool";
+        }];
+        readonly name: "transferOwnership";
+        readonly outputs: readonly [];
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }];
+    static createInterface(): PendlePtOracleInterface;
+    static connect(address: string, runner?: ContractRunner | null): PendlePtOracle;
+}

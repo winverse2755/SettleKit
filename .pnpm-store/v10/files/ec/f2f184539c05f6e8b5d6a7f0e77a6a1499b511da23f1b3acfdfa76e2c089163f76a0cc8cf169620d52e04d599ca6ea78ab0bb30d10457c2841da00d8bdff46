@@ -1,0 +1,13 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.BLUE_API_GRAPHQL_URL = exports.OPTIMIZERS_API_BASE_URL = exports.OPTIMIZERS_BASE_URL = exports.REWARDS_BASE_URL = exports.BLUE_API_BASE_URL = exports.DOCS_BASE_URL = exports.CDN_BASE_URL = exports.getSubdomainBaseUrl = exports.MORPHO_DOMAIN = void 0;
+exports.MORPHO_DOMAIN = "morpho.org";
+const getSubdomainBaseUrl = (subDomain) => `https://${subDomain}.${exports.MORPHO_DOMAIN}`;
+exports.getSubdomainBaseUrl = getSubdomainBaseUrl;
+exports.CDN_BASE_URL = (0, exports.getSubdomainBaseUrl)("cdn");
+exports.DOCS_BASE_URL = (0, exports.getSubdomainBaseUrl)("docs");
+exports.BLUE_API_BASE_URL = (0, exports.getSubdomainBaseUrl)("api");
+exports.REWARDS_BASE_URL = (0, exports.getSubdomainBaseUrl)("rewards");
+exports.OPTIMIZERS_BASE_URL = (0, exports.getSubdomainBaseUrl)("optimizers");
+exports.OPTIMIZERS_API_BASE_URL = (0, exports.getSubdomainBaseUrl)("api");
+exports.BLUE_API_GRAPHQL_URL = new URL("/graphql", exports.BLUE_API_BASE_URL).toString();

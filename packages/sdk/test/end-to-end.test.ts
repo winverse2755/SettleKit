@@ -1999,11 +1999,12 @@ async function main() {
         jsonOutput,
     };
 
-    // Run combined CCTP + Uniswap live tests
-    console.log('🔴 Running LIVE end-to-end tests');
-    console.log('   This will execute real transactions on:');
-    console.log('   • Base Sepolia → Arc Testnet (CCTP Transfer)');
-    console.log('   • Unichain Sepolia (Uniswap Liquidity Deposit)');
+    // Run single unified end-to-end flow
+    console.log('🔴 Running LIVE end-to-end test');
+    console.log('   This will execute a single full flow:');
+    console.log('   • Phase 1: CCTP Transfer (Base Sepolia → Arc Testnet)');
+    console.log('   • Phase 2: Risk Evaluation');
+    console.log('   • Phase 3: Uniswap Liquidity Deposit (Unichain Sepolia)');
     console.log('   Ensure PRIVATE_KEY is set and account has USDC');
     console.log('');
     console.log('   Environment Variables:');
@@ -2011,9 +2012,27 @@ async function main() {
     console.log('   • VERBOSE=false       - Reduce log verbosity');
     console.log('   • JSON_OUTPUT=true    - Output logs as JSON\n');
 
-    const { cctpResult, uniswapResult } = await testLiveCCTPAndUniswap();
-    results.push({ name: 'Live CCTP Transfer', report: cctpResult });
-    results.push({ name: 'Live Uniswap Execution', report: uniswapResult });
+    const report = await runEndToEndTest({
+        mode: 'live',
+        amount: '5', // 5 USDC for full flow test
+        recipient: process.env.RECIPIENT_ADDRESS || process.env.PUBLIC_ADDRESS || '',
+        agentPolicy: {
+            max_slippage: 0.10,
+            max_price_impact: 0.10,
+            min_confidence: 0.30,
+            retry_attempts: 2,
+            retry_delay_seconds: 5,
+            fallback_strategy: 'wait',
+        },
+        poolKey: {
+            currency0: '0x0000000000000000000000000000000000000000',
+            currency1: '0x31d0220469e10c4e71834a79b1f276d740d3768f',
+            fee: 3000,
+            tickSpacing: 60,
+            hooks: '0x0000000000000000000000000000000000000000',
+        },
+    }, { verbose: true });
+    results.push({ name: 'Live End-to-End Flow', report });
 
     // Print comprehensive summary
     printSuiteSummary(results, true);

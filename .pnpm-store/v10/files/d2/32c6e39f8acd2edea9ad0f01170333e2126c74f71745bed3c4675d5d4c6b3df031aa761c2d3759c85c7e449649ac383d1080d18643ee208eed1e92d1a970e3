@@ -1,0 +1,39 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.fetchMarket = fetchMarket;
+exports.fetchMarketFromConfig = fetchMarketFromConfig;
+const ethers_1 = require("ethers");
+const ethers_types_1 = require("ethers-types");
+const blue_sdk_1 = require("@morpho-org/blue-sdk");
+const MarketParams_1 = require("./MarketParams");
+async function fetchMarket(id, runner, { chainId, overrides = {} } = {}) {
+    chainId ??= Number((await runner.provider.getNetwork()).chainId);
+    const config = await (0, MarketParams_1.fetchMarketParams)(id, runner, { chainId });
+    return fetchMarketFromConfig(config, runner, { chainId, overrides });
+}
+async function fetchMarketFromConfig(params, runner, { chainId, overrides = {} } = {}) {
+    chainId ??= Number((await runner.provider.getNetwork()).chainId);
+    const { morpho, adaptiveCurveIrm } = (0, blue_sdk_1.getChainAddresses)(chainId);
+    const [{ totalSupplyAssets, totalSupplyShares, totalBorrowShares, totalBorrowAssets, lastUpdate, fee, }, price, rateAtTarget,] = await Promise.all([
+        ethers_types_1.MorphoBlue__factory.connect(morpho, runner).market(params.id, overrides),
+        params.oracle !== ethers_1.ZeroAddress
+            ? ethers_types_1.BlueOracle__factory.connect(params.oracle, runner)
+                .price(overrides)
+                .catch(() => undefined)
+            : undefined,
+        params.irm === adaptiveCurveIrm
+            ? await ethers_types_1.AdaptiveCurveIrm__factory.connect(params.irm, runner).rateAtTarget(params.id, overrides)
+            : undefined,
+    ]);
+    return new blue_sdk_1.Market({
+        params,
+        totalSupplyAssets,
+        totalBorrowAssets,
+        totalSupplyShares,
+        totalBorrowShares,
+        lastUpdate,
+        fee,
+        price,
+        rateAtTarget,
+    });
+}

@@ -1,0 +1,182 @@
+import { type CapacityLimit } from "../market/index.js";
+import { type RoundingDirection } from "../math/index.js";
+import { VaultToken } from "../token/index.js";
+import type { Address, BigIntish, MarketId } from "../types.js";
+import type { IVaultConfig } from "./VaultConfig.js";
+import { type IVaultMarketAllocation, VaultMarketAllocation } from "./VaultMarketAllocation.js";
+export interface Pending<T> {
+    value: T;
+    validAt: bigint;
+}
+export interface VaultPublicAllocatorConfig {
+    /**
+     * The PublicAllocator's admin address.
+     */
+    admin: Address;
+    /**
+     * The PublicAllocator's reallocation fee (in native token).
+     */
+    fee: bigint;
+    /**
+     * The PublicAllocator's reallocation fee accrued so far (in native token).
+     */
+    accruedFee: bigint;
+}
+export interface IVault extends IVaultConfig {
+    curator: Address;
+    owner: Address;
+    guardian: Address;
+    fee: bigint;
+    feeRecipient: Address;
+    skimRecipient: Address;
+    pendingTimelock: Pending<bigint>;
+    pendingGuardian: Pending<Address>;
+    pendingOwner: Address;
+    timelock: bigint;
+    supplyQueue: MarketId[];
+    withdrawQueue: MarketId[];
+    totalSupply: bigint;
+    totalAssets: bigint;
+    lastTotalAssets: bigint;
+    lostAssets?: bigint;
+    publicAllocatorConfig?: VaultPublicAllocatorConfig;
+}
+export declare class Vault extends VaultToken implements IVault {
+    /**
+     * The vault's share token's name.
+     */
+    readonly name: string;
+    /**
+     * The vault's share token's symbol.
+     */
+    readonly symbol: string;
+    /**
+     * The MetaMorpho vault's owner address.
+     */
+    owner: Address;
+    /**
+     * The MetaMorpho vault's curator address.
+     */
+    curator: Address;
+    /**
+     * The MetaMorpho vault's guardian address.
+     */
+    guardian: Address;
+    /**
+     * The MetaMorpho vault's skim recipient address (mostly used to skim reward tokens claimed to the vault).
+     */
+    skimRecipient: Address;
+    /**
+     * The MetaMorpho vault's fee recipient address.
+     */
+    feeRecipient: Address;
+    /**
+     * The MetaMorpho vault's timelock (in seconds).
+     */
+    timelock: bigint;
+    /**
+     * The MetaMorpho vault's fee.
+     */
+    fee: bigint;
+    /**
+     * The MetaMorpho vault's pending owner address and activation timestamp.
+     */
+    pendingOwner: Address;
+    /**
+     * The MetaMorpho vault's pending guardian address and activation timestamp.
+     */
+    pendingGuardian: Pending<Address>;
+    /**
+     * The MetaMorpho vault's pending timelock (in seconds) and activation timestamp.
+     */
+    pendingTimelock: Pending<bigint>;
+    /**
+     * The MetaMorpho vault's ordered supply queue.
+     */
+    supplyQueue: MarketId[];
+    /**
+     * The MetaMorpho vault's ordered withdraw queue.
+     */
+    withdrawQueue: MarketId[];
+    /**
+     * The MetaMorpho vault's last total assets used to calculate performance fees.
+     */
+    lastTotalAssets: bigint;
+    /**
+     * The MetaMorpho vault's lost assets due to realized bad debt.
+     * Only defined for MetaMorpho V1.1 vaults.
+     */
+    lostAssets?: bigint;
+    /**
+     * The MetaMorpho vault's public allocator configuration.
+     */
+    publicAllocatorConfig?: VaultPublicAllocatorConfig;
+    constructor({ curator, owner, guardian, publicAllocatorConfig, fee, feeRecipient, skimRecipient, pendingTimelock, pendingGuardian, pendingOwner, timelock, supplyQueue, withdrawQueue, totalSupply, totalAssets, lastTotalAssets, lostAssets, ...config }: IVault);
+    /**
+     * The amount of interest in assets accrued since the last interaction with the vault.
+     */
+    get totalInterest(): bigint;
+    toAssets(shares: bigint, rounding?: RoundingDirection): bigint;
+    toShares(assets: bigint, rounding?: RoundingDirection): bigint;
+}
+export interface CollateralAllocation {
+    address: Address;
+    lltvs: Set<bigint>;
+    oracles: Set<Address>;
+    markets: Set<MarketId>;
+    proportion: bigint;
+}
+export interface IAccrualVault extends Omit<IVault, "withdrawQueue" | "totalAssets"> {
+}
+export declare class AccrualVault extends Vault implements IAccrualVault {
+    /**
+     * The allocation of the vault on each market enabled.
+     */
+    readonly allocations: Map<MarketId, VaultMarketAllocation>;
+    /**
+     * The proportion of assets of the vault supplied to markets collateralized by each collateral asset.
+     */
+    readonly collateralAllocations: Map<Address, CollateralAllocation>;
+    constructor(vault: IAccrualVault, 
+    /**
+     * The allocation of the vault on each market of the withdraw queue,
+     * in the same order as the withdraw queue.
+     */
+    allocations: Omit<IVaultMarketAllocation, "proportion">[]);
+    /**
+     * The vault's liquidity directly available from allocated markets.
+     */
+    get liquidity(): bigint;
+    /**
+     * The MetaMorpho vault's APY on its assets averaged over its market deposits,
+     * before deducting the performance fee, at the time of each market's last update (scaled by WAD).
+     * If interested in the APY at a specific timestamp, use `getApy(timestamp)` instead.
+     */
+    get apy(): bigint;
+    /**
+     * The MetaMorpho vault's APY on its assets averaged over its market deposits,
+     * after deducting the performance fee, at the time of each market's last update (scaled by WAD).
+     * If interested in the APY at a specific timestamp, use `getApy(timestamp)` instead.
+     */
+    get netApy(): bigint;
+    /**
+     * The MetaMorpho vault's APY on its assets averaged over its market deposits,
+     * before deducting the performance fee, at the given timestamp,
+     * if the state of all the markets remains unchanged (not accrued) (scaled by WAD).
+     */
+    getApy(timestamp: BigIntish): bigint;
+    /**
+     * The MetaMorpho vault's APY on its assets averaged over its market deposits,
+     * after deducting the performance fee, at the given timestamp,
+     * if the state of all the markets remains unchanged (not accrued) (scaled by WAD).
+     */
+    getNetApy(timestamp: BigIntish): bigint;
+    getAllocationProportion(marketId: MarketId): bigint;
+    getDepositCapacityLimit(assets: bigint): CapacityLimit;
+    getWithdrawCapacityLimit(shares: bigint): CapacityLimit;
+    /**
+     * Returns a new vault derived from this vault, whose interest has been accrued up to the given timestamp.
+     * @param timestamp The timestamp at which to accrue interest. Must be greater than or equal to each of the vault's market's `lastUpdate`.
+     */
+    accrueInterest(timestamp: BigIntish): AccrualVault;
+}

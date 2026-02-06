@@ -1,0 +1,234 @@
+import { type ContractRunner } from "ethers";
+import type { ParaSwapLiquiditySwapAdapter, ParaSwapLiquiditySwapAdapterInterface } from "../../../../../protocols/aave/protocol-v2/adapters/ParaSwapLiquiditySwapAdapter";
+export declare class ParaSwapLiquiditySwapAdapter__factory {
+    static readonly abi: readonly [{
+        readonly inputs: readonly [{
+            readonly internalType: "contract ILendingPoolAddressesProvider";
+            readonly name: "addressesProvider";
+            readonly type: "address";
+        }, {
+            readonly internalType: "contract IParaSwapAugustusRegistry";
+            readonly name: "augustusRegistry";
+            readonly type: "address";
+        }];
+        readonly stateMutability: "nonpayable";
+        readonly type: "constructor";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: true;
+            readonly internalType: "address";
+            readonly name: "previousOwner";
+            readonly type: "address";
+        }, {
+            readonly indexed: true;
+            readonly internalType: "address";
+            readonly name: "newOwner";
+            readonly type: "address";
+        }];
+        readonly name: "OwnershipTransferred";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: true;
+            readonly internalType: "address";
+            readonly name: "fromAsset";
+            readonly type: "address";
+        }, {
+            readonly indexed: true;
+            readonly internalType: "address";
+            readonly name: "toAsset";
+            readonly type: "address";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "uint256";
+            readonly name: "fromAmount";
+            readonly type: "uint256";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "uint256";
+            readonly name: "receivedAmount";
+            readonly type: "uint256";
+        }];
+        readonly name: "Swapped";
+        readonly type: "event";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "ADDRESSES_PROVIDER";
+        readonly outputs: readonly [{
+            readonly internalType: "contract ILendingPoolAddressesProvider";
+            readonly name: "";
+            readonly type: "address";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "AUGUSTUS_REGISTRY";
+        readonly outputs: readonly [{
+            readonly internalType: "contract IParaSwapAugustusRegistry";
+            readonly name: "";
+            readonly type: "address";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "LENDING_POOL";
+        readonly outputs: readonly [{
+            readonly internalType: "contract ILendingPool";
+            readonly name: "";
+            readonly type: "address";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "MAX_SLIPPAGE_PERCENT";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "ORACLE";
+        readonly outputs: readonly [{
+            readonly internalType: "contract IPriceOracleGetter";
+            readonly name: "";
+            readonly type: "address";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address[]";
+            readonly name: "assets";
+            readonly type: "address[]";
+        }, {
+            readonly internalType: "uint256[]";
+            readonly name: "amounts";
+            readonly type: "uint256[]";
+        }, {
+            readonly internalType: "uint256[]";
+            readonly name: "premiums";
+            readonly type: "uint256[]";
+        }, {
+            readonly internalType: "address";
+            readonly name: "initiator";
+            readonly type: "address";
+        }, {
+            readonly internalType: "bytes";
+            readonly name: "params";
+            readonly type: "bytes";
+        }];
+        readonly name: "executeOperation";
+        readonly outputs: readonly [{
+            readonly internalType: "bool";
+            readonly name: "";
+            readonly type: "bool";
+        }];
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "owner";
+        readonly outputs: readonly [{
+            readonly internalType: "address";
+            readonly name: "";
+            readonly type: "address";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "renounceOwnership";
+        readonly outputs: readonly [];
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "contract IERC20";
+            readonly name: "token";
+            readonly type: "address";
+        }];
+        readonly name: "rescueTokens";
+        readonly outputs: readonly [];
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "contract IERC20Detailed";
+            readonly name: "assetToSwapFrom";
+            readonly type: "address";
+        }, {
+            readonly internalType: "contract IERC20Detailed";
+            readonly name: "assetToSwapTo";
+            readonly type: "address";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "amountToSwap";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "minAmountToReceive";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "swapAllBalanceOffset";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "bytes";
+            readonly name: "swapCalldata";
+            readonly type: "bytes";
+        }, {
+            readonly internalType: "contract IParaSwapAugustus";
+            readonly name: "augustus";
+            readonly type: "address";
+        }, {
+            readonly components: readonly [{
+                readonly internalType: "uint256";
+                readonly name: "amount";
+                readonly type: "uint256";
+            }, {
+                readonly internalType: "uint256";
+                readonly name: "deadline";
+                readonly type: "uint256";
+            }, {
+                readonly internalType: "uint8";
+                readonly name: "v";
+                readonly type: "uint8";
+            }, {
+                readonly internalType: "bytes32";
+                readonly name: "r";
+                readonly type: "bytes32";
+            }, {
+                readonly internalType: "bytes32";
+                readonly name: "s";
+                readonly type: "bytes32";
+            }];
+            readonly internalType: "struct BaseParaSwapAdapter.PermitSignature";
+            readonly name: "permitParams";
+            readonly type: "tuple";
+        }];
+        readonly name: "swapAndDeposit";
+        readonly outputs: readonly [];
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address";
+            readonly name: "newOwner";
+            readonly type: "address";
+        }];
+        readonly name: "transferOwnership";
+        readonly outputs: readonly [];
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }];
+    static createInterface(): ParaSwapLiquiditySwapAdapterInterface;
+    static connect(address: string, runner?: ContractRunner | null): ParaSwapLiquiditySwapAdapter;
+}

@@ -1,0 +1,36 @@
+export declare enum ChainId {
+    EthMainnet = 1,
+    BaseMainnet = 8453,
+    PolygonMainnet = 137,
+    ArbitrumMainnet = 42161,
+    OptimismMainnet = 10,
+    WorldChainMainnet = 480,
+    FraxtalMainnet = 252,
+    ScrollMainnet = 534352,
+    InkMainnet = 57073,
+    Unichain = 130,
+    SonicMainnet = 146,
+    HemiMainnet = 43111,
+    ModeMainnet = 34443,
+    CornMainnet = 21000000,
+    PlumeMainnet = 98866,
+    CampMainnet = 123420001114
+}
+export interface ChainMetadata {
+    readonly name: string;
+    readonly id: ChainId;
+    readonly explorerUrl: string;
+    readonly nativeCurrency: {
+        readonly name: string;
+        readonly symbol: string;
+        readonly decimals: number;
+    };
+    readonly identifier: string;
+}
+export declare namespace ChainUtils {
+    const toHexChainId: (chainId: ChainId) => string;
+    const getExplorerUrl: (chainId: ChainId) => string;
+    const getExplorerAddressUrl: (chainId: ChainId, address: string) => string;
+    const getExplorerTransactionUrl: (chainId: ChainId, tx: string) => string;
+    const CHAIN_METADATA: Record<ChainId, ChainMetadata>;
+}

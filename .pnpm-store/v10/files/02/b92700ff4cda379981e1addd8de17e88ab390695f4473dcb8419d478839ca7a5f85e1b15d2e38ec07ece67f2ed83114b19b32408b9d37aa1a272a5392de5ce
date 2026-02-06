@@ -1,0 +1,36 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.fetchPosition = fetchPosition;
+exports.fetchAccrualPosition = fetchAccrualPosition;
+exports.fetchAccrualPositionFromConfig = fetchAccrualPositionFromConfig;
+const ethers_types_1 = require("ethers-types");
+const blue_sdk_1 = require("@morpho-org/blue-sdk");
+const Market_1 = require("./Market");
+async function fetchPosition(user, marketId, runner, { chainId, overrides = {} } = {}) {
+    chainId ??= Number((await runner.provider.getNetwork()).chainId);
+    const { morpho } = (0, blue_sdk_1.getChainAddresses)(chainId);
+    const { supplyShares, borrowShares, collateral } = await ethers_types_1.MorphoBlue__factory.connect(morpho, runner).position(marketId, user, overrides);
+    return new blue_sdk_1.Position({
+        user,
+        marketId,
+        supplyShares,
+        borrowShares,
+        collateral,
+    });
+}
+async function fetchAccrualPosition(user, marketId, runner, options = {}) {
+    options.chainId ??= Number((await runner.provider.getNetwork()).chainId);
+    const [position, market] = await Promise.all([
+        await fetchPosition(user, marketId, runner, options),
+        await (0, Market_1.fetchMarket)(marketId, runner, options),
+    ]);
+    return new blue_sdk_1.AccrualPosition(position, market);
+}
+async function fetchAccrualPositionFromConfig(user, config, runner, options = {}) {
+    options.chainId ??= Number((await runner.provider.getNetwork()).chainId);
+    const [position, market] = await Promise.all([
+        await fetchPosition(user, config.id, runner, options),
+        await (0, Market_1.fetchMarketFromConfig)(config, runner, options),
+    ]);
+    return new blue_sdk_1.AccrualPosition(position, market);
+}

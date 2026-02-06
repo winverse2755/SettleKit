@@ -1,0 +1,19 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.fetchVaultMarketAllocation = fetchVaultMarketAllocation;
+exports.fetchVaultMarketAllocationFromConfig = fetchVaultMarketAllocationFromConfig;
+const blue_sdk_1 = require("@morpho-org/blue-sdk");
+const Position_1 = require("./Position");
+const VaultMarketConfig_1 = require("./VaultMarketConfig");
+async function fetchVaultMarketAllocation(vault, marketId, runner, options = {}) {
+    options.chainId ??= Number((await runner.provider.getNetwork()).chainId);
+    const config = await (0, VaultMarketConfig_1.fetchVaultMarketConfig)(vault, marketId, runner, options);
+    return fetchVaultMarketAllocationFromConfig(config, marketId, runner, options);
+}
+async function fetchVaultMarketAllocationFromConfig(config, marketId, runner, options = {}) {
+    options.chainId ??= Number((await runner.provider.getNetwork()).chainId);
+    return new blue_sdk_1.VaultMarketAllocation({
+        config,
+        position: await (0, Position_1.fetchAccrualPosition)(config.vault, marketId, runner, options),
+    });
+}
