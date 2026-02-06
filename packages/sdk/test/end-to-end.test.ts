@@ -64,6 +64,7 @@ import type {
 } from '../src/types/agent';
 import type { RiskMetrics } from '../src/types/risk';
 import type { LegReceipt } from '../src/types/leg-types';
+import { getPoolState } from '../src/utils/pool-utils';
 import { privateKeyToAccount } from 'viem/accounts';
 import { parseUnits, encodeAbiParameters, keccak256 } from 'viem';
 import type { Address } from 'viem';
@@ -1338,11 +1339,27 @@ export class EndToEndOrchestrator {
 
         this.log(`[Live] Amount conversion: ${this.config.amount} USDC -> ${rawAmount} raw units`);
 
-        // Build deposit intent with raw amount for UniswapLiquidityExecutor
+        // Fetch current pool state to get current tick for one-sided liquidity strategy
+        const poolState = await getPoolState(this.poolId, 'unichainSepolia');
+        const currentTick = poolState.tick;
+        this.log(`[Live] Current pool tick: ${currentTick}`);
+
+        // One-sided lower price strategy for USDC-only deposit
+        // Set range entirely BELOW current tick so only USDC (token1) is required
+        // When price is ABOVE the tick range, only token1 is needed
+        const tickSpacing = this.config.poolKey.tickSpacing; // 60 for 0.30% pools
+        const tickLower = Math.floor((currentTick - 2000) / tickSpacing) * tickSpacing;
+        const tickUpper = Math.floor((currentTick - 100) / tickSpacing) * tickSpacing;
+        
+        this.log(`[Live] One-sided USDC deposit: tickLower=${tickLower}, tickUpper=${tickUpper} (below current tick ${currentTick})`);
+
+        // Build deposit intent with raw amount and one-sided tick range for UniswapLiquidityExecutor
         const intent: DepositLiquidityIntent = {
             poolId: this.poolId,
             amount: rawAmount, // Use raw amount (6 decimals) for executor
             recipient: this.config.recipient,
+            tickLower, // One-sided lower: below current tick
+            tickUpper, // One-sided lower: below current tick
         };
 
         this.log(`[Live] Depositing ${this.config.amount} USDC to pool ${intent.poolId.slice(0, 18)}...`);
@@ -1742,7 +1759,7 @@ export async function testLiveCCTPTransfer(): Promise<DetailedTestReport> {
     
     return runEndToEndTest({
         mode: 'live',
-        amount: '0.01', // Small amount for testing (0.01 USDC)
+        amount: '5', // 5 USDC for full flow test
         recipient: process.env.RECIPIENT_ADDRESS || '',
         agentPolicy: {
             max_slippage: 0.05, // 5% slippage tolerance for testnet
@@ -1775,7 +1792,7 @@ export async function testLiveUniswapExecution(): Promise<DetailedTestReport> {
 
     return runEndToEndTest({
         mode: 'live',
-        amount: '0.1', // 0.1 USDC - small amount for testnet
+        amount: '5', // 5 USDC for testnet
         recipient,
         agentPolicy: {
             max_slippage: 0.10,         // 10% max slippage for testnet

@@ -8,47 +8,17 @@ import {
     type PublicClient,
     getContract,
     type GetContractReturnType,
+    encodeAbiParameters,
+    keccak256,
 } from 'viem';
-import { unichainSepolia, CHAINS, type ChainKey } from '../config/networks';
+import { CHAINS, type ChainKey } from '../config/networks';
 
-// Uniswap v4 Pool Manager ABI (relevant functions for pool queries)
+// Uniswap v4 pools mapping storage slot
+const POOLS_SLOT = 6n;
+
+// Uniswap v4 Pool Manager ABI
+// We use extsload to directly read pool state from storage
 const POOL_MANAGER_ABI = [
-    {
-        name: 'getSlot0',
-        type: 'function',
-        stateMutability: 'view',
-        inputs: [{ name: 'id', type: 'bytes32' }],
-        outputs: [
-            { name: 'sqrtPriceX96', type: 'uint160' },
-            { name: 'tick', type: 'int24' },
-            { name: 'protocolFee', type: 'uint24' },
-            { name: 'lpFee', type: 'uint24' },
-        ],
-    },
-    {
-        name: 'getLiquidity',
-        type: 'function',
-        stateMutability: 'view',
-        inputs: [{ name: 'id', type: 'bytes32' }],
-        outputs: [{ name: 'liquidity', type: 'uint128' }],
-    },
-    {
-        name: 'getPosition',
-        type: 'function',
-        stateMutability: 'view',
-        inputs: [
-            { name: 'poolId', type: 'bytes32' },
-            { name: 'owner', type: 'address' },
-            { name: 'tickLower', type: 'int24' },
-            { name: 'tickUpper', type: 'int24' },
-            { name: 'salt', type: 'bytes32' },
-        ],
-        outputs: [
-            { name: 'liquidity', type: 'uint128' },
-            { name: 'feeGrowthInside0LastX128', type: 'uint256' },
-            { name: 'feeGrowthInside1LastX128', type: 'uint256' },
-        ],
-    },
     {
         name: 'extsload',
         type: 'function',
@@ -56,11 +26,31 @@ const POOL_MANAGER_ABI = [
         inputs: [{ name: 'slot', type: 'bytes32' }],
         outputs: [{ name: 'value', type: 'bytes32' }],
     },
+    {
+        name: 'initialize',
+        type: 'function',
+        stateMutability: 'nonpayable',
+        inputs: [
+            {
+                name: 'key',
+                type: 'tuple',
+                components: [
+                    { name: 'currency0', type: 'address' },
+                    { name: 'currency1', type: 'address' },
+                    { name: 'fee', type: 'uint24' },
+                    { name: 'tickSpacing', type: 'int24' },
+                    { name: 'hooks', type: 'address' },
+                ],
+            },
+            { name: 'sqrtPriceX96', type: 'uint160' },
+        ],
+        outputs: [{ name: 'tick', type: 'int24' }],
+    },
 ] as const;
 
 // Uniswap v4 Pool Manager addresses per chain
 const POOL_MANAGER_ADDRESSES: Partial<Record<ChainKey, Address>> = {
-    unichainSepolia: '0x4529A01c7A0410167c5740C487A8DE60232617bf', // Unichain Sepolia Pool Manager
+    unichainSepolia: '0x00b036b58a818b1bc34d502d3fe730db729e62ac', // Unichain Sepolia Pool Manager
 };
 
 // Pool state interface
@@ -122,7 +112,14 @@ export function getPoolContract(
 }
 
 /**
- * Fetch pool state from the Uniswap v4 Pool Manager
+ * Fetch pool state directly from the PoolManager contract using extsload.
+ * 
+ * This uses direct storage queries instead of the StateView lens contract,
+ * which has proven more reliable on certain chains.
+ * 
+ * Storage layout for Uniswap v4 pools:
+ * - slot0 (256 bits): sqrtPriceX96 (160) | tick (24, signed) | protocolFee (24) | lpFee (24)
+ * - slot1 (256 bits): liquidity (128)
  * 
  * @param poolId - The pool ID (bytes32)
  * @param chainKey - The chain to query (defaults to unichainSepolia)
@@ -139,28 +136,56 @@ export async function getPoolState(
         throw new Error(`Pool Manager address not configured for chain: ${chainKey}`);
     }
 
-    // Fetch slot0 and liquidity in parallel
-    const [slot0Result, liquidityResult] = await Promise.all([
+    // Compute the storage slot for this pool's state
+    // slot = keccak256(abi.encode(poolId, POOLS_SLOT))
+    const poolStateSlot = keccak256(
+        encodeAbiParameters(
+            [{ type: 'bytes32' }, { type: 'uint256' }],
+            [poolId, POOLS_SLOT]
+        )
+    );
+
+    // Compute slot for liquidity (slot0 + 1)
+    const liquiditySlot = ('0x' + (BigInt(poolStateSlot) + 1n).toString(16).padStart(64, '0')) as `0x${string}`;
+
+    // Fetch slot0 and liquidity slot in parallel using extsload
+    const [slot0Data, slot1Data] = await Promise.all([
         client.readContract({
             address: poolManagerAddress,
             abi: POOL_MANAGER_ABI,
-            functionName: 'getSlot0',
-            args: [poolId],
+            functionName: 'extsload',
+            args: [poolStateSlot],
         }),
         client.readContract({
             address: poolManagerAddress,
             abi: POOL_MANAGER_ABI,
-            functionName: 'getLiquidity',
-            args: [poolId],
+            functionName: 'extsload',
+            args: [liquiditySlot],
         }),
     ]);
 
-    const [sqrtPriceX96, tick, protocolFee, lpFee] = slot0Result;
+    // Parse slot0: sqrtPriceX96 (160 bits) | tick (24 bits signed) | protocolFee (24 bits) | lpFee (24 bits)
+    const slot0Value = BigInt(slot0Data);
+    const sqrtPriceX96 = slot0Value & ((1n << 160n) - 1n);
+    
+    // Extract tick (24 bits signed, starting at bit 160)
+    const tickRaw = Number((slot0Value >> 160n) & ((1n << 24n) - 1n));
+    // Convert to signed int24: if bit 23 is set, it's negative
+    const tick = tickRaw >= 0x800000 ? tickRaw - 0x1000000 : tickRaw;
+    
+    // Extract protocolFee (24 bits, starting at bit 184)
+    const protocolFee = Number((slot0Value >> 184n) & ((1n << 24n) - 1n));
+    
+    // Extract lpFee (24 bits, starting at bit 208)
+    const lpFee = Number((slot0Value >> 208n) & ((1n << 24n) - 1n));
+
+    // Parse slot1: liquidity (128 bits)
+    const liquidity = BigInt(slot1Data) & ((1n << 128n) - 1n);
 
     return {
         sqrtPriceX96,
         tick,
-        liquidity: liquidityResult,
+        liquidity,
         protocolFee,
         lpFee,
     };
@@ -343,4 +368,67 @@ export async function batchGetPoolStates(
     });
 
     return poolStates;
+}
+
+/**
+ * Pool initialization status with detailed information
+ */
+export interface PoolInitializationStatus {
+    initialized: boolean;
+    sqrtPriceX96: bigint;
+    tick: number;
+    liquidity: bigint;
+    price: number;
+}
+
+/**
+ * Check if a Uniswap v4 pool is initialized.
+ * A pool is initialized when sqrtPriceX96 > 0.
+ * 
+ * If the pool doesn't exist or the query reverts, returns initialized=false.
+ */
+export async function isPoolInitialized(
+    poolId: `0x${string}`,
+    chainKey: ChainKey = 'unichainSepolia'
+): Promise<PoolInitializationStatus> {
+    try {
+        const state = await getPoolState(poolId, chainKey);
+        const initialized = state.sqrtPriceX96 > 0n;
+        
+        let price = 0;
+        if (initialized) {
+            const Q96 = 2n ** 96n;
+            const sqrtPrice = Number(state.sqrtPriceX96) / Number(Q96);
+            price = sqrtPrice * sqrtPrice;
+        }
+
+        return {
+            initialized,
+            sqrtPriceX96: state.sqrtPriceX96,
+            tick: state.tick,
+            liquidity: state.liquidity,
+            price,
+        };
+    } catch (error) {
+        // If the extsload query fails, the pool doesn't exist or isn't initialized
+        // Return a "not initialized" status
+        return {
+            initialized: false,
+            sqrtPriceX96: 0n,
+            tick: 0,
+            liquidity: 0n,
+            price: 0,
+        };
+    }
+}
+
+/**
+ * Get the Pool Manager address for a given chain
+ */
+export function getPoolManagerAddress(chainKey: ChainKey = 'unichainSepolia'): Address {
+    const address = POOL_MANAGER_ADDRESSES[chainKey];
+    if (!address) {
+        throw new Error(`Pool Manager address not configured for chain: ${chainKey}`);
+    }
+    return address;
 }
