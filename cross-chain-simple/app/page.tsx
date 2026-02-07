@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { Container, Row, Col, Card, Alert, Badge } from 'react-bootstrap';
 import WalletButton from './components/WalletButton';
 import TransferFlow from './components/TransferFlow';
 import { useWallet } from './hooks/useWallet';
@@ -9,59 +9,92 @@ export default function HomePage() {
   const { address, isConnected } = useWallet();
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #111827 0%, #000 50%, #111827 100%)',
-      color: 'white',
-    }}>
+    <div className="bg-dark text-white min-vh-100">
       {/* Header */}
-      <header style={{
-        position: 'sticky',
-        top: 0,
-        zIndex: 50,
-        background: 'rgba(31, 41, 55, 0.9)',
-        backdropFilter: 'blur(12px)',
-        borderBottom: '1px solid #374151',
-      }}>
-        <div style={{
-          maxWidth: '80rem',
-          margin: '0 auto',
-          padding: '1rem',
-        }}>
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'start',
-            justifyContent: 'space-between',
-            gap: '1rem',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              <div style={{
-                fontSize: '1.875rem',
-                fontWeight: 'bold',
-                background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-              }}>
+      <nav className="navbar navbar-dark bg-dark border-bottom border-secondary sticky-top">
+        <Container fluid="xl">
+          <div className="d-flex justify-content-between align-items-center w-100">
+            <div className="d-flex align-items-center">
+              <span className="navbar-brand mb-0 h1 text-gradient">
                 CrossChain Liquidity
-              </div>
+              </span>
+              <Badge bg="primary" className="ms-2">v1.0</Badge>
             </div>
             <WalletButton />
           </div>
-        </div>
-      </header>
+        </Container>
+      </nav>
 
       {/* Main Content */}
-      <main style={{
-        maxWidth: '80rem',
-        margin: '0 auto',
-        padding: '2rem 1rem',
-      }}>
-        <TransferFlow
-          walletAddress={address}
-          isConnected={isConnected}
-        />
-      </main>
+      <Container fluid="xl" className="py-4">
+        {/* Hero Section */}
+        <Row className="mb-5 text-center">
+          <Col>
+            <h1 className="display-4 fw-bold mb-3 text-gradient">
+              Cross-Chain Liquidity Orchestration
+            </h1>
+            <p className="lead text-muted">
+              Automated cross-chain USDC transfer via CCTP with intelligent risk assessment
+              and Uniswap v4 liquidity provision.
+            </p>
+          </Col>
+        </Row>
+
+        {/* Main Flow */}
+        <Row className="mb-5">
+          <Col>
+            <TransferFlow
+              walletAddress={address}
+              isConnected={isConnected}
+            />
+          </Col>
+        </Row>
+
+        {/* Info Section */}
+        <Row>
+          <Col>
+            <Card className="bg-dark border-secondary">
+              <Card.Body>
+                <Card.Title className="h4 mb-4">Flow Overview</Card.Title>
+                <Row>
+                  {[
+                    { icon: '🔗', title: 'Connect Wallet', desc: 'Connect your Web3 wallet' },
+                    { icon: '⚙️', title: 'Configure Transfer', desc: 'Set amount and risk parameters' },
+                    { icon: '🌉', title: 'CCTP Bridge', desc: 'Base → Arc → Unichain via CCTP' },
+                    { icon: '💧', title: 'Auto Liquidity', desc: 'Add to Uniswap v4 pool' },
+                  ].map((step, idx) => (
+                    <Col md={3} key={idx} className="text-center mb-3">
+                      <div className="display-4 mb-2">{step.icon}</div>
+                      <h5 className="h5">{step.title}</h5>
+                      <p className="text-muted small">{step.desc}</p>
+                    </Col>
+                  ))}
+                </Row>
+              </Card.Body>
+            </Card>
+          </Col>
+        </Row>
+      </Container>
+
+      {/* Footer */}
+      <footer className="mt-5 py-3 border-top border-secondary">
+        <Container fluid="xl" className="text-center text-muted">
+          <small>Built for Hackathon • Powered by CCTP & Uniswap v4</small>
+        </Container>
+      </footer>
+
+      <style jsx>{`
+        .text-gradient {
+          background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+        
+        .navbar-brand {
+          font-size: 1.8rem;
+        }
+      `}</style>
     </div>
   );
 }

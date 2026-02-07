@@ -1,12 +1,52 @@
-/* Elimina todo el contenido y deja solo esto: */
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+/* Estilos personalizados adicionales para Bootstrap */
+
+/* Fondo oscuro mejorado */
+.bg-dark {
+  background-color: #0f172a !important;
 }
 
-body {
-  background: #111827; /* bg-gray-900 */
+/* Bordes más sutiles */
+.border-secondary {
+  border-color: #334155 !important;
+}
+
+/* Cards con transparencia */
+.bg-dark-card {
+  background-color: rgba(30, 41, 59, 0.7) !important;
+  backdrop-filter: blur(10px);
+}
+
+/* Gradientes para botones */
+.btn-gradient {
+  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  border: none;
   color: white;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.btn-gradient:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+  color: white;
+}
+
+/* Fuentes mono para direcciones */
+.font-monospace {
+  font-family: 'Courier New', monospace;
+}
+
+/* Scrollbar personalizado */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
 }

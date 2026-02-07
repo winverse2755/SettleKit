@@ -1,6 +1,7 @@
 'use client';
 
 import { useWallet } from '@/app/hooks/useWallet';
+import { Button, Dropdown, Badge, Modal } from 'react-bootstrap';
 import { useState } from 'react';
 
 export default function WalletButton() {
@@ -15,7 +16,7 @@ export default function WalletButton() {
         isWalletAvailable
     } = useWallet();
 
-    const [showProviderMenu, setShowProviderMenu] = useState(false);
+    const [showModal, setShowModal] = useState(false);
 
     const formatAddress = (addr: string) => {
         return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
@@ -23,168 +24,117 @@ export default function WalletButton() {
 
     const handleConnect = async () => {
         await connectWallet();
-        setShowProviderMenu(false);
+        setShowModal(false);
     };
 
-    // Estilos inline
-    const styles = {
-        button: {
-            padding: '0.75rem 1.5rem',
-            background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
-            color: 'white',
-            border: 'none',
-            borderRadius: '0.5rem',
-            fontWeight: '500',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-        } as React.CSSProperties,
-        buttonHover: {
-            background: 'linear-gradient(135deg, #4338ca 0%, #6d28d9 100%)',
-        },
-        walletInfo: {
-            display: 'flex',
-            alignItems: 'center',
-            gap: '1rem',
-        } as React.CSSProperties,
-        addressBadge: {
-            background: '#1f2937',
-            padding: '0.5rem 1rem',
-            borderRadius: '0.5rem',
-        } as React.CSSProperties,
-        disconnectButton: {
-            padding: '0.5rem 1rem',
-            background: '#dc2626',
-            color: 'white',
-            border: 'none',
-            borderRadius: '0.5rem',
-            cursor: 'pointer',
-        } as React.CSSProperties,
-        menu: {
-            position: 'absolute' as const,
-            right: 0,
-            top: '100%',
-            marginTop: '0.5rem',
-            width: '16rem',
-            background: '#1f2937',
-            border: '1px solid #374151',
-            borderRadius: '0.5rem',
-            boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
-            zIndex: 50,
-        } as React.CSSProperties,
+    const getProviderIcon = () => {
+        if (provider === 'MetaMask') return '🦊';
+        if (provider === 'Coinbase Wallet') return '⚡';
+        return '👛';
     };
 
     if (!isWalletAvailable) {
         return (
-            <div style={{ position: 'relative' }}>
-                <button
-                    onClick={() => setShowProviderMenu(!showProviderMenu)}
-                    style={styles.button}
-                    onMouseEnter={(e) => Object.assign(e.currentTarget.style, styles.buttonHover)}
-                    onMouseLeave={(e) => Object.assign(e.currentTarget.style, styles.button)}
+            <>
+                <Button
+                    variant="primary"
+                    onClick={() => setShowModal(true)}
+                    className="px-4 py-2"
                 >
                     Install Wallet
-                </button>
+                </Button>
 
-                {showProviderMenu && (
-                    <>
-                        <div
-                            style={{
-                                position: 'fixed',
-                                inset: 0,
-                                zIndex: 40,
-                            }}
-                            onClick={() => setShowProviderMenu(false)}
-                        />
-                        <div style={styles.menu}>
-                            <div style={{ padding: '1rem' }}>
-                                <h3 style={{ fontWeight: '500', color: 'white', marginBottom: '0.5rem' }}>
-                                    Choose a Wallet
-                                </h3>
-                                <p style={{ fontSize: '0.875rem', color: '#9ca3af', marginBottom: '1rem' }}>
-                                    You need to install a wallet to continue
-                                </p>
-
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                    <a
-                                        href="https://metamask.io/download/"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '0.75rem',
-                                            padding: '0.75rem',
-                                            borderRadius: '0.5rem',
-                                            color: 'white',
-                                            textDecoration: 'none',
-                                        }}
-                                        onMouseEnter={(e) => e.currentTarget.style.background = '#374151'}
-                                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                                    >
-                                        <div style={{
-                                            width: '2rem',
-                                            height: '2rem',
-                                            background: '#f97316',
-                                            borderRadius: '0.5rem',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                        }}>
-                                            <span style={{ fontSize: '0.875rem', fontWeight: 'bold' }}>🦊</span>
-                                        </div>
-                                        <div style={{ textAlign: 'left' }}>
-                                            <div style={{ fontWeight: '500', color: 'white' }}>MetaMask</div>
-                                            <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>Desktop & Mobile</div>
-                                        </div>
-                                    </a>
+                <Modal show={showModal} onHide={() => setShowModal(false)} centered>
+                    <Modal.Header closeButton className="bg-dark border-secondary">
+                        <Modal.Title>Install Wallet</Modal.Title>
+                    </Modal.Header>
+                    <Modal.Body className="bg-dark">
+                        <p className="text-muted mb-3">
+                            You need a Web3 wallet to use this application
+                        </p>
+                        <div className="d-grid gap-2">
+                            <a
+                                href="https://metamask.io/download/"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn btn-outline-primary d-flex align-items-center justify-content-center gap-2 py-3"
+                            >
+                                <span className="fs-4">🦊</span>
+                                <div className="text-start">
+                                    <div className="fw-bold">MetaMask</div>
+                                    <small className="text-muted">Desktop & Mobile</small>
                                 </div>
-                            </div>
+                            </a>
+                            <a
+                                href="https://www.coinbase.com/wallet/downloads"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn btn-outline-primary d-flex align-items-center justify-content-center gap-2 py-3"
+                            >
+                                <span className="fs-4">⚡</span>
+                                <div className="text-start">
+                                    <div className="fw-bold">Coinbase Wallet</div>
+                                    <small className="text-muted">All platforms</small>
+                                </div>
+                            </a>
                         </div>
-                    </>
-                )}
-            </div>
+                    </Modal.Body>
+                </Modal>
+            </>
         );
     }
 
     if (!isConnected) {
         return (
-            <button
-                onClick={handleConnect}
-                style={styles.button}
-                onMouseEnter={(e) => Object.assign(e.currentTarget.style, styles.buttonHover)}
-                onMouseLeave={(e) => Object.assign(e.currentTarget.style, styles.button)}
+            <Button
+                variant="primary"
+                onClick={connectWallet}
+                className="px-4 py-2"
             >
                 Connect Wallet
-            </button>
+            </Button>
         );
     }
 
     return (
-        <div style={styles.walletInfo}>
-            <div style={{ textAlign: 'right', display: 'none' }}>
-                <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>{chainName}</div>
-                <div style={{ fontWeight: '500' }}>{balance} ETH</div>
+        <div className="d-flex align-items-center gap-3">
+            {/* Network & Balance - Solo desktop */}
+            <div className="d-none d-md-block text-end">
+                <div className="text-muted small">{chainName}</div>
+                <div className="fw-bold">{balance} ETH</div>
             </div>
 
-            <div style={styles.addressBadge}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    {provider === 'MetaMask' && (
-                        <span style={{ color: '#f97316' }} title="MetaMask">🦊</span>
-                    )}
-                    <span style={{ fontWeight: '500' }}>{formatAddress(address!)}</span>
-                </div>
-                <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>{provider}</div>
-            </div>
+            {/* Wallet Address */}
+            <Dropdown>
+                <Dropdown.Toggle variant="dark" className="d-flex align-items-center gap-2">
+                    <span>{getProviderIcon()}</span>
+                    <span className="fw-medium">{formatAddress(address!)}</span>
+                    <Badge bg="success" className="ms-1">•</Badge>
+                </Dropdown.Toggle>
 
-            <button
-                onClick={disconnectWallet}
-                style={styles.disconnectButton}
-                onMouseEnter={(e) => e.currentTarget.style.background = '#b91c1c'}
-                onMouseLeave={(e) => e.currentTarget.style.background = '#dc2626'}
-                title="Disconnect"
-            >
-                Disconnect
-            </button>
+                <Dropdown.Menu className="bg-dark border-secondary">
+                    <Dropdown.Header className="text-muted">Connected Wallet</Dropdown.Header>
+                    <Dropdown.ItemText className="text-white">
+                        <div className="small text-muted">Address</div>
+                        <div className="font-monospace">{address}</div>
+                    </Dropdown.ItemText>
+                    <Dropdown.ItemText className="text-white">
+                        <div className="small text-muted">Network</div>
+                        <div>{chainName}</div>
+                    </Dropdown.ItemText>
+                    <Dropdown.ItemText className="text-white">
+                        <div className="small text-muted">Balance</div>
+                        <div>{balance} ETH</div>
+                    </Dropdown.ItemText>
+                    <Dropdown.Divider className="border-secondary" />
+                    <Dropdown.Item
+                        onClick={disconnectWallet}
+                        className="text-danger"
+                    >
+                        Disconnect Wallet
+                    </Dropdown.Item>
+                </Dropdown.Menu>
+            </Dropdown>
         </div>
     );
 }

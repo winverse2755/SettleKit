@@ -1,3 +1,4 @@
+import 'bootstrap/dist/css/bootstrap.min.css';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
@@ -5,8 +6,8 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Cross-Chain Liquidity',
-  description: 'Cross-chain liquidity provision interface',
+  title: 'Cross-Chain Liquidity Orchestrator',
+  description: 'Automated cross-chain liquidity provision interface',
 };
 
 export default function RootLayout({
@@ -16,7 +17,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className} style={{ margin: 0, padding: 0 }}>
+      <body className={inter.className}>
         {children}
       </body>
     </html>
