@@ -1,1 +1,0 @@
-export type { ERC721Receiver } from "./ERC721Receiver";

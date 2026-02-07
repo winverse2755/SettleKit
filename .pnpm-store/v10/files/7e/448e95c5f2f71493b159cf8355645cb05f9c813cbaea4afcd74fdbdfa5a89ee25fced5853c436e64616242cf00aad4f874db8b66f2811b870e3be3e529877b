@@ -1,4 +1,0 @@
-export { AaveV3ACLManager__factory } from "./AaveV3ACLManager__factory";
-export { AaveV3PoolAddressesProvider__factory } from "./AaveV3PoolAddressesProvider__factory";
-export { AaveV3PoolAddressesProviderRegistry__factory } from "./AaveV3PoolAddressesProviderRegistry__factory";
-export { AaveV3PriceOracleSentinel__factory } from "./AaveV3PriceOracleSentinel__factory";

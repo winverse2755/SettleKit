@@ -1,4 +1,0 @@
-export type { AaveV3ACLManager } from "./AaveV3ACLManager";
-export type { AaveV3PoolAddressesProvider } from "./AaveV3PoolAddressesProvider";
-export type { AaveV3PoolAddressesProviderRegistry } from "./AaveV3PoolAddressesProviderRegistry";
-export type { AaveV3PriceOracleSentinel } from "./AaveV3PriceOracleSentinel";

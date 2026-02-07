@@ -1,1 +1,0 @@
-export { ERC721Receiver__factory } from "./ERC721Receiver__factory";

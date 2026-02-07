@@ -1,7 +1,0 @@
-import type { Provider } from "ethers";
-import { type ChainId, type MarketId, MarketParams } from "@morpho-org/blue-sdk";
-export declare function fetchMarketParams(id: MarketId, runner: {
-    provider: Provider;
-}, { chainId }?: {
-    chainId?: ChainId;
-}): Promise<MarketParams>;

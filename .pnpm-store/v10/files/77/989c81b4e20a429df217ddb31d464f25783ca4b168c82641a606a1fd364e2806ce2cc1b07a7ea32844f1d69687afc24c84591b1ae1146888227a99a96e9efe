@@ -1,3 +1,0 @@
-export type { MorphoCompound } from "./MorphoCompound";
-export type { MorphoCompoundLens } from "./MorphoCompoundLens";
-export type { MorphoCompoundSupplyVault } from "./MorphoCompoundSupplyVault";

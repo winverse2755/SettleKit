@@ -1,6 +1,0 @@
-import type { Provider } from "ethers";
-import { type Address, User } from "@morpho-org/blue-sdk";
-import type { FetchOptions } from "../types";
-export declare function fetchUser(address: Address, runner: {
-    provider: Provider;
-}, { chainId, overrides }?: FetchOptions): Promise<User>;

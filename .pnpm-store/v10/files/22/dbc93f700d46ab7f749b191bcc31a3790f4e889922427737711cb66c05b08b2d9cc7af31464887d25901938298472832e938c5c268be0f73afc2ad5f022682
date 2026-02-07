@@ -1,3 +1,0 @@
-export type { AaveV3L2Encoder } from "./AaveV3L2Encoder";
-export type { AaveV3Oracle } from "./AaveV3Oracle";
-export type { AaveV3ProtocolDataProvider } from "./AaveV3ProtocolDataProvider";

@@ -1,6 +1,0 @@
-import type * as configuration from "./configuration";
-export type { configuration };
-import type * as lendingpool from "./lendingpool";
-export type { lendingpool };
-import type * as tokenization from "./tokenization";
-export type { tokenization };

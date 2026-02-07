@@ -1,9 +1,0 @@
-import { type Provider } from "ethers";
-import { AccrualVault, type Address, Vault } from "@morpho-org/blue-sdk";
-import type { FetchOptions } from "../types";
-export declare function fetchVault(address: Address, runner: {
-    provider: Provider;
-}, options?: FetchOptions): Promise<Vault>;
-export declare function fetchAccrualVault(address: Address, runner: {
-    provider: Provider;
-}, options?: FetchOptions): Promise<AccrualVault>;

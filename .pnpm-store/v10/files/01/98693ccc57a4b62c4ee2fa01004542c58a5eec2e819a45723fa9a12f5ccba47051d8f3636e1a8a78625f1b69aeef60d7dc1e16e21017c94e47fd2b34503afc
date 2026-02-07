@@ -1,2 +1,0 @@
-export type { BeaconProxy } from "./BeaconProxy";
-export type { UpgradeableBeacon } from "./UpgradeableBeacon";

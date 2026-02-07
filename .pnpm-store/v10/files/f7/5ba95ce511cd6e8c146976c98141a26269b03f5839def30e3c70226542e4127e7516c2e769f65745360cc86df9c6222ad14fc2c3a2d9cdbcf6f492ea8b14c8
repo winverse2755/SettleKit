@@ -1,1 +1,0 @@
-export { BalancerVault__factory } from "./BalancerVault__factory";

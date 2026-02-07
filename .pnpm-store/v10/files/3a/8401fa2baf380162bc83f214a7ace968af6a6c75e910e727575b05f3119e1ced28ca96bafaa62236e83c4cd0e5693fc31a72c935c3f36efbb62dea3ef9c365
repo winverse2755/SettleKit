@@ -1,1 +1,0 @@
-export { ERC165__factory } from "./ERC165__factory";
