@@ -1,0 +1,4 @@
+export type { ATokenV3 } from "./ATokenV3";
+export type { DelegationAwareATokenV3 } from "./DelegationAwareATokenV3";
+export type { StableDebtTokenV3 } from "./StableDebtTokenV3";
+export type { VariableDebtTokenV3 } from "./VariableDebtTokenV3";

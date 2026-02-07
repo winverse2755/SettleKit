@@ -1,0 +1,19 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.fetchUser = fetchUser;
+const blue_sdk_1 = require("@morpho-org/blue-sdk");
+const ethers_types_1 = require("ethers-types");
+async function fetchUser(address, runner, { chainId, overrides = {} } = {}) {
+    chainId ??= Number((await runner.provider.getNetwork()).chainId);
+    const { morpho, bundler3: { generalAdapter1 }, } = (0, blue_sdk_1.getChainAddresses)(chainId);
+    const blue = ethers_types_1.MorphoBlue__factory.connect(morpho, runner);
+    const [isBundlerAuthorized, morphoNonce] = await Promise.all([
+        blue.isAuthorized(address, generalAdapter1, overrides),
+        blue.nonce(address, overrides),
+    ]);
+    return new blue_sdk_1.User({
+        address,
+        isBundlerAuthorized,
+        morphoNonce,
+    });
+}

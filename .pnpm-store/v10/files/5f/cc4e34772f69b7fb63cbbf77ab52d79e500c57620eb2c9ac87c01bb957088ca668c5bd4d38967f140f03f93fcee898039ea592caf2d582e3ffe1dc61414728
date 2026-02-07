@@ -1,0 +1,15 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.InvalidSignatureError = void 0;
+class InvalidSignatureError extends Error {
+    hash;
+    signer;
+    recovered;
+    constructor(hash, signer, recovered) {
+        super(`invalid signature for hash ${hash}: expected ${signer}, recovered ${recovered}`);
+        this.hash = hash;
+        this.signer = signer;
+        this.recovered = recovered;
+    }
+}
+exports.InvalidSignatureError = InvalidSignatureError;

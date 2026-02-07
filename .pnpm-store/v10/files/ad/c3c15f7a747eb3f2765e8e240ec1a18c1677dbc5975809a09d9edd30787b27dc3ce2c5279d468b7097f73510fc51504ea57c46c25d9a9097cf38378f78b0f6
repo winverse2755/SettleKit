@@ -1,0 +1,7 @@
+import type { Address } from "@morpho-org/blue-sdk";
+export declare class InvalidSignatureError extends Error {
+    readonly hash: string;
+    readonly signer: Address;
+    readonly recovered: Address;
+    constructor(hash: string, signer: Address, recovered: Address);
+}

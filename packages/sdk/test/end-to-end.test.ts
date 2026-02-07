@@ -3,10 +3,11 @@
  *
  * Wire together all components for a complete cross-chain liquidity provision flow:
  * 1. ArcTransferLeg - CCTP transfer from Base to Arc
- * 2. SettleAgent - Risk evaluation and decision making
- * 3. UniswapLiquidityExecutor - Uniswap v4 liquidity deposit
+ * 2. HubToUnichainLeg - CCTP transfer from Arc to Unichain
+ * 3. SettleAgent - Risk evaluation and decision making
+ * 4. UniswapLiquidityExecutor - Uniswap v4 liquidity deposit
  *
- * Flow: USDC on Base → Arc Hub (CCTP) → USDC on Unichain → SettleAgent → Uniswap Pool
+ * Flow: USDC on Base → Arc Hub (CCTP) → Unichain (CCTP) → SettleAgent → Uniswap Pool
  *
  * ## SettleAgent Integration
  *
@@ -46,10 +47,12 @@ import * as path from 'path';
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
 import { ArcTransferLeg } from '../src/legs/ArcTransferLeg';
+import { HubToUnichainLeg } from '../src/legs/HubToUnichainLeg';
 import {
     SettleAgent,
     createSettleAgent,
     DEFAULT_AGENT_POLICY,
+    DEFAULT_LIQUIDITY_POLICY,
 } from '../../agent/SettleAgent';
 import {
     UniswapLiquidityExecutor,
@@ -61,11 +64,14 @@ import type {
     AgentDecision,
     DepositLiquidityIntent,
     ExecutionResult,
+    LiquidityPolicy,
+    PoolSelectionResult,
 } from '../src/types/agent';
 import type { RiskMetrics } from '../src/types/risk';
 import type { LegReceipt } from '../src/types/leg-types';
+import { getPoolState } from '../src/utils/pool-utils';
 import { privateKeyToAccount } from 'viem/accounts';
-import { parseUnits } from 'viem';
+import { parseUnits, encodeAbiParameters, keccak256 } from 'viem';
 import type { Address } from 'viem';
 import * as fs from 'fs';
 
@@ -478,7 +484,7 @@ export interface DetailedTestReport extends TestReport {
     performance: PerformanceMetrics;
     /** Environment information */
     environment: {
-        mode: 'mock' | 'live';
+        mode: 'live';
         nodeVersion: string;
         platform: string;
         timestamp: string;
@@ -544,7 +550,7 @@ export function formatRiskMetrics(risk: RiskMetrics, indent: number = 4): string
         `${prefix}Price Impact: ${(risk.price_impact * 100).toFixed(2)}%`,
         `${prefix}Finality Delay P50/P95: ${risk.finality_delay_p50}s / ${risk.finality_delay_p95}s`,
         `${prefix}Capital at Risk: ${risk.capital_at_risk_seconds}s`,
-        `${prefix}Pool Liquidity: ${BigInt(risk.pool_liquidity_depth).toLocaleString()} wei`,
+        `${prefix}Pool Liquidity: ${risk.pool_liquidity_depth}`,
         `${prefix}Recommended Action: ${risk.recommended_action}`,
     ].join('\n');
 }
@@ -609,6 +615,43 @@ export function exportTestResults(
 }
 
 // ============================================================================
+// Pool Utility Functions
+// ============================================================================
+
+/**
+ * Compute the Uniswap v4 pool ID from pool key parameters.
+ * The pool ID is calculated as keccak256(abi.encode(poolKey)).
+ *
+ * @param poolKey - The pool key containing currency0, currency1, fee, tickSpacing, and hooks
+ * @returns The computed pool ID as a hex string
+ */
+export function computePoolId(poolKey: {
+    currency0: Address;
+    currency1: Address;
+    fee: number;
+    tickSpacing: number;
+    hooks: Address;
+}): `0x${string}` {
+    const encoded = encodeAbiParameters(
+        [
+            { type: 'address' },
+            { type: 'address' },
+            { type: 'uint24' },
+            { type: 'int24' },
+            { type: 'address' },
+        ],
+        [
+            poolKey.currency0,
+            poolKey.currency1,
+            poolKey.fee,
+            poolKey.tickSpacing,
+            poolKey.hooks,
+        ]
+    );
+    return keccak256(encoded);
+}
+
+// ============================================================================
 // Configuration Types
 // ============================================================================
 
@@ -616,28 +659,39 @@ export function exportTestResults(
  * Test configuration for the end-to-end orchestrator
  */
 export interface TestConfig {
-    /** Mode: 'mock' uses simulated data, 'live' interacts with real testnets */
-    mode: 'mock' | 'live';
+    /** Mode: 'live' interacts with real testnets */
+    mode: 'live';
     /** USDC amount in human-readable format (e.g., "1.0" = 1 USDC) */
     amount: string;
-    /** Target Uniswap v4 pool ID */
-    poolId: string;
     /** Recipient address for the transfer and liquidity position */
     recipient: string;
     /** Optional: Custom agent policy overrides */
     agentPolicy?: Partial<AgentPolicy>;
-    /** Optional: Pool key for Uniswap v4 (required for live execution) */
-    poolKey?: LiquidityDepositParams['poolKey'];
+    /** Pool key for Uniswap v4 (optional - if not provided, uses autonomous selection) */
+    poolKey?: {
+        currency0: Address;
+        currency1: Address;
+        fee: number;
+        tickSpacing: number;
+        hooks: Address;
+    };
+    /** Optional: Direct pool ID (overrides computed poolId from poolKey) */
+    poolId?: `0x${string}`;
+    /** Enable autonomous pool selection (default: false for backward compatibility) */
+    useAutonomousSelection?: boolean;
 }
 
 /**
- * Required environment variables for live CCTP transfer
+ * Required environment variables for live CCTP transfer (Base → Arc → Unichain)
  */
 interface CCTPEnvironmentConfig {
     PRIVATE_KEY: string;
     BASE_RPC: string;
     ARC_RPC: string;
+    UNICHAIN_RPC: string;
     USDC_BASE: string;
+    USDC_ARC: string;
+    USDC_UNICHAIN: string;
     TOKEN_MESSENGER_BASE: string;
     MESSAGE_TRANSMITTER_ARC: string;
     ARC_DOMAIN: string;
@@ -659,7 +713,7 @@ interface TransferStepDetails {
  * Result of the end-to-end test flow
  */
 export interface E2ETestResult {
-    /** Transfer phase result */
+    /** Transfer phase result (combined legs) */
     transfer: {
         success: boolean;
         txHash?: string;
@@ -671,6 +725,10 @@ export interface E2ETestResult {
         amount?: string;
         /** Recipient address */
         recipient?: string;
+        /** Leg 1: Base → Arc receipt */
+        leg1Receipt?: LegReceipt;
+        /** Leg 2: Arc → Unichain receipt */
+        leg2Receipt?: LegReceipt;
     };
     /** Risk metrics from simulation */
     riskMetrics: RiskMetrics;
@@ -680,7 +738,7 @@ export interface E2ETestResult {
     execution: ExecutionResult;
     /** Test metadata */
     metadata: {
-        mode: 'mock' | 'live';
+        mode: 'live';
         startTime: number;
         endTime: number;
         durationMs: number;
@@ -700,36 +758,6 @@ export interface TestReport {
     /** Human-readable log entries */
     logs: string[];
 }
-
-// ============================================================================
-// Mock Data for Testing
-// ============================================================================
-
-/**
- * Mock risk metrics for testing without blockchain interaction
- */
-const MOCK_RISK_METRICS: RiskMetrics = {
-    finality_delay_p50: 15,
-    finality_delay_p95: 45,
-    capital_at_risk_seconds: 60,
-    slippage_p50: 0.002, // 0.2%
-    slippage_p95: 0.005, // 0.5%
-    price_impact: 0.003, // 0.3%
-    pool_liquidity_depth: '10000000000', // $10,000 USDC
-    execution_confidence: 0.95, // 95%
-    recommended_action: 'execute',
-};
-
-/**
- * Mock execution result for simulation mode
- */
-const MOCK_EXECUTION_RESULT: ExecutionResult = {
-    status: 'completed',
-    txHash: '0xmock_tx_hash_' + Date.now().toString(16),
-    positionId: '12345',
-    risk: MOCK_RISK_METRICS,
-    timestamp: Date.now(),
-};
 
 // EndToEndOrchestrator Class
 
@@ -762,6 +790,7 @@ export class EndToEndOrchestrator {
     private logs: string[] = [];
     private logger: TestLogger;
     private perfTracker: PerformanceTracker;
+    private _poolId: `0x${string}` | null = null;
 
     /**
      * Create a new EndToEndOrchestrator
@@ -773,6 +802,27 @@ export class EndToEndOrchestrator {
         this.config = config;
         this.logger = new TestLogger(loggerConfig);
         this.perfTracker = new PerformanceTracker();
+    }
+
+    /**
+     * Get the computed pool ID from the pool key.
+     * The pool ID is cached after first computation.
+     * Returns null if no poolKey is provided (autonomous mode).
+     */
+    get poolId(): `0x${string}` | null {
+        if (this.config.useAutonomousSelection && !this.config.poolKey && !this.config.poolId) {
+            return null;
+        }
+        if (!this._poolId) {
+            if (this.config.poolId) {
+                this._poolId = this.config.poolId;
+            } else if (this.config.poolKey) {
+                this._poolId = computePoolId(this.config.poolKey);
+            } else {
+                throw new Error('Either poolKey, poolId, or useAutonomousSelection must be provided');
+            }
+        }
+        return this._poolId;
     }
 
     /**
@@ -789,7 +839,11 @@ export class EndToEndOrchestrator {
         this.logger.section('End-to-End Integration Test');
         this.logger.info(`Mode: ${this.config.mode}`, { phase: 'init' });
         this.logger.info(`Amount: ${this.config.amount} USDC`, { phase: 'init' });
-        this.logger.info(`Pool ID: ${this.config.poolId.slice(0, 18)}...`, { phase: 'init' });
+        if (this.config.useAutonomousSelection) {
+            this.logger.info(`Pool Selection: AUTONOMOUS (agent will discover and select)`, { phase: 'init' });
+        } else {
+            this.logger.info(`Pool ID: ${this.poolId?.slice(0, 18)}...`, { phase: 'init' });
+        }
         this.logger.info(`Recipient: ${this.config.recipient.slice(0, 18)}...`, { phase: 'init' });
 
         // Log agent policy configuration
@@ -812,14 +866,18 @@ export class EndToEndOrchestrator {
 
         this.log(`Starting End-to-End Test (${this.config.mode} mode)`);
         this.log(`Amount: ${this.config.amount} USDC (raw)`);
-        this.log(`Pool ID: ${this.config.poolId}`);
+        if (this.config.useAutonomousSelection) {
+            this.log(`Pool Selection: AUTONOMOUS`);
+        } else {
+            this.log(`Pool ID: ${this.poolId}`);
+        }
         this.log(`Recipient: ${this.config.recipient}`);
 
         try {
-            // Step 1: Execute CCTP Transfer (Base → Arc)
-            this.logger.subsection('Phase 1: CCTP Transfer (Base → Arc)');
+            // Step 1: Execute CCTP Transfer (Base → Arc → Unichain)
+            this.logger.subsection('Phase 1: CCTP Transfer (Base → Arc → Unichain)');
             this.perfTracker.startPhase('transfer');
-            this.log('\n--- Step 1: CCTP Transfer ---');
+            this.log('\n--- Step 1: CCTP Transfer (2 legs) ---');
             const transferResult = await this.executeTransfer();
             const transferDuration = this.perfTracker.endPhase('transfer');
 
@@ -861,69 +919,163 @@ export class EndToEndOrchestrator {
                 }
             }
 
-            // Step 2: Initialize agent and evaluate risk
-            this.logger.subsection('Phase 2: Risk Evaluation');
-            this.perfTracker.startPhase('riskEvaluation');
-            this.log('\n--- Step 2: Risk Evaluation ---');
-            const { risk, decision } = await this.evaluateRisk();
-            const riskDuration = this.perfTracker.endPhase('riskEvaluation');
+            // Declare variables for risk metrics and execution
+            let risk: RiskMetrics;
+            let decision: AgentDecision;
+            let execution: ExecutionResult;
 
-            this.logger.info(`Risk evaluation complete`, { 
-                phase: 'riskEvaluation',
-                durationMs: riskDuration 
-            });
-            this.logger.info(`Execution Confidence: ${(risk.execution_confidence * 100).toFixed(1)}%`, { phase: 'riskEvaluation' });
-            this.logger.info(`Slippage P95: ${(risk.slippage_p95 * 100).toFixed(2)}%`, { phase: 'riskEvaluation' });
-            this.logger.info(`Price Impact: ${(risk.price_impact * 100).toFixed(2)}%`, { phase: 'riskEvaluation' });
-            this.logger.info(`Finality Delay P95: ${risk.finality_delay_p95}s`, { phase: 'riskEvaluation' });
-            this.logger.info(`Agent Decision: ${decision.toUpperCase()}`, { 
-                phase: 'riskEvaluation',
-                metadata: { decision, recommendedAction: risk.recommended_action }
-            });
+            // Check if using autonomous pool selection
+            if (this.config.useAutonomousSelection) {
+                // ═══════════════════════════════════════════════════════════════
+                // AUTONOMOUS MODE: Agent discovers, evaluates, and selects pool
+                // ═══════════════════════════════════════════════════════════════
+                this.logger.subsection('Phase 2 & 3: Autonomous Pool Selection + Execution');
+                this.perfTracker.startPhase('riskEvaluation');
+                this.log('\n--- Step 2 & 3: Autonomous Pool Selection + Execution ---');
 
-            this.log(`Risk Metrics:`);
-            this.log(
-                `  - Confidence: ${(risk.execution_confidence * 100).toFixed(1)}%`
-            );
-            this.log(
-                `  - Slippage P95: ${(risk.slippage_p95 * 100).toFixed(2)}%`
-            );
-            this.log(
-                `  - Price Impact: ${(risk.price_impact * 100).toFixed(2)}%`
-            );
-            this.log(`  - Finality Delay P95: ${risk.finality_delay_p95}s`);
-            this.log(`Agent Decision: ${decision}`);
+                // Initialize agent for autonomous mode
+                await this.initializeAgent();
 
-            // Step 3: Execute based on decision
-            this.logger.subsection('Phase 3: Execution');
-            this.perfTracker.startPhase('execution');
-            this.log('\n--- Step 3: Execution ---');
-            const execution = await this.executeBasedOnDecision(decision, risk);
-            const executionDuration = this.perfTracker.endPhase('execution');
-
-            const statusEmoji = execution.status === 'completed' ? '✓' : execution.status === 'aborted' ? '⚠' : '✗';
-            this.logger.info(`${statusEmoji} Execution Status: ${execution.status}`, { 
-                phase: 'execution',
-                durationMs: executionDuration,
-                metadata: { 
-                    txHash: execution.txHash,
-                    positionId: execution.positionId,
-                    reason: execution.reason
+                if (!this.agent) {
+                    throw new Error('Agent not initialized for autonomous mode');
                 }
-            });
 
-            this.log(`Execution Status: ${execution.status}`);
-            if (execution.txHash) {
-                this.logger.info(`Transaction Hash: ${execution.txHash}`, { phase: 'execution' });
-                this.log(`Execution TxHash: ${execution.txHash}`);
-            }
-            if (execution.positionId) {
-                this.logger.info(`Position NFT ID: ${execution.positionId}`, { phase: 'execution' });
-                this.log(`Position ID: ${execution.positionId}`);
-            }
-            if (execution.reason) {
-                this.logger.info(`Reason: ${execution.reason}`, { phase: 'execution' });
-                this.log(`Reason: ${execution.reason}`);
+                // Convert human-readable amount to raw USDC base units (6 decimals)
+                const USDC_DECIMALS = 6;
+                const rawAmount = parseUnits(this.config.amount, USDC_DECIMALS).toString();
+
+                this.log(`[Autonomous] Calling agent.selectAndExecute() with ${this.config.amount} USDC...`);
+                this.logger.info(`Starting autonomous pool selection and execution`, { 
+                    phase: 'autonomous',
+                    metadata: { amount: this.config.amount, rawAmount }
+                });
+
+                // Use agent's autonomous selectAndExecute method
+                execution = await this.agent.selectAndExecute(rawAmount, this.config.recipient);
+                const riskDuration = this.perfTracker.endPhase('riskEvaluation');
+
+                // Extract risk metrics from execution result
+                risk = execution.risk;
+                decision = execution.status === 'completed' ? 'execute' : 
+                           execution.status === 'aborted' ? 'abort' : 'abort';
+
+                this.logger.info(`Autonomous selection complete`, { 
+                    phase: 'autonomous',
+                    durationMs: riskDuration 
+                });
+                this.logger.info(`Execution Confidence: ${(risk.execution_confidence * 100).toFixed(1)}%`, { phase: 'autonomous' });
+                this.logger.info(`Slippage P95: ${(risk.slippage_p95 * 100).toFixed(2)}%`, { phase: 'autonomous' });
+                this.logger.info(`Price Impact: ${(risk.price_impact * 100).toFixed(2)}%`, { phase: 'autonomous' });
+                this.logger.info(`Final Status: ${execution.status.toUpperCase()}`, { 
+                    phase: 'autonomous',
+                    metadata: { status: execution.status, reason: execution.reason }
+                });
+
+                this.log(`[Autonomous] Risk Metrics from selected pool:`);
+                this.log(`  - Confidence: ${(risk.execution_confidence * 100).toFixed(1)}%`);
+                this.log(`  - Slippage P95: ${(risk.slippage_p95 * 100).toFixed(2)}%`);
+                this.log(`  - Price Impact: ${(risk.price_impact * 100).toFixed(2)}%`);
+                this.log(`[Autonomous] Final Decision: ${decision}`);
+
+                // Skip the separate execution phase since selectAndExecute already handled it
+                this.perfTracker.startPhase('execution');
+                const executionDuration = this.perfTracker.endPhase('execution');
+
+                const statusEmoji = execution.status === 'completed' ? '✓' : execution.status === 'aborted' ? '⚠' : '✗';
+                this.logger.info(`${statusEmoji} Execution Status: ${execution.status}`, { 
+                    phase: 'execution',
+                    durationMs: executionDuration,
+                    metadata: { 
+                        txHash: execution.txHash,
+                        positionId: execution.positionId,
+                        reason: execution.reason
+                    }
+                });
+
+                this.log(`Execution Status: ${execution.status}`);
+                if (execution.txHash) {
+                    this.logger.info(`Transaction Hash: ${execution.txHash}`, { phase: 'execution' });
+                    this.log(`Execution TxHash: ${execution.txHash}`);
+                }
+                if (execution.positionId) {
+                    this.logger.info(`Position NFT ID: ${execution.positionId}`, { phase: 'execution' });
+                    this.log(`Position ID: ${execution.positionId}`);
+                }
+                if (execution.reason) {
+                    this.logger.info(`Reason: ${execution.reason}`, { phase: 'execution' });
+                    this.log(`Reason: ${execution.reason}`);
+                }
+            } else {
+                // ═══════════════════════════════════════════════════════════════
+                // LEGACY MODE: Use provided poolKey/poolId
+                // ═══════════════════════════════════════════════════════════════
+                
+                // Step 2: Initialize agent and evaluate risk
+                this.logger.subsection('Phase 2: Risk Evaluation');
+                this.perfTracker.startPhase('riskEvaluation');
+                this.log('\n--- Step 2: Risk Evaluation ---');
+                const evalResult = await this.evaluateRisk();
+                risk = evalResult.risk;
+                decision = evalResult.decision;
+                const riskDuration = this.perfTracker.endPhase('riskEvaluation');
+
+                this.logger.info(`Risk evaluation complete`, { 
+                    phase: 'riskEvaluation',
+                    durationMs: riskDuration 
+                });
+                this.logger.info(`Execution Confidence: ${(risk.execution_confidence * 100).toFixed(1)}%`, { phase: 'riskEvaluation' });
+                this.logger.info(`Slippage P95: ${(risk.slippage_p95 * 100).toFixed(2)}%`, { phase: 'riskEvaluation' });
+                this.logger.info(`Price Impact: ${(risk.price_impact * 100).toFixed(2)}%`, { phase: 'riskEvaluation' });
+                this.logger.info(`Finality Delay P95: ${risk.finality_delay_p95}s`, { phase: 'riskEvaluation' });
+                this.logger.info(`Agent Decision: ${decision.toUpperCase()}`, { 
+                    phase: 'riskEvaluation',
+                    metadata: { decision, recommendedAction: risk.recommended_action }
+                });
+
+                this.log(`Risk Metrics:`);
+                this.log(
+                    `  - Confidence: ${(risk.execution_confidence * 100).toFixed(1)}%`
+                );
+                this.log(
+                    `  - Slippage P95: ${(risk.slippage_p95 * 100).toFixed(2)}%`
+                );
+                this.log(
+                    `  - Price Impact: ${(risk.price_impact * 100).toFixed(2)}%`
+                );
+                this.log(`  - Finality Delay P95: ${risk.finality_delay_p95}s`);
+                this.log(`Agent Decision: ${decision}`);
+
+                // Step 3: Execute based on decision
+                this.logger.subsection('Phase 3: Execution');
+                this.perfTracker.startPhase('execution');
+                this.log('\n--- Step 3: Execution ---');
+                execution = await this.executeBasedOnDecision(decision, risk);
+                const executionDuration = this.perfTracker.endPhase('execution');
+
+                const statusEmoji = execution.status === 'completed' ? '✓' : execution.status === 'aborted' ? '⚠' : '✗';
+                this.logger.info(`${statusEmoji} Execution Status: ${execution.status}`, { 
+                    phase: 'execution',
+                    durationMs: executionDuration,
+                    metadata: { 
+                        txHash: execution.txHash,
+                        positionId: execution.positionId,
+                        reason: execution.reason
+                    }
+                });
+
+                this.log(`Execution Status: ${execution.status}`);
+                if (execution.txHash) {
+                    this.logger.info(`Transaction Hash: ${execution.txHash}`, { phase: 'execution' });
+                    this.log(`Execution TxHash: ${execution.txHash}`);
+                }
+                if (execution.positionId) {
+                    this.logger.info(`Position NFT ID: ${execution.positionId}`, { phase: 'execution' });
+                    this.log(`Position ID: ${execution.positionId}`);
+                }
+                if (execution.reason) {
+                    this.logger.info(`Reason: ${execution.reason}`, { phase: 'execution' });
+                    this.log(`Reason: ${execution.reason}`);
+                }
             }
 
             const endTime = Date.now();
@@ -971,18 +1123,24 @@ export class EndToEndOrchestrator {
     }
 
     /**
-     * Execute the CCTP transfer from Base to Arc
+     * Execute the CCTP transfer through both legs: Base → Arc → Unichain
      *
-     * In mock mode, simulates a successful transfer with realistic delays.
-     * In live mode, uses ArcTransferLeg for actual blockchain interaction.
+     * Uses ArcTransferLeg and HubToUnichainLeg for actual blockchain interaction via BridgeKit.
      *
-     * CCTP Transfer Steps:
-     * 1. Approve USDC spending on Base
-     * 2. Burn USDC via TokenMessenger (depositForBurn)
-     * 3. Wait for Circle attestation
-     * 4. Mint USDC on Arc via MessageTransmitter (receiveMessage)
+     * Complete Transfer Flow:
+     * Leg 1 (Base → Arc):
+     *   1. Approve USDC spending on Base
+     *   2. Burn USDC via TokenMessenger (depositForBurn)
+     *   3. Wait for Circle attestation
+     *   4. Mint USDC on Arc via MessageTransmitter (receiveMessage)
      *
-     * @returns Transfer result with detailed step information
+     * Leg 2 (Arc → Unichain):
+     *   5. Approve USDC spending on Arc
+     *   6. Burn USDC via TokenMessenger (depositForBurn)
+     *   7. Wait for Circle attestation
+     *   8. Mint USDC on Unichain via MessageTransmitter (receiveMessage)
+     *
+     * @returns Transfer result with detailed step information for both legs
      */
     private async executeTransfer(): Promise<{
         success: boolean;
@@ -992,66 +1150,13 @@ export class EndToEndOrchestrator {
         steps?: TransferStepDetails[];
         amount?: string;
         recipient?: string;
+        leg1Receipt?: LegReceipt;
+        leg2Receipt?: LegReceipt;
     }> {
         const steps: TransferStepDetails[] = [];
 
-        if (this.config.mode === 'mock') {
-            this.log('[Mock] Simulating CCTP transfer...');
-
-            // Step 1: Approve (simulated)
-            this.log('[Mock] Step 1/4: Approving USDC spending...');
-            steps.push({
-                step: 'approve',
-                status: 'completed',
-                txHash: '0xmock_approve_' + Date.now().toString(16),
-                timestamp: Date.now(),
-            });
-            await this.sleep(50);
-
-            // Step 2: Burn (simulated)
-            this.log('[Mock] Step 2/4: Burning USDC on Base...');
-            const burnTxHash = '0xmock_burn_' + Date.now().toString(16);
-            steps.push({
-                step: 'burn',
-                status: 'completed',
-                txHash: burnTxHash,
-                timestamp: Date.now(),
-            });
-            await this.sleep(50);
-
-            // Step 3: Attestation (simulated)
-            this.log('[Mock] Step 3/4: Waiting for Circle attestation...');
-            steps.push({
-                step: 'attestation',
-                status: 'completed',
-                timestamp: Date.now(),
-            });
-            await this.sleep(50);
-
-            // Step 4: Mint (simulated)
-            this.log('[Mock] Step 4/4: Minting USDC on Arc...');
-            steps.push({
-                step: 'mint',
-                status: 'completed',
-                txHash: '0xmock_mint_' + Date.now().toString(16),
-                timestamp: Date.now(),
-            });
-            await this.sleep(50);
-
-            this.log('[Mock] CCTP transfer simulation completed successfully');
-
-            return {
-                success: true,
-                txHash: burnTxHash,
-                chain: 'base',
-                steps,
-                amount: this.config.amount,
-                recipient: this.config.recipient,
-            };
-        }
-
-        // Live mode: Validate environment and execute actual transfer
-        this.log('[Live] Executing CCTP transfer via ArcTransferLeg...');
+        // Validate environment and execute actual transfer
+        this.log('[Live] Executing 2-leg CCTP transfer: Base → Arc → Unichain...');
 
         // Validate required environment variables
         const envValidation = this.validateCCTPEnvironment();
@@ -1066,22 +1171,32 @@ export class EndToEndOrchestrator {
         this.log('[Live] Environment validation passed');
         this.log(`[Live] Transferring ${this.config.amount} USDC to ${this.config.recipient}`);
 
+        let leg1Receipt: LegReceipt | undefined;
+        let leg2Receipt: LegReceipt | undefined;
+
         try {
+            // ════════════════════════════════════════════════════════════════
+            // LEG 1: Base → Arc (ArcTransferLeg)
+            // ════════════════════════════════════════════════════════════════
+            this.log('[Live] ─────────────────────────────────────────────────');
+            this.log('[Live] LEG 1: Base Sepolia → Arc Hub (CCTP)');
+            this.log('[Live] ─────────────────────────────────────────────────');
+
             // Create ArcTransferLeg instance
             const arcTransfer = new ArcTransferLeg({
                 amount: this.config.amount,
                 recipient: this.config.recipient,
             });
 
-            // Get transfer estimate
-            const estimate = await arcTransfer.estimate();
-            this.log(`[Live] Transfer estimate:`);
-            this.log(`  - Gas: ${estimate.gasEstimate}`);
-            this.log(`  - Estimated time: ${estimate.estimatedTimeMs}ms`);
-            this.log(`  - Failure probability: ${(estimate.failureProbability * 100).toFixed(1)}%`);
+            // Get transfer estimate for Leg 1
+            const estimate1 = await arcTransfer.estimate();
+            this.log(`[Live] Leg 1 estimate:`);
+            this.log(`  - Gas: ${estimate1.gasEstimate}`);
+            this.log(`  - Estimated time: ${estimate1.estimatedTimeMs}ms`);
+            this.log(`  - Failure probability: ${(estimate1.failureProbability * 100).toFixed(1)}%`);
 
             // Step 1: Approve (logged by ArcTransferLeg internally)
-            this.log('[Live] Step 1/4: Approving USDC spending on Base...');
+            this.log('[Live] Leg 1 Step 1/4: Approving USDC spending on Base...');
             steps.push({
                 step: 'approve',
                 status: 'pending',
@@ -1089,23 +1204,27 @@ export class EndToEndOrchestrator {
             });
 
             // Step 2-4: Execute the full transfer (ArcTransferLeg handles all steps)
-            this.log('[Live] Step 2/4: Initiating burn on Base (depositForBurn)...');
+            this.log('[Live] Leg 1 Step 2/4: Initiating burn on Base (depositForBurn)...');
             steps.push({
                 step: 'burn',
                 status: 'pending',
                 timestamp: Date.now(),
             });
 
-            // Execute the transfer
-            const receipt: LegReceipt = await arcTransfer.execute();
+            // Execute Leg 1
+            leg1Receipt = await arcTransfer.execute();
+
+            if (!leg1Receipt.success) {
+                throw new Error(`Leg 1 (Base → Arc) failed: ${leg1Receipt.txHash || 'unknown error'}`);
+            }
 
             // Update step statuses on success
             steps[0].status = 'completed';
             steps[1].status = 'completed';
-            steps[1].txHash = receipt.txHash;
+            steps[1].txHash = leg1Receipt.txHash;
 
             // Add attestation step (handled inside execute)
-            this.log('[Live] Step 3/4: Circle attestation received');
+            this.log('[Live] Leg 1 Step 3/4: Circle attestation received');
             steps.push({
                 step: 'attestation',
                 status: 'completed',
@@ -1113,22 +1232,99 @@ export class EndToEndOrchestrator {
             });
 
             // Add mint step (handled inside execute)
-            this.log('[Live] Step 4/4: USDC minted on Arc');
+            this.log('[Live] Leg 1 Step 4/4: USDC minted on Arc');
             steps.push({
                 step: 'mint',
                 status: 'completed',
                 timestamp: Date.now(),
             });
 
-            this.log('[Live] CCTP transfer completed successfully!');
+            this.log(`[Live] ✓ Leg 1 completed successfully! TxHash: ${leg1Receipt.txHash}`);
+
+            // ════════════════════════════════════════════════════════════════
+            // LEG 2: Arc → Unichain (HubToUnichainLeg)
+            // ════════════════════════════════════════════════════════════════
+            this.log('[Live] ─────────────────────────────────────────────────');
+            this.log('[Live] LEG 2: Arc Hub → Unichain (CCTP)');
+            this.log('[Live] ─────────────────────────────────────────────────');
+
+            // Create HubToUnichainLeg instance
+            const hubToUnichain = new HubToUnichainLeg({
+                amount: this.config.amount,
+                recipient: this.config.recipient,
+            });
+
+            // Get transfer estimate for Leg 2
+            const estimate2 = await hubToUnichain.estimate();
+            this.log(`[Live] Leg 2 estimate:`);
+            this.log(`  - Gas: ${estimate2.gasEstimate}`);
+            this.log(`  - Estimated time: ${estimate2.estimatedTimeMs}ms`);
+            this.log(`  - Failure probability: ${(estimate2.failureProbability * 100).toFixed(1)}%`);
+
+            // Step 5: Approve on Arc
+            this.log('[Live] Leg 2 Step 1/4: Approving USDC spending on Arc...');
+            steps.push({
+                step: 'approve',
+                status: 'pending',
+                timestamp: Date.now(),
+            });
+
+            // Step 6-8: Execute the full transfer (HubToUnichainLeg handles all steps)
+            this.log('[Live] Leg 2 Step 2/4: Initiating burn on Arc (depositForBurn)...');
+            steps.push({
+                step: 'burn',
+                status: 'pending',
+                timestamp: Date.now(),
+            });
+
+            // Execute Leg 2
+            leg2Receipt = await hubToUnichain.execute();
+
+            if (!leg2Receipt.success) {
+                throw new Error(`Leg 2 (Arc → Unichain) failed: ${leg2Receipt.txHash || 'unknown error'}`);
+            }
+
+            // Update step statuses on success
+            steps[4].status = 'completed';
+            steps[5].status = 'completed';
+            steps[5].txHash = leg2Receipt.txHash;
+
+            // Add attestation step (handled inside execute)
+            this.log('[Live] Leg 2 Step 3/4: Circle attestation received');
+            steps.push({
+                step: 'attestation',
+                status: 'completed',
+                timestamp: Date.now(),
+            });
+
+            // Add mint step (handled inside execute)
+            this.log('[Live] Leg 2 Step 4/4: USDC minted on Unichain');
+            steps.push({
+                step: 'mint',
+                status: 'completed',
+                timestamp: Date.now(),
+            });
+
+            this.log(`[Live] ✓ Leg 2 completed successfully! TxHash: ${leg2Receipt.txHash}`);
+
+            // ════════════════════════════════════════════════════════════════
+            // SUMMARY
+            // ════════════════════════════════════════════════════════════════
+            this.log('[Live] ─────────────────────────────────────────────────');
+            this.log('[Live] TRANSFER COMPLETE: Base → Arc → Unichain');
+            this.log('[Live] ─────────────────────────────────────────────────');
+            this.log(`[Live] Leg 1 (Base → Arc): ${leg1Receipt.txHash}`);
+            this.log(`[Live] Leg 2 (Arc → Unichain): ${leg2Receipt.txHash}`);
 
             return {
-                success: receipt.success,
-                txHash: receipt.txHash,
-                chain: receipt.chain,
+                success: true,
+                txHash: leg2Receipt.txHash, // Final tx hash is from Leg 2
+                chain: leg2Receipt.chain, // Final chain is Unichain
                 steps,
                 amount: this.config.amount,
                 recipient: this.config.recipient,
+                leg1Receipt,
+                leg2Receipt,
             };
         } catch (error) {
             const errorMessage =
@@ -1147,12 +1343,15 @@ export class EndToEndOrchestrator {
                 success: false,
                 error: errorMessage,
                 steps,
+                leg1Receipt,
+                leg2Receipt,
             };
         }
     }
 
     /**
      * Validate that all required environment variables for CCTP transfer are set
+     * (Base → Arc → Unichain)
      *
      * @returns Validation result with missing variables if any
      */
@@ -1165,7 +1364,10 @@ export class EndToEndOrchestrator {
             'PRIVATE_KEY',
             'BASE_RPC',
             'ARC_RPC',
+            'UNICHAIN_RPC',
             'USDC_BASE',
+            'USDC_ARC',
+            'USDC_UNICHAIN',
             'TOKEN_MESSENGER_BASE',
             'MESSAGE_TRANSMITTER_ARC',
             'ARC_DOMAIN',
@@ -1190,45 +1392,16 @@ export class EndToEndOrchestrator {
     }
 
     /**
-     * Evaluate risk using the SettleAgent's simulator
-     *
-     * In mock mode, returns preset risk metrics.
-     * In live mode, runs actual risk simulation via SettleAgent.
-     *
-     * The SettleAgent uses RiskSimulator internally to:
-     * - Estimate Arc network latency (CCTP transfer timing)
-     * - Analyze Uniswap pool state (liquidity, slippage, price impact)
-     * - Calculate execution confidence score
-     * - Recommend action based on configurable thresholds
-     *
-     * @returns Risk metrics and recommended decision
+     * Initialize the SettleAgent and UniswapLiquidityExecutor.
+     * Used for both legacy and autonomous modes.
      */
-    private async evaluateRisk(): Promise<{
-        risk: RiskMetrics;
-        decision: AgentDecision;
-    }> {
-        if (this.config.mode === 'mock') {
-            this.log('[Mock] Using simulated risk metrics...');
-            await this.sleep(50);
-
-            // Create agent to use its decision logic even in mock mode
-            // This ensures consistent decision-making based on the agent policy
-            const agent = new SettleAgent(
-                this.config.agentPolicy || {},
-                undefined, // no account for simulation
-                'unichainSepolia'
-            );
-
-            const decision = agent.makeDecision(MOCK_RISK_METRICS);
-
-            return {
-                risk: MOCK_RISK_METRICS,
-                decision,
-            };
+    private async initializeAgent(): Promise<void> {
+        if (this.agent) {
+            // Already initialized
+            return;
         }
 
-        // Live mode: Initialize SettleAgent for risk simulation and decision making
-        this.log('[Live] Initializing SettleAgent for risk evaluation...');
+        this.log('[Live] Initializing SettleAgent...');
 
         const privateKey = process.env.PRIVATE_KEY as `0x${string}` | undefined;
 
@@ -1253,6 +1426,37 @@ export class EndToEndOrchestrator {
             );
             this.log('[Live] No wallet configured - running in simulation-only mode');
         }
+    }
+
+    /**
+     * Evaluate risk using the SettleAgent's simulator
+     *
+     * Runs actual risk simulation via SettleAgent.
+     *
+     * The SettleAgent uses RiskSimulator internally to:
+     * - Estimate Arc network latency (CCTP transfer timing)
+     * - Analyze Uniswap pool state (liquidity, slippage, price impact)
+     * - Calculate execution confidence score
+     * - Recommend action based on configurable thresholds
+     *
+     * @returns Risk metrics and recommended decision
+     */
+    private async evaluateRisk(): Promise<{
+        risk: RiskMetrics;
+        decision: AgentDecision;
+    }> {
+        // Initialize SettleAgent for risk simulation and decision making
+        await this.initializeAgent();
+
+        if (!this.agent) {
+            throw new Error('Agent not initialized');
+        }
+
+        // poolId must be available for legacy mode
+        const poolIdValue = this.poolId;
+        if (!poolIdValue) {
+            throw new Error('Pool ID is required for legacy risk evaluation. Use autonomous mode for pool discovery.');
+        }
 
         // Convert human-readable amount to raw USDC base units (6 decimals)
         const USDC_DECIMALS = 6;
@@ -1260,7 +1464,7 @@ export class EndToEndOrchestrator {
 
         // Build the liquidity deposit intent with raw amount
         const intent: DepositLiquidityIntent = {
-            poolId: this.config.poolId,
+            poolId: poolIdValue,
             amount: rawAmount, // Use raw amount (6 decimals) for risk simulation
         };
 
@@ -1304,37 +1508,7 @@ export class EndToEndOrchestrator {
         const maxRetries = policy.retry_attempts ?? 3;
         const retryDelaySeconds = policy.retry_delay_seconds ?? 30;
 
-        if (this.config.mode === 'mock') {
-            this.log('[Mock] Simulating execution...');
-            await this.sleep(100);
-
-            switch (decision) {
-                case 'execute':
-                    return {
-                        ...MOCK_EXECUTION_RESULT,
-                        risk,
-                        timestamp: Date.now(),
-                    };
-
-                case 'wait':
-                    return {
-                        status: 'aborted',
-                        reason: 'Mock mode: wait decision simulated as abort after max retries',
-                        risk,
-                        timestamp: Date.now(),
-                    };
-
-                case 'abort':
-                    return {
-                        status: 'aborted',
-                        reason: 'Risk thresholds exceeded',
-                        risk,
-                        timestamp: Date.now(),
-                    };
-            }
-        }
-
-        // Live mode: Execute based on decision
+        // Execute based on decision
         this.log(`[Live] Processing decision: ${decision}`);
 
         switch (decision) {
@@ -1413,6 +1587,17 @@ export class EndToEndOrchestrator {
             };
         }
 
+        // Check pool ID is available (should be guaranteed in legacy mode)
+        const currentPoolId = this.poolId;
+        if (!currentPoolId) {
+            return {
+                status: 'failed',
+                reason: 'Pool ID is required for liquidity deposit execution',
+                risk,
+                timestamp: Date.now(),
+            };
+        }
+
         // Convert human-readable amount to raw USDC base units (6 decimals)
         // e.g., "1.0" -> "1000000", "0.5" -> "500000"
         const USDC_DECIMALS = 6;
@@ -1420,11 +1605,27 @@ export class EndToEndOrchestrator {
 
         this.log(`[Live] Amount conversion: ${this.config.amount} USDC -> ${rawAmount} raw units`);
 
-        // Build deposit intent with raw amount for UniswapLiquidityExecutor
+        // Fetch current pool state to get current tick for one-sided liquidity strategy
+        const poolState = await getPoolState(currentPoolId, 'unichainSepolia');
+        const currentTick = poolState.tick;
+        this.log(`[Live] Current pool tick: ${currentTick}`);
+
+        // One-sided lower price strategy for USDC-only deposit
+        // Set range entirely BELOW current tick so only USDC (token1) is required
+        // When price is ABOVE the tick range, only token1 is needed
+        const tickSpacing = this.config.poolKey.tickSpacing; // 60 for 0.30% pools
+        const tickLower = Math.floor((currentTick - 2000) / tickSpacing) * tickSpacing;
+        const tickUpper = Math.floor((currentTick - 100) / tickSpacing) * tickSpacing;
+        
+        this.log(`[Live] One-sided USDC deposit: tickLower=${tickLower}, tickUpper=${tickUpper} (below current tick ${currentTick})`);
+
+        // Build deposit intent with raw amount and one-sided tick range for UniswapLiquidityExecutor
         const intent: DepositLiquidityIntent = {
-            poolId: this.config.poolId,
+            poolId: currentPoolId,
             amount: rawAmount, // Use raw amount (6 decimals) for executor
             recipient: this.config.recipient,
+            tickLower, // One-sided lower: below current tick
+            tickUpper, // One-sided lower: below current tick
         };
 
         this.log(`[Live] Depositing ${this.config.amount} USDC to pool ${intent.poolId.slice(0, 18)}...`);
@@ -1674,10 +1875,10 @@ export async function runEndToEndTest(
     options: Omit<TestRunOptions, 'config'> = {}
 ): Promise<DetailedTestReport> {
     // Default test configuration
+    // Note: poolId is computed from poolKey using computePoolId() in EndToEndOrchestrator
     const defaultConfig: TestConfig = {
         mode: 'live',
-        amount: '5.0', // 1 USDC (human-readable format, ArcTransferLeg uses parseUnits internally)
-        poolId: '0x0000000000000000000000000000000000000000000000000000000000000001',
+        amount: '0.5', // 0.5 USDC (human-readable format, ArcTransferLeg uses parseUnits internally)
         recipient:
             process.env.RECIPIENT_ADDRESS ||
             '0x0000000000000000000000000000000000000001',
@@ -1688,14 +1889,17 @@ export async function runEndToEndTest(
             retry_attempts: 2,
             retry_delay_seconds: 5,
         },
-        // Default pool key for Unichain Sepolia
+        // Pool key for Unichain Sepolia - poolId is derived from this via keccak256(abi.encode(poolKey))
         poolKey: {
-            currency0: '0x31d0220469e10c4E71834a79b1f276d740d3768F' as Address, // USDC
-            currency1: '0x0000000000000000000000000000000000000000' as Address, // ETH
-            fee: 3000, // 0.3%
-            tickSpacing: 60,
+            currency0: '0x0000000000000000000000000000000000000000' as Address, // NATIVE (ETH)
+            currency1: '0x31d0220469e10c4e71834a79b1f276d740d3768f' as Address, // USDC
+            fee: 3000, // 0.30% fee
+            tickSpacing: 60, // Standard for 0.30% pools
             hooks: '0x0000000000000000000000000000000000000000' as Address,
         },
+        // Pool ID computed from poolKey via keccak256(abi.encode(poolKey))
+        // This pool is already initialized on Unichain Sepolia with price ~$4008/ETH
+        poolId: '0x1927686e9757bb312fc499e480536d466c788dcdc86a1b62c82643157f05b603',
     };
 
     const mergedConfig: TestConfig = { ...defaultConfig, ...config };
@@ -1811,116 +2015,6 @@ function printDetailedReport(report: DetailedTestReport): void {
 // Test Scenarios
 
 /**
- * Happy path: Transfer succeeds, risk is acceptable, liquidity deposited
- */
-export async function testHappyPath(): Promise<DetailedTestReport> {
-    console.log('\n🧪 TEST: Happy Path');
-    console.log('   Expected: Transfer succeeds, risk acceptable, liquidity deposited\n');
-    
-    return runEndToEndTest({
-        mode: 'mock',
-        amount: '1.0', // 1 USDC
-        agentPolicy: {
-            max_slippage: 0.02, // Generous slippage tolerance
-            min_confidence: 0.70, // Lower confidence threshold
-        },
-    }, { verbose: false });
-}
-
-/**
- * High slippage: Transfer succeeds, agent waits/aborts due to slippage
- */
-export async function testHighSlippage(): Promise<DetailedTestReport> {
-    console.log('\n🧪 TEST: High Slippage Scenario');
-    console.log('   Expected: Transfer succeeds, agent aborts due to slippage threshold\n');
-    
-    return runEndToEndTest({
-        mode: 'mock',
-        amount: '1.0', // 1 USDC
-        agentPolicy: {
-            max_slippage: 0.001, // Very tight slippage (0.1%)
-            min_confidence: 0.80,
-        },
-    }, { verbose: false });
-}
-
-/**
- * Low confidence: Agent aborts due to low confidence
- */
-export async function testLowConfidence(): Promise<DetailedTestReport> {
-    console.log('\n🧪 TEST: Low Confidence Scenario');
-    console.log('   Expected: Transfer succeeds, agent aborts due to confidence threshold\n');
-    
-    return runEndToEndTest({
-        mode: 'mock',
-        amount: '1.0', // 1 USDC
-        agentPolicy: {
-            max_slippage: 0.01,
-            min_confidence: 0.99, // Very high confidence required
-        },
-    }, { verbose: false });
-}
-
-/**
- * Agent retry behavior: Tests the SettleAgent's retry logic
- *
- * Demonstrates how the agent handles 'wait' decisions:
- * - Uses configurable retry_attempts and retry_delay_seconds
- * - Re-evaluates risk after each retry delay
- * - Eventually aborts if conditions don't improve within max retries
- */
-export async function testAgentRetryBehavior(): Promise<DetailedTestReport> {
-    console.log('\n🧪 TEST: Agent Retry Behavior');
-    console.log('   Testing SettleAgent retry logic with wait decisions');
-    console.log('   Expected: Demonstrates retry_attempts and retry_delay_seconds\n');
-
-    return runEndToEndTest({
-        mode: 'mock',
-        amount: '1.0', // 1 USDC
-        agentPolicy: {
-            max_slippage: 0.01,
-            max_price_impact: 0.02,
-            min_confidence: 0.80,
-            // Retry configuration
-            retry_attempts: 2,          // Allow 2 retries
-            retry_delay_seconds: 1,     // Short delay for testing
-            fallback_strategy: 'wait',  // Use wait instead of immediate abort
-        },
-    }, { verbose: false });
-}
-
-/**
- * Agent policy customization: Tests the SettleAgent with custom thresholds
- *
- * Demonstrates how agent policy affects decision making:
- * - max_slippage: Maximum acceptable slippage
- * - max_price_impact: Maximum acceptable price impact
- * - min_confidence: Minimum required confidence score
- * - retry_attempts: Number of retries for 'wait' decisions
- * - fallback_strategy: What to do when slippage threshold is exceeded
- */
-export async function testAgentPolicyCustomization(): Promise<DetailedTestReport> {
-    console.log('\n🧪 TEST: Agent Policy Customization');
-    console.log('   Testing SettleAgent with custom conservative policy');
-    console.log('   Expected: Agent aborts due to strict policy thresholds\n');
-
-    return runEndToEndTest({
-        mode: 'mock',
-        amount: '10.0', // 10 USDC - larger amount
-        agentPolicy: {
-            // Conservative thresholds
-            max_slippage: 0.005,        // 0.5% max slippage
-            max_price_impact: 0.01,     // 1% max price impact
-            min_confidence: 0.90,       // 90% confidence required
-            max_latency_seconds: 60,    // 1 minute max latency
-            retry_attempts: 1,
-            retry_delay_seconds: 2,
-            fallback_strategy: 'abort', // Abort on threshold violations
-        },
-    }, { verbose: false });
-}
-
-/**
  * Live CCTP transfer test: Requires environment variables to be set
  * Run with: LIVE_TEST=true npx ts-node packages/sdk/test/end-to-end.test.ts
  */
@@ -1931,55 +2025,13 @@ export async function testLiveCCTPTransfer(): Promise<DetailedTestReport> {
     
     return runEndToEndTest({
         mode: 'live',
-        amount: '0.01', // Small amount for testing (0.01 USDC)
+        amount: '5', // 5 USDC for full flow test
         recipient: process.env.RECIPIENT_ADDRESS || '',
         agentPolicy: {
             max_slippage: 0.05, // 5% slippage tolerance for testnet
             min_confidence: 0.50, // Lower confidence for testnet
         },
     }, { verbose: true });
-}
-
-/**
- * Uniswap execution test: Tests the full UniswapLiquidityExecutor integration
- *
- * This test validates the complete flow:
- * 1. Amount conversion from human-readable to raw base units
- * 2. Agent risk evaluation and decision making
- * 3. UniswapLiquidityExecutor initialization with wallet
- * 4. Pool key validation
- * 5. Liquidity deposit via PositionManager
- *
- * In mock mode, simulates all steps without blockchain interaction.
- * In live mode, requires PRIVATE_KEY and testnet configuration.
- */
-export async function testUniswapExecution(): Promise<DetailedTestReport> {
-    console.log('\n🧪 TEST: Uniswap Liquidity Execution');
-    console.log('   Testing UniswapLiquidityExecutor integration');
-    console.log('   Flow: Agent Decision → Executor → PositionManager\n');
-
-    return runEndToEndTest({
-        mode: 'mock',
-        amount: '5.0', // 5 USDC
-        poolId: '0x0000000000000000000000000000000000000000000000000000000000000001',
-        recipient: '0x0000000000000000000000000000000000000001',
-        agentPolicy: {
-            max_slippage: 0.02,         // 2% max slippage
-            max_price_impact: 0.03,     // 3% max price impact
-            min_confidence: 0.75,       // 75% confidence required
-            retry_attempts: 1,
-            retry_delay_seconds: 1,
-            fallback_strategy: 'wait',
-        },
-        // Unichain Sepolia pool key for USDC/ETH
-        poolKey: {
-            currency0: '0x31d0220469e10c4E71834a79b1f276d740d3768F' as Address, // USDC
-            currency1: '0x0000000000000000000000000000000000000000' as Address, // ETH (native)
-            fee: 3000,        // 0.3% fee tier
-            tickSpacing: 60,  // Standard tick spacing for 0.3% pools
-            hooks: '0x0000000000000000000000000000000000000000' as Address, // No hooks
-        },
-    }, { verbose: false });
 }
 
 /**
@@ -2006,7 +2058,7 @@ export async function testLiveUniswapExecution(): Promise<DetailedTestReport> {
 
     return runEndToEndTest({
         mode: 'live',
-        amount: '0.1', // 0.1 USDC - small amount for testnet
+        amount: '5', // 5 USDC for testnet
         recipient,
         agentPolicy: {
             max_slippage: 0.10,         // 10% max slippage for testnet
@@ -2017,10 +2069,10 @@ export async function testLiveUniswapExecution(): Promise<DetailedTestReport> {
             fallback_strategy: 'wait',
         },
         poolKey: {
-            currency0: '0x31d0220469e10c4E71834a79b1f276d740d3768F' as Address, // USDC on Unichain Sepolia
-            currency1: '0x0000000000000000000000000000000000000000' as Address, // ETH
-            fee: 3000,
-            tickSpacing: 60,
+            currency0: '0x0000000000000000000000000000000000000000' as Address, // NATIVE (ETH)
+            currency1: '0x31d0220469e10c4e71834a79b1f276d740d3768f' as Address, // USDC on Unichain Sepolia
+            fee: 3000, // 0.30% fee
+            tickSpacing: 60, // Standard for 0.30% pools
             hooks: '0x0000000000000000000000000000000000000000' as Address,
         },
     }, { verbose: true });
@@ -2053,6 +2105,54 @@ export async function testLiveCCTPAndUniswap(): Promise<{
     return { cctpResult, uniswapResult };
 }
 
+/**
+ * Test autonomous pool selection - Agent discovers and selects optimal pool
+ * 
+ * This test demonstrates the autonomous pool selection feature where the agent:
+ * 1. Discovers ETH/USDC pools on Unichain
+ * 2. Evaluates each pool based on liquidity policy
+ * 3. Scores and ranks pools
+ * 4. Selects the optimal pool
+ * 5. Executes the liquidity deposit
+ * 
+ * No poolKey or poolId is required - the agent handles everything autonomously.
+ * 
+ * Run with: AUTONOMOUS_TEST=true npx ts-node packages/sdk/test/end-to-end.test.ts
+ */
+export async function testAutonomousPoolSelection(): Promise<DetailedTestReport> {
+    console.log('\n🧪 TEST: Autonomous Pool Selection');
+    console.log('   Mode: LIVE - Agent discovers and selects optimal pool');
+    console.log('   The agent will:');
+    console.log('   1. Discover ETH/USDC pools on Unichain');
+    console.log('   2. Evaluate each pool based on policy');
+    console.log('   3. Select the optimal pool');
+    console.log('   4. Execute liquidity deposit\n');
+
+    const recipient = process.env.RECIPIENT_ADDRESS || process.env.PUBLIC_ADDRESS || '';
+
+    if (!recipient) {
+        console.warn('   ⚠️  No RECIPIENT_ADDRESS set, using zero address\n');
+    } else {
+        console.log(`   Recipient: ${recipient.slice(0, 18)}...\n`);
+    }
+
+    return runEndToEndTest({
+        mode: 'live',
+        amount: '5', // 5 USDC for testnet
+        recipient,
+        useAutonomousSelection: true, // Enable autonomous mode - no poolKey needed
+        agentPolicy: {
+            max_slippage: 0.10,         // 10% max slippage for testnet
+            max_price_impact: 0.10,     // 10% max price impact for testnet
+            min_confidence: 0.30,       // Lower confidence threshold for testnet
+            retry_attempts: 2,
+            retry_delay_seconds: 5,
+            fallback_strategy: 'wait',
+        },
+        // No poolKey or poolId - agent selects automatically
+    }, { verbose: true });
+}
+
 // ============================================================================
 // Main Entry Point
 // ============================================================================
@@ -2067,7 +2167,7 @@ function printSuiteHeader(): void {
     console.log('║       SettleKit End-to-End Integration Test Suite               ║');
     console.log('║                                                                  ║');
     console.log('║       Cross-Chain Liquidity Provision Flow Testing              ║');
-    console.log('║       Base (USDC) → Arc Hub (CCTP) → Uniswap v4 Pool            ║');
+    console.log('║       Base → Arc (CCTP) → Unichain (CCTP) → Uniswap v4 Pool    ║');
     console.log('║                                                                  ║');
     console.log('╚══════════════════════════════════════════════════════════════════╝');
     console.log('\n');
@@ -2200,12 +2300,10 @@ function printSuiteSummary(
 async function main() {
     printSuiteHeader();
 
-    const isLiveFullTest = process.env.LIVE_FULL_TEST === 'true';
-    const isLiveTest = process.env.LIVE_TEST === 'true';
-    const isLiveUniswapTest = process.env.LIVE_UNISWAP_TEST === 'true';
     const exportResults = process.env.EXPORT_RESULTS === 'true';
     const verboseLogging = process.env.VERBOSE !== 'false';
     const jsonOutput = process.env.JSON_OUTPUT === 'true';
+    const runAutonomousTest = process.env.AUTONOMOUS_TEST === 'true';
 
     const results: { name: string; report: DetailedTestReport }[] = [];
 
@@ -2216,75 +2314,63 @@ async function main() {
         jsonOutput,
     };
 
-    if (isLiveFullTest) {
-        // Run combined CCTP + Uniswap test
-        console.log('🔴 Running LIVE combined CCTP + Uniswap test');
-        console.log('   This will execute real transactions on:');
-        console.log('   • Base Sepolia → Arc Testnet (CCTP Transfer)');
-        console.log('   • Unichain Sepolia (Uniswap Liquidity Deposit)');
-        console.log('   Ensure PRIVATE_KEY is set and account has USDC\n');
-
-        const { cctpResult, uniswapResult } = await testLiveCCTPAndUniswap();
-        results.push({ name: 'Live CCTP Transfer', report: cctpResult });
-        results.push({ name: 'Live Uniswap Execution', report: uniswapResult });
-    } else if (isLiveUniswapTest) {
-        // Run live Uniswap execution test
-        console.log('🔴 Running LIVE Uniswap execution test');
-        console.log('   This will execute real transactions on Unichain Sepolia');
-        console.log('   Ensure PRIVATE_KEY is set and account has USDC\n');
-
-        const liveUniswapReport = await testLiveUniswapExecution();
-        results.push({ name: 'Live Uniswap Execution', report: liveUniswapReport });
-    } else if (isLiveTest) {
-        // Run live CCTP transfer test
-        console.log('🔴 Running LIVE test against testnets');
-        console.log('   This will execute real transactions on Base Sepolia and Arc Testnet\n');
-
-        const liveReport = await testLiveCCTPTransfer();
-        results.push({ name: 'Live CCTP Transfer', report: liveReport });
-    } else {
-        // Run mock test scenarios demonstrating SettleAgent integration
-        console.log('📋 Running mock test scenarios\n');
+    // Check if autonomous test is requested
+    if (runAutonomousTest) {
+        console.log('🤖 Running AUTONOMOUS POOL SELECTION test');
+        console.log('   This will execute the complete cross-chain flow with autonomous pool selection:');
+        console.log('   • Phase 1: CCTP Transfer Leg 1 (Base Sepolia → Arc Testnet)');
+        console.log('   • Phase 1: CCTP Transfer Leg 2 (Arc Testnet → Unichain Sepolia)');
+        console.log('   • Phase 2 & 3: Autonomous Pool Discovery, Evaluation, and Execution');
+        console.log('   Agent will discover ETH/USDC pools and select the optimal one');
+        console.log('');
         console.log('   Environment Variables:');
-        console.log('   • LIVE_FULL_TEST=true    - Run combined CCTP + Uniswap test');
-        console.log('   • LIVE_TEST=true         - Run against real testnets');
-        console.log('   • LIVE_UNISWAP_TEST=true - Test Uniswap execution');
-        console.log('   • EXPORT_RESULTS=true    - Export results to JSON');
-        console.log('   • VERBOSE=false          - Reduce log verbosity');
-        console.log('   • JSON_OUTPUT=true       - Output logs as JSON\n');
-        console.log('   SettleAgent Integration Tests:');
-        console.log('   • Risk simulation via RiskSimulator');
-        console.log('   • Decision making based on policy thresholds');
-        console.log('   • Retry logic for wait decisions');
-        console.log('   • Execution via UniswapLiquidityExecutor\n');
+        console.log('   • EXPORT_RESULTS=true   - Export results to JSON');
+        console.log('   • VERBOSE=false         - Reduce log verbosity');
+        console.log('   • JSON_OUTPUT=true      - Output logs as JSON\n');
 
-        // Test 1: Happy path - demonstrates successful execution
-        const happyPathReport = await testHappyPath();
-        results.push({ name: 'Happy Path', report: happyPathReport });
+        const autonomousReport = await testAutonomousPoolSelection();
+        results.push({ name: 'Autonomous Pool Selection', report: autonomousReport });
+    } else {
+        // Run single unified end-to-end flow with explicit pool
+        console.log('🔴 Running LIVE end-to-end test');
+        console.log('   This will execute the complete cross-chain flow:');
+        console.log('   • Phase 1: CCTP Transfer Leg 1 (Base Sepolia → Arc Testnet)');
+        console.log('   • Phase 1: CCTP Transfer Leg 2 (Arc Testnet → Unichain Sepolia)');
+        console.log('   • Phase 2: Risk Evaluation');
+        console.log('   • Phase 3: Uniswap Liquidity Deposit (Unichain Sepolia)');
+        console.log('   Ensure PRIVATE_KEY is set and account has USDC');
+        console.log('');
+        console.log('   Environment Variables:');
+        console.log('   • AUTONOMOUS_TEST=true - Run autonomous pool selection test');
+        console.log('   • EXPORT_RESULTS=true  - Export results to JSON');
+        console.log('   • VERBOSE=false        - Reduce log verbosity');
+        console.log('   • JSON_OUTPUT=true     - Output logs as JSON\n');
 
-        // Test 2: High slippage - demonstrates slippage threshold enforcement
-        const highSlippageReport = await testHighSlippage();
-        results.push({ name: 'High Slippage', report: highSlippageReport });
-
-        // Test 3: Low confidence - demonstrates confidence threshold enforcement
-        const lowConfidenceReport = await testLowConfidence();
-        results.push({ name: 'Low Confidence', report: lowConfidenceReport });
-
-        // Test 4: Agent retry behavior - demonstrates wait/retry logic
-        const retryReport = await testAgentRetryBehavior();
-        results.push({ name: 'Agent Retry Behavior', report: retryReport });
-
-        // Test 5: Custom policy - demonstrates policy customization
-        const policyReport = await testAgentPolicyCustomization();
-        results.push({ name: 'Agent Policy Customization', report: policyReport });
-
-        // Test 6: Uniswap execution flow - demonstrates full executor integration
-        const uniswapReport = await testUniswapExecution();
-        results.push({ name: 'Uniswap Execution', report: uniswapReport });
+        const report = await runEndToEndTest({
+            mode: 'live',
+            amount: '5', // 5 USDC for full flow test
+            recipient: process.env.RECIPIENT_ADDRESS || process.env.PUBLIC_ADDRESS || '',
+            agentPolicy: {
+                max_slippage: 0.10,
+                max_price_impact: 0.10,
+                min_confidence: 0.30,
+                retry_attempts: 2,
+                retry_delay_seconds: 5,
+                fallback_strategy: 'wait',
+            },
+            poolKey: {
+                currency0: '0x0000000000000000000000000000000000000000',
+                currency1: '0x31d0220469e10c4e71834a79b1f276d740d3768f',
+                fee: 3000,
+                tickSpacing: 60,
+                hooks: '0x0000000000000000000000000000000000000000',
+            },
+        }, { verbose: true });
+        results.push({ name: 'Live End-to-End Flow', report });
     }
 
     // Print comprehensive summary
-    printSuiteSummary(results, isLiveTest || isLiveUniswapTest || isLiveFullTest);
+    printSuiteSummary(results, true);
 
     // Export results if requested
     if (exportResults) {

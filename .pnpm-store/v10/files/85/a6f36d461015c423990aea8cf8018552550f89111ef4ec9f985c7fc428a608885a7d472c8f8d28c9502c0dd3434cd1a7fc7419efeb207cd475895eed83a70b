@@ -1,0 +1,4 @@
+export type { AaveV2DefaultReserveInterestRateStrategy } from "./AaveV2DefaultReserveInterestRateStrategy";
+export type { AaveV2LendingPool } from "./AaveV2LendingPool";
+export type { AaveV2LendingPoolCollateralManager } from "./AaveV2LendingPoolCollateralManager";
+export type { AaveV2LendingPoolConfigurator } from "./AaveV2LendingPoolConfigurator";

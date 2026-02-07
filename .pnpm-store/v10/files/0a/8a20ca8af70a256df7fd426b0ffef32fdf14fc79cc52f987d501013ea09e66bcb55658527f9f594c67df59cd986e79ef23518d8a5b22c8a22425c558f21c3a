@@ -1,0 +1,66 @@
+import type { Address, MarketId } from "./types.js";
+export declare class UnknownDataError extends Error {
+}
+export declare class UnknownTokenError extends UnknownDataError {
+    readonly address: Address;
+    constructor(address: Address);
+}
+export declare class UnknownTokenPriceError extends UnknownDataError {
+    readonly address: Address;
+    constructor(address: Address);
+}
+export declare class UnknownMarketParamsError extends UnknownDataError {
+    readonly marketId: MarketId;
+    constructor(marketId: MarketId);
+}
+export declare class UnknownVaultConfigError extends UnknownDataError {
+    readonly vault: Address;
+    constructor(vault: Address);
+}
+export declare class UnsupportedChainIdError extends Error {
+    readonly chainId: number;
+    constructor(chainId: number);
+}
+export declare class UnsupportedPreLiquidationParamsError extends Error {
+    readonly lltv: bigint;
+    constructor(lltv: bigint);
+}
+export declare namespace BlueErrors {
+    class AlreadySet extends Error {
+        readonly name: string;
+        readonly value: string;
+        constructor(name: string, value: string);
+    }
+    class InvalidInterestAccrual extends Error {
+        readonly marketId: MarketId;
+        readonly timestamp: bigint;
+        readonly lastUpdate: bigint;
+        constructor(marketId: MarketId, timestamp: bigint, lastUpdate: bigint);
+    }
+    class InconsistentInput extends Error {
+        constructor();
+    }
+    class InsufficientLiquidity extends Error {
+        readonly marketId: MarketId;
+        constructor(marketId: MarketId);
+    }
+    class UnknownOraclePrice extends Error {
+        readonly marketId: MarketId;
+        constructor(marketId: MarketId);
+    }
+    class InsufficientPosition extends Error {
+        readonly user: Address;
+        readonly marketId: MarketId;
+        constructor(user: Address, marketId: MarketId);
+    }
+    class InsufficientCollateral extends Error {
+        readonly user: Address;
+        readonly marketId: MarketId;
+        constructor(user: Address, marketId: MarketId);
+    }
+}
+export interface ErrorClass<E extends Error> {
+    new (...args: any[]): E;
+}
+export declare function _try<T, E extends Error>(accessor: () => Promise<T>, ...errorClasses: ErrorClass<E>[]): Promise<T | undefined>;
+export declare function _try<T, E extends Error>(accessor: () => T, ...errorClasses: ErrorClass<E>[]): T | undefined;

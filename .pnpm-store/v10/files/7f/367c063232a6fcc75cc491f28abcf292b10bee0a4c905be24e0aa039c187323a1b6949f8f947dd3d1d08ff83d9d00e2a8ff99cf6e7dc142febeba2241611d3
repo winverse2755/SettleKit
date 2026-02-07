@@ -1,0 +1,17 @@
+import { type ContractRunner } from "ethers";
+import type { BlueOracle, BlueOracleInterface } from "../../../../protocols/morpho/blue/BlueOracle";
+export declare class BlueOracle__factory {
+    static readonly abi: readonly [{
+        readonly type: "function";
+        readonly name: "price";
+        readonly inputs: readonly [];
+        readonly outputs: readonly [{
+            readonly name: "";
+            readonly type: "uint256";
+            readonly internalType: "uint256";
+        }];
+        readonly stateMutability: "view";
+    }];
+    static createInterface(): BlueOracleInterface;
+    static connect(address: string, runner?: ContractRunner | null): BlueOracle;
+}

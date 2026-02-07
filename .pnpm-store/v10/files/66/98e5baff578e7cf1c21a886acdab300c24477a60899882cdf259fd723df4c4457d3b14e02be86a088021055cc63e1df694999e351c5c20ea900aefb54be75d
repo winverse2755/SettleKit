@@ -1,0 +1,90 @@
+import { type ContractRunner } from "ethers";
+import type { MorphoChainlinkOracleV2Factory, MorphoChainlinkOracleV2FactoryInterface } from "../../../../protocols/morpho/blue/MorphoChainlinkOracleV2Factory";
+export declare class MorphoChainlinkOracleV2Factory__factory {
+    static readonly abi: readonly [{
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: false;
+            readonly internalType: "address";
+            readonly name: "caller";
+            readonly type: "address";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "address";
+            readonly name: "oracle";
+            readonly type: "address";
+        }];
+        readonly name: "CreateMorphoChainlinkOracleV2";
+        readonly type: "event";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "contract IERC4626";
+            readonly name: "baseVault";
+            readonly type: "address";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "baseVaultConversionSample";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "contract AggregatorV3Interface";
+            readonly name: "baseFeed1";
+            readonly type: "address";
+        }, {
+            readonly internalType: "contract AggregatorV3Interface";
+            readonly name: "baseFeed2";
+            readonly type: "address";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "baseTokenDecimals";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "contract IERC4626";
+            readonly name: "quoteVault";
+            readonly type: "address";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "quoteVaultConversionSample";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "contract AggregatorV3Interface";
+            readonly name: "quoteFeed1";
+            readonly type: "address";
+        }, {
+            readonly internalType: "contract AggregatorV3Interface";
+            readonly name: "quoteFeed2";
+            readonly type: "address";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "quoteTokenDecimals";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "bytes32";
+            readonly name: "salt";
+            readonly type: "bytes32";
+        }];
+        readonly name: "createMorphoChainlinkOracleV2";
+        readonly outputs: readonly [{
+            readonly internalType: "contract MorphoChainlinkOracleV2";
+            readonly name: "oracle";
+            readonly type: "address";
+        }];
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address";
+            readonly name: "";
+            readonly type: "address";
+        }];
+        readonly name: "isMorphoChainlinkOracleV2";
+        readonly outputs: readonly [{
+            readonly internalType: "bool";
+            readonly name: "";
+            readonly type: "bool";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }];
+    static createInterface(): MorphoChainlinkOracleV2FactoryInterface;
+    static connect(address: string, runner?: ContractRunner | null): MorphoChainlinkOracleV2Factory;
+}

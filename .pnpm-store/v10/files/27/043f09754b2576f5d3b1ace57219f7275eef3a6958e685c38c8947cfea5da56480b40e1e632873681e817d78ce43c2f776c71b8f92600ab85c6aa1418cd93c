@@ -1,0 +1,6 @@
+import type { Provider } from "ethers";
+import { type Address, VaultConfig } from "@morpho-org/blue-sdk";
+import type { FetchOptions } from "../types";
+export declare function fetchVaultConfig(address: Address, runner: {
+    provider: Provider;
+}, options?: FetchOptions): Promise<VaultConfig>;

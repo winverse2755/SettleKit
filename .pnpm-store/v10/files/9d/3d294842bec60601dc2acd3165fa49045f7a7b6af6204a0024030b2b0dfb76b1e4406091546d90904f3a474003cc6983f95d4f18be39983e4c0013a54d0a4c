@@ -1,0 +1,1 @@
+export { GovernorCompatibilityBravo__factory } from "./GovernorCompatibilityBravo__factory";

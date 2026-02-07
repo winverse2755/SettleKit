@@ -1,0 +1,140 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.BlueErrors = exports.UnsupportedPreLiquidationParamsError = exports.UnsupportedChainIdError = exports.UnknownVaultConfigError = exports.UnknownMarketParamsError = exports.UnknownTokenPriceError = exports.UnknownTokenError = exports.UnknownDataError = void 0;
+exports._try = _try;
+const viem_1 = require("viem");
+class UnknownDataError extends Error {
+}
+exports.UnknownDataError = UnknownDataError;
+class UnknownTokenError extends UnknownDataError {
+    address;
+    constructor(address) {
+        super(`unknown token ${address}`);
+        this.address = address;
+    }
+}
+exports.UnknownTokenError = UnknownTokenError;
+class UnknownTokenPriceError extends UnknownDataError {
+    address;
+    constructor(address) {
+        super(`unknown price of token ${address}`);
+        this.address = address;
+    }
+}
+exports.UnknownTokenPriceError = UnknownTokenPriceError;
+class UnknownMarketParamsError extends UnknownDataError {
+    marketId;
+    constructor(marketId) {
+        super(`unknown config for market ${marketId}`);
+        this.marketId = marketId;
+    }
+}
+exports.UnknownMarketParamsError = UnknownMarketParamsError;
+class UnknownVaultConfigError extends UnknownDataError {
+    vault;
+    constructor(vault) {
+        super(`unknown config for vault ${vault}`);
+        this.vault = vault;
+    }
+}
+exports.UnknownVaultConfigError = UnknownVaultConfigError;
+class UnsupportedChainIdError extends Error {
+    chainId;
+    constructor(chainId) {
+        super(`unsupported chain ${chainId}`);
+        this.chainId = chainId;
+    }
+}
+exports.UnsupportedChainIdError = UnsupportedChainIdError;
+class UnsupportedPreLiquidationParamsError extends Error {
+    lltv;
+    constructor(lltv) {
+        super(`unsupported pre liquidation params for lltv ${(0, viem_1.formatUnits)(lltv, 16)}%`);
+        this.lltv = lltv;
+    }
+}
+exports.UnsupportedPreLiquidationParamsError = UnsupportedPreLiquidationParamsError;
+var BlueErrors;
+(function (BlueErrors) {
+    class AlreadySet extends Error {
+        name;
+        value;
+        constructor(name, value) {
+            super(`${name} is already set to ${value}`);
+            this.name = name;
+            this.value = value;
+        }
+    }
+    BlueErrors.AlreadySet = AlreadySet;
+    class InvalidInterestAccrual extends Error {
+        marketId;
+        timestamp;
+        lastUpdate;
+        constructor(marketId, timestamp, lastUpdate) {
+            super(`invalid interest accrual on market ${marketId}: accrual timestamp ${timestamp} can't be prior to last update ${lastUpdate}`);
+            this.marketId = marketId;
+            this.timestamp = timestamp;
+            this.lastUpdate = lastUpdate;
+        }
+    }
+    BlueErrors.InvalidInterestAccrual = InvalidInterestAccrual;
+    class InconsistentInput extends Error {
+        constructor() {
+            super(`inconsistent input: assets & shares cannot both be zero`);
+        }
+    }
+    BlueErrors.InconsistentInput = InconsistentInput;
+    class InsufficientLiquidity extends Error {
+        marketId;
+        constructor(marketId) {
+            super(`insufficient liquidity on market ${marketId}`);
+            this.marketId = marketId;
+        }
+    }
+    BlueErrors.InsufficientLiquidity = InsufficientLiquidity;
+    class UnknownOraclePrice extends Error {
+        marketId;
+        constructor(marketId) {
+            super(`unknown oracle price of market "${marketId}"`);
+            this.marketId = marketId;
+        }
+    }
+    BlueErrors.UnknownOraclePrice = UnknownOraclePrice;
+    class InsufficientPosition extends Error {
+        user;
+        marketId;
+        constructor(user, marketId) {
+            super(`insufficient position for user ${user} on market ${marketId}`);
+            this.user = user;
+            this.marketId = marketId;
+        }
+    }
+    BlueErrors.InsufficientPosition = InsufficientPosition;
+    class InsufficientCollateral extends Error {
+        user;
+        marketId;
+        constructor(user, marketId) {
+            super(`insufficient collateral for user ${user} on market ${marketId}`);
+            this.user = user;
+            this.marketId = marketId;
+        }
+    }
+    BlueErrors.InsufficientCollateral = InsufficientCollateral;
+})(BlueErrors || (exports.BlueErrors = BlueErrors = {}));
+function _try(accessor, ...errorClasses) {
+    const maybeCatchError = (error) => {
+        if (errorClasses.length === 0 ||
+            errorClasses.some((errorClass) => error instanceof errorClass))
+            return;
+        throw error;
+    };
+    try {
+        const res = accessor();
+        if (res instanceof Promise)
+            return res.catch(maybeCatchError);
+        return res;
+    }
+    catch (error) {
+        return maybeCatchError(error);
+    }
+}

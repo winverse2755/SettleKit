@@ -1,0 +1,18 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.fetchVaultMarketPublicAllocatorConfig = fetchVaultMarketPublicAllocatorConfig;
+const ethers_types_1 = require("ethers-types");
+const blue_sdk_1 = require("@morpho-org/blue-sdk");
+async function fetchVaultMarketPublicAllocatorConfig(vault, marketId, runner, { chainId, overrides = {} } = {}) {
+    chainId ??= Number((await runner.provider.getNetwork()).chainId);
+    const { publicAllocator } = (0, blue_sdk_1.getChainAddresses)(chainId);
+    if (publicAllocator == null)
+        return;
+    const [maxIn, maxOut] = await ethers_types_1.PublicAllocator__factory.connect(publicAllocator, runner).flowCaps(vault, marketId, overrides);
+    return new blue_sdk_1.VaultMarketPublicAllocatorConfig({
+        vault,
+        marketId,
+        maxIn,
+        maxOut,
+    });
+}

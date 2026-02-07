@@ -1,0 +1,221 @@
+import { type ContractRunner } from "ethers";
+import type { AaveV2DefaultReserveInterestRateStrategy, AaveV2DefaultReserveInterestRateStrategyInterface } from "../../../../../../protocols/aave/protocol-v2/protocol/lendingpool/AaveV2DefaultReserveInterestRateStrategy";
+export declare class AaveV2DefaultReserveInterestRateStrategy__factory {
+    static readonly abi: readonly [{
+        readonly inputs: readonly [{
+            readonly internalType: "contract ILendingPoolAddressesProvider";
+            readonly name: "provider";
+            readonly type: "address";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "optimalUtilizationRate";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "baseVariableBorrowRate";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "variableRateSlope1";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "variableRateSlope2";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "stableRateSlope1";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "stableRateSlope2";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "nonpayable";
+        readonly type: "constructor";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "EXCESS_UTILIZATION_RATE";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "OPTIMAL_UTILIZATION_RATE";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "addressesProvider";
+        readonly outputs: readonly [{
+            readonly internalType: "contract ILendingPoolAddressesProvider";
+            readonly name: "";
+            readonly type: "address";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "baseVariableBorrowRate";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address";
+            readonly name: "reserve";
+            readonly type: "address";
+        }, {
+            readonly internalType: "address";
+            readonly name: "aToken";
+            readonly type: "address";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "liquidityAdded";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "liquidityTaken";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "totalStableDebt";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "totalVariableDebt";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "averageStableBorrowRate";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "reserveFactor";
+            readonly type: "uint256";
+        }];
+        readonly name: "calculateInterestRates";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address";
+            readonly name: "reserve";
+            readonly type: "address";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "availableLiquidity";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "totalStableDebt";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "totalVariableDebt";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "averageStableBorrowRate";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "reserveFactor";
+            readonly type: "uint256";
+        }];
+        readonly name: "calculateInterestRates";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "getMaxVariableBorrowRate";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "stableRateSlope1";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "stableRateSlope2";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "variableRateSlope1";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "variableRateSlope2";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }];
+    static createInterface(): AaveV2DefaultReserveInterestRateStrategyInterface;
+    static connect(address: string, runner?: ContractRunner | null): AaveV2DefaultReserveInterestRateStrategy;
+}

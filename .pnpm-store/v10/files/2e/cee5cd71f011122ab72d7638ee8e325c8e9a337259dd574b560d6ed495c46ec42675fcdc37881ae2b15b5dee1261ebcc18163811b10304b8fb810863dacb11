@@ -1,0 +1,21 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.SharesMath = void 0;
+const MathLib_js_1 = require("./MathLib.js");
+/**
+ * JS implementation of {@link https://github.com/morpho-org/morpho-blue/blob/main/src/libraries/SharesMathLib.sol SharesMathLib} used by Morpho Blue
+ * & MetaMorpho (via {@link https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/extensions/ERC4626.sol ERC4626}).
+ */
+var SharesMath;
+(function (SharesMath) {
+    SharesMath.VIRTUAL_SHARES = 1000000n;
+    SharesMath.VIRTUAL_ASSETS = 1n;
+    function toAssets(shares, totalAssets, totalShares, rounding) {
+        return MathLib_js_1.MathLib.mulDiv(shares, BigInt(totalAssets) + SharesMath.VIRTUAL_ASSETS, BigInt(totalShares) + SharesMath.VIRTUAL_SHARES, rounding);
+    }
+    SharesMath.toAssets = toAssets;
+    function toShares(assets, totalAssets, totalShares, rounding) {
+        return MathLib_js_1.MathLib.mulDiv(assets, BigInt(totalShares) + SharesMath.VIRTUAL_SHARES, BigInt(totalAssets) + SharesMath.VIRTUAL_ASSETS, rounding);
+    }
+    SharesMath.toShares = toShares;
+})(SharesMath || (exports.SharesMath = SharesMath = {}));

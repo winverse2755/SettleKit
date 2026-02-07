@@ -12,12 +12,15 @@ import {
     encodeFunctionData,
     parseUnits,
     maxUint256,
+    encodeAbiParameters,
+    parseAbiParameters,
 } from 'viem';
 import { unichainSepolia, CHAINS, type ChainKey } from '../sdk/src/config/networks';
 import { getPoolState, type PoolState } from '../sdk/src/utils/pool-utils';
 import type { DepositLiquidityIntent } from '../sdk/src/types/agent';
 
 // Uniswap v4 PositionManager ABI (relevant functions for liquidity management)
+// Note: mint() is an internal function - use modifyLiquidities() as the external entry point
 const POSITION_MANAGER_ABI = [
     {
         name: 'modifyLiquidities',
@@ -28,72 +31,6 @@ const POSITION_MANAGER_ABI = [
             { name: 'deadline', type: 'uint256' },
         ],
         outputs: [{ name: '', type: 'bytes' }],
-    },
-    {
-        name: 'mint',
-        type: 'function',
-        stateMutability: 'payable',
-        inputs: [
-            {
-                name: 'params',
-                type: 'tuple',
-                components: [
-                    { name: 'poolKey', type: 'tuple', components: [
-                        { name: 'currency0', type: 'address' },
-                        { name: 'currency1', type: 'address' },
-                        { name: 'fee', type: 'uint24' },
-                        { name: 'tickSpacing', type: 'int24' },
-                        { name: 'hooks', type: 'address' },
-                    ]},
-                    { name: 'tickLower', type: 'int24' },
-                    { name: 'tickUpper', type: 'int24' },
-                    { name: 'liquidity', type: 'uint256' },
-                    { name: 'amount0Max', type: 'uint256' },
-                    { name: 'amount1Max', type: 'uint256' },
-                    { name: 'owner', type: 'address' },
-                    { name: 'hookData', type: 'bytes' },
-                ],
-            },
-        ],
-        outputs: [
-            { name: 'tokenId', type: 'uint256' },
-            { name: 'liquidity', type: 'uint128' },
-            { name: 'amount0', type: 'uint256' },
-            { name: 'amount1', type: 'uint256' },
-        ],
-    },
-    {
-        name: 'increaseLiquidity',
-        type: 'function',
-        stateMutability: 'payable',
-        inputs: [
-            { name: 'tokenId', type: 'uint256' },
-            { name: 'liquidity', type: 'uint256' },
-            { name: 'amount0Max', type: 'uint256' },
-            { name: 'amount1Max', type: 'uint256' },
-            { name: 'hookData', type: 'bytes' },
-        ],
-        outputs: [
-            { name: 'liquidity', type: 'uint128' },
-            { name: 'amount0', type: 'uint256' },
-            { name: 'amount1', type: 'uint256' },
-        ],
-    },
-    {
-        name: 'decreaseLiquidity',
-        type: 'function',
-        stateMutability: 'payable',
-        inputs: [
-            { name: 'tokenId', type: 'uint256' },
-            { name: 'liquidity', type: 'uint256' },
-            { name: 'amount0Min', type: 'uint256' },
-            { name: 'amount1Min', type: 'uint256' },
-            { name: 'hookData', type: 'bytes' },
-        ],
-        outputs: [
-            { name: 'amount0', type: 'uint256' },
-            { name: 'amount1', type: 'uint256' },
-        ],
     },
     {
         name: 'collect',
@@ -141,6 +78,140 @@ const ERC20_ABI = [
     },
 ] as const;
 
+// =============================================================================
+// Uniswap v4 Action Constants and Encoding Helpers
+// =============================================================================
+
+/**
+ * Action codes from Uniswap v4 PositionManager
+ * These are used to build the encoded actions for modifyLiquidities()
+ * @see https://github.com/Uniswap/v4-periphery/blob/main/src/libraries/Actions.sol
+ */
+const Actions = {
+    /** Mint a new liquidity position */
+    MINT_POSITION: 0x02,
+    /** Settle a pair of currencies (provide tokens to pay for position) */
+    SETTLE_PAIR: 0x0d,
+    /** Sweep remaining tokens back to recipient */
+    SWEEP: 0x14,
+} as const;
+
+/**
+ * ABI parameter types for encoding action parameters
+ */
+const POOL_KEY_STRUCT = '(address currency0, address currency1, uint24 fee, int24 tickSpacing, address hooks)';
+const MINT_POSITION_PARAMS = `${POOL_KEY_STRUCT}, int24 tickLower, int24 tickUpper, uint256 liquidity, uint128 amount0Max, uint128 amount1Max, address owner, bytes hookData`;
+const SETTLE_PAIR_PARAMS = 'address currency0, address currency1';
+const SWEEP_PARAMS = 'address currency, address recipient';
+
+/**
+ * Encode action IDs into a packed bytes sequence
+ * Each action ID is encoded as a single byte
+ * 
+ * @param actions - Array of action IDs (e.g., [Actions.MINT_POSITION, Actions.SETTLE_PAIR])
+ * @returns Packed bytes representation of actions
+ * 
+ * @example
+ * encodeActions([Actions.MINT_POSITION, Actions.SETTLE_PAIR])
+ * // Returns '0x020d'
+ */
+function encodeActions(actions: number[]): `0x${string}` {
+    return ('0x' + actions.map(a => a.toString(16).padStart(2, '0')).join('')) as `0x${string}`;
+}
+
+/**
+ * Encode the unlockData parameter for modifyLiquidities()
+ * Combines encoded actions with their corresponding parameters
+ * 
+ * @param actions - Packed bytes of action IDs from encodeActions()
+ * @param params - Array of ABI-encoded parameters for each action
+ * @returns Encoded unlockData ready for modifyLiquidities()
+ * 
+ * @example
+ * const actions = encodeActions([Actions.MINT_POSITION, Actions.SETTLE_PAIR]);
+ * const unlockData = encodeUnlockData(actions, [mintParams, settleParams]);
+ * // Use unlockData in modifyLiquidities(unlockData, deadline)
+ */
+function encodeUnlockData(actions: `0x${string}`, params: `0x${string}`[]): `0x${string}` {
+    return encodeAbiParameters(
+        [{ type: 'bytes' }, { type: 'bytes[]' }],
+        [actions, params]
+    );
+}
+
+/**
+ * Encode parameters for MINT_POSITION action
+ * 
+ * @param poolKey - The pool key struct
+ * @param tickLower - Lower tick bound
+ * @param tickUpper - Upper tick bound
+ * @param liquidity - Amount of liquidity to mint
+ * @param amount0Max - Maximum amount of token0 to spend
+ * @param amount1Max - Maximum amount of token1 to spend
+ * @param owner - Address to receive the position NFT
+ * @param hookData - Optional hook data (default: '0x')
+ * @returns ABI-encoded parameters for MINT_POSITION action
+ */
+function encodeMintPositionParams(
+    poolKey: {
+        currency0: Address;
+        currency1: Address;
+        fee: number;
+        tickSpacing: number;
+        hooks: Address;
+    },
+    tickLower: number,
+    tickUpper: number,
+    liquidity: bigint,
+    amount0Max: bigint,
+    amount1Max: bigint,
+    owner: Address,
+    hookData: `0x${string}` = '0x'
+): `0x${string}` {
+    return encodeAbiParameters(
+        parseAbiParameters(MINT_POSITION_PARAMS),
+        [
+            poolKey,
+            tickLower,
+            tickUpper,
+            liquidity,
+            amount0Max,
+            amount1Max,
+            owner,
+            hookData,
+        ]
+    );
+}
+
+/**
+ * Encode parameters for SETTLE_PAIR action
+ * 
+ * @param currency0 - Address of the first currency (token0)
+ * @param currency1 - Address of the second currency (token1)
+ * @returns ABI-encoded parameters for SETTLE_PAIR action
+ */
+function encodeSettlePairParams(currency0: Address, currency1: Address): `0x${string}` {
+    return encodeAbiParameters(
+        parseAbiParameters(SETTLE_PAIR_PARAMS),
+        [currency0, currency1]
+    );
+}
+
+/**
+ * Encode parameters for SWEEP action
+ * Used to recover unused tokens (especially for native ETH pools)
+ * 
+ * @param currency - Address of the currency to sweep
+ * @param recipient - Address to receive the swept tokens
+ * @returns ABI-encoded parameters for SWEEP action
+ */
+function encodeSweepParams(currency: Address, recipient: Address): `0x${string}` {
+    return encodeAbiParameters(
+        parseAbiParameters(SWEEP_PARAMS),
+        [currency, recipient]
+    );
+}
+
 // Contract addresses per chain
 const CONTRACT_ADDRESSES: Partial<Record<ChainKey, {
     positionManager: Address;
@@ -153,6 +224,11 @@ const CONTRACT_ADDRESSES: Partial<Record<ChainKey, {
         poolManager: '0x00b036b58a818b1bc34d502d3fe730db729e62ac', // Pool Manager
     },
 };
+
+/**
+ * Default deadline offset in seconds (20 minutes)
+ */
+const DEFAULT_DEADLINE_SECONDS = 20 * 60;
 
 /**
  * Parameters for depositing liquidity
@@ -176,6 +252,8 @@ export interface LiquidityDepositParams {
         tickSpacing: number;
         hooks: Address;
     };
+    /** Transaction deadline as Unix timestamp (seconds). Defaults to 20 minutes from now. */
+    deadline?: bigint;
 }
 
 /**
@@ -352,11 +430,12 @@ export class UniswapLiquidityExecutor {
     /**
      * Deposit liquidity to a Uniswap v4 pool
      * 
-     * This method:
+     * This method uses the Uniswap v4 command-based architecture:
      * 1. Validates the deposit parameters
      * 2. Ensures sufficient USDC allowance
-     * 3. Mints a new liquidity position via PositionManager
-     * 4. Returns the transaction hash and position ID
+     * 3. Encodes MINT_POSITION and SETTLE_PAIR actions
+     * 4. Calls modifyLiquidities() with the encoded unlockData
+     * 5. Returns the transaction hash and position ID
      * 
      * @param params - Liquidity deposit parameters
      * @returns Result of the deposit operation
@@ -403,29 +482,40 @@ export class UniswapLiquidityExecutor {
                 };
             }
 
-            const mintParams = {
-                poolKey: {
-                    currency0: params.poolKey.currency0,
-                    currency1: params.poolKey.currency1,
-                    fee: params.poolKey.fee,
-                    tickSpacing: params.poolKey.tickSpacing,
-                    hooks: params.poolKey.hooks,
-                },
-                tickLower: params.tickLower,
-                tickUpper: params.tickUpper,
-                liquidity: amountBigInt, // Simplified: using amount as liquidity
-                amount0Max: amountBigInt,
-                amount1Max: amountBigInt,
-                owner: recipient,
-                hookData: '0x' as `0x${string}`,
-            };
+            // Calculate deadline: use provided deadline or default to 20 minutes from now
+            const deadline = params.deadline ?? BigInt(Math.floor(Date.now() / 1000) + DEFAULT_DEADLINE_SECONDS);
 
-            // Execute the mint transaction
+            // Encode MINT_POSITION action parameters
+            // Using uint128 max values for amount0Max and amount1Max to allow slippage
+            const mintParams = encodeMintPositionParams(
+                params.poolKey,
+                params.tickLower,
+                params.tickUpper,
+                amountBigInt, // liquidity
+                amountBigInt, // amount0Max
+                amountBigInt, // amount1Max
+                recipient,
+                '0x' // hookData
+            );
+
+            // Encode SETTLE_PAIR action parameters
+            const settleParams = encodeSettlePairParams(
+                params.poolKey.currency0,
+                params.poolKey.currency1
+            );
+
+            // Encode actions: MINT_POSITION followed by SETTLE_PAIR
+            const actions = encodeActions([Actions.MINT_POSITION, Actions.SETTLE_PAIR]);
+
+            // Combine actions and parameters into unlockData
+            const unlockData = encodeUnlockData(actions, [mintParams, settleParams]);
+
+            // Execute the modifyLiquidities transaction
             const txHash = await this.walletClient.writeContract({
                 address: positionManager,
                 abi: POSITION_MANAGER_ABI,
-                functionName: 'mint',
-                args: [mintParams],
+                functionName: 'modifyLiquidities',
+                args: [unlockData, deadline],
                 chain: CHAINS[this.chainKey],
                 account: this.account,
             });
@@ -459,11 +549,13 @@ export class UniswapLiquidityExecutor {
      * 
      * @param intent - The deposit liquidity intent
      * @param poolKey - Pool key components (required)
+     * @param deadline - Optional transaction deadline as Unix timestamp (seconds)
      * @returns Result of the deposit operation
      */
     async depositFromIntent(
         intent: DepositLiquidityIntent,
-        poolKey: LiquidityDepositParams['poolKey']
+        poolKey: LiquidityDepositParams['poolKey'],
+        deadline?: bigint
     ): Promise<LiquidityDepositResult> {
         // Default tick range if not specified (full range)
         const tickLower = intent.tickLower ?? -887220;
@@ -476,6 +568,7 @@ export class UniswapLiquidityExecutor {
             tickUpper,
             recipient: intent.recipient as Address | undefined,
             poolKey,
+            deadline,
         });
     }
 

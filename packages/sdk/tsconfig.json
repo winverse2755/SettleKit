@@ -5,7 +5,8 @@
     "moduleResolution": "Node",
     "esModuleInterop": true,
     "strict": true,
-    "outDir": "dist"
+    "outDir": "dist",
+    "types": ["node"]
   },
-  "include": ["src", "test", "../agent/SettleAgent.ts", "../agent/UniswapLiquidityExecutor.ts"]
+  "include": ["src", "test", "scripts", "../agent/SettleAgent.ts", "../agent/UniswapLiquidityExecutor.ts"]
 }

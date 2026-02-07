@@ -1,0 +1,151 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ChainUtils = exports.ChainId = void 0;
+var ChainId;
+(function (ChainId) {
+    ChainId[ChainId["EthMainnet"] = 1] = "EthMainnet";
+    ChainId[ChainId["BaseMainnet"] = 8453] = "BaseMainnet";
+    ChainId[ChainId["PolygonMainnet"] = 137] = "PolygonMainnet";
+    ChainId[ChainId["ArbitrumMainnet"] = 42161] = "ArbitrumMainnet";
+    ChainId[ChainId["OptimismMainnet"] = 10] = "OptimismMainnet";
+    ChainId[ChainId["WorldChainMainnet"] = 480] = "WorldChainMainnet";
+    ChainId[ChainId["FraxtalMainnet"] = 252] = "FraxtalMainnet";
+    ChainId[ChainId["ScrollMainnet"] = 534352] = "ScrollMainnet";
+    ChainId[ChainId["InkMainnet"] = 57073] = "InkMainnet";
+    ChainId[ChainId["Unichain"] = 130] = "Unichain";
+    ChainId[ChainId["SonicMainnet"] = 146] = "SonicMainnet";
+    ChainId[ChainId["HemiMainnet"] = 43111] = "HemiMainnet";
+    ChainId[ChainId["ModeMainnet"] = 34443] = "ModeMainnet";
+    ChainId[ChainId["CornMainnet"] = 21000000] = "CornMainnet";
+    ChainId[ChainId["PlumeMainnet"] = 98866] = "PlumeMainnet";
+    ChainId[ChainId["CampMainnet"] = 123420001114] = "CampMainnet";
+})(ChainId || (exports.ChainId = ChainId = {}));
+var ChainUtils;
+(function (ChainUtils) {
+    ChainUtils.toHexChainId = (chainId) => {
+        return `0x${chainId.toString(16)}`;
+    };
+    ChainUtils.getExplorerUrl = (chainId) => {
+        return ChainUtils.CHAIN_METADATA[chainId].explorerUrl;
+    };
+    ChainUtils.getExplorerAddressUrl = (chainId, address) => {
+        return `${ChainUtils.getExplorerUrl(chainId)}/address/${address}`;
+    };
+    ChainUtils.getExplorerTransactionUrl = (chainId, tx) => {
+        return `${ChainUtils.getExplorerUrl(chainId)}/tx/${tx}`;
+    };
+    ChainUtils.CHAIN_METADATA = {
+        [ChainId.EthMainnet]: {
+            name: "Ethereum",
+            id: ChainId.EthMainnet,
+            nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+            explorerUrl: "https://etherscan.io",
+            identifier: "mainnet",
+        },
+        [ChainId.BaseMainnet]: {
+            name: "Base",
+            id: ChainId.BaseMainnet,
+            nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+            explorerUrl: "https://basescan.org",
+            identifier: "base",
+        },
+        [ChainId.PolygonMainnet]: {
+            name: "Polygon",
+            id: ChainId.PolygonMainnet,
+            nativeCurrency: { name: "Polygon", symbol: "POL", decimals: 18 },
+            explorerUrl: "https://polygonscan.com",
+            identifier: "polygon",
+        },
+        [ChainId.ArbitrumMainnet]: {
+            name: "Arbitrum One",
+            id: ChainId.ArbitrumMainnet,
+            nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+            explorerUrl: "https://arbiscan.io",
+            identifier: "arbitrum",
+        },
+        [ChainId.OptimismMainnet]: {
+            name: "OP Mainnet",
+            id: ChainId.OptimismMainnet,
+            nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+            explorerUrl: "https://optimistic.etherscan.io",
+            identifier: "optimism",
+        },
+        [ChainId.WorldChainMainnet]: {
+            name: "World Chain",
+            id: ChainId.WorldChainMainnet,
+            nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+            explorerUrl: "https://worldscan.org",
+            identifier: "worldchain",
+        },
+        [ChainId.FraxtalMainnet]: {
+            name: "Fraxtal",
+            id: ChainId.FraxtalMainnet,
+            nativeCurrency: { name: "Frax Ether", symbol: "frxETH", decimals: 18 },
+            explorerUrl: "https://fraxscan.com",
+            identifier: "fraxtal",
+        },
+        [ChainId.ScrollMainnet]: {
+            name: "Scroll",
+            id: ChainId.ScrollMainnet,
+            nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+            explorerUrl: "https://scrollscan.com",
+            identifier: "scroll",
+        },
+        [ChainId.InkMainnet]: {
+            name: "Ink",
+            id: ChainId.InkMainnet,
+            nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+            explorerUrl: "https://explorer.inkonchain.com",
+            identifier: "ink",
+        },
+        [ChainId.Unichain]: {
+            name: "Unichain",
+            id: ChainId.Unichain,
+            nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+            explorerUrl: "https://uniscan.xyz",
+            identifier: "unichain",
+        },
+        [ChainId.SonicMainnet]: {
+            name: "Sonic",
+            id: ChainId.SonicMainnet,
+            nativeCurrency: { name: "Sonic", symbol: "S", decimals: 18 },
+            explorerUrl: "https://sonicscan.org",
+            identifier: "sonic",
+        },
+        [ChainId.HemiMainnet]: {
+            name: "Hemi",
+            id: ChainId.HemiMainnet,
+            nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+            explorerUrl: "https://explorer.hemi.xyz",
+            identifier: "hemi",
+        },
+        [ChainId.ModeMainnet]: {
+            name: "Mode",
+            id: ChainId.ModeMainnet,
+            nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+            explorerUrl: "https://modescan.io",
+            identifier: "mode",
+        },
+        [ChainId.CornMainnet]: {
+            name: "Corn",
+            id: ChainId.CornMainnet,
+            nativeCurrency: { name: "Bitcoin", symbol: "BTCN", decimals: 18 },
+            explorerUrl: "https://cornscan.io",
+            identifier: "corn",
+        },
+        [ChainId.PlumeMainnet]: {
+            name: "Plume",
+            id: ChainId.PlumeMainnet,
+            nativeCurrency: { name: "Plume", symbol: "PLUME", decimals: 18 },
+            explorerUrl: "https://phoenix-explorer.plumenetwork.xyz",
+            identifier: "plume",
+        },
+        [ChainId.CampMainnet]: {
+            name: "Camp",
+            id: ChainId.CampMainnet,
+            nativeCurrency: { name: "Camp", symbol: "CAMP", decimals: 18 },
+            explorerUrl: "https://basecamp.cloud.blockscout.com/",
+            identifier: "camp",
+        },
+    };
+})(ChainUtils || (exports.ChainUtils = ChainUtils = {}));

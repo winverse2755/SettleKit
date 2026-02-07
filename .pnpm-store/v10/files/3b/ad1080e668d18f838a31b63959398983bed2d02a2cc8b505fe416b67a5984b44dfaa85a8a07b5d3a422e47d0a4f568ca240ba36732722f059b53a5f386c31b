@@ -1,0 +1,27 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.fetchVaultMarketConfig = fetchVaultMarketConfig;
+const ethers_types_1 = require("ethers-types");
+const blue_sdk_1 = require("@morpho-org/blue-sdk");
+const VaultMarketPublicAllocatorConfig_1 = require("./VaultMarketPublicAllocatorConfig");
+async function fetchVaultMarketConfig(vault, marketId, runner, options = {}) {
+    options.chainId ??= Number((await runner.provider.getNetwork()).chainId);
+    options.overrides ??= {};
+    const mm = ethers_types_1.MetaMorpho__factory.connect(vault, runner);
+    const [{ cap, removableAt, enabled }, pendingCap, publicAllocatorConfig] = await Promise.all([
+        mm.config(marketId, options.overrides),
+        mm
+            .pendingCap(marketId, options.overrides)
+            .then(({ value, validAt }) => ({ value, validAt })),
+        (0, VaultMarketPublicAllocatorConfig_1.fetchVaultMarketPublicAllocatorConfig)(vault, marketId, runner, options),
+    ]);
+    return new blue_sdk_1.VaultMarketConfig({
+        vault,
+        marketId,
+        cap,
+        pendingCap,
+        enabled,
+        removableAt,
+        publicAllocatorConfig,
+    });
+}

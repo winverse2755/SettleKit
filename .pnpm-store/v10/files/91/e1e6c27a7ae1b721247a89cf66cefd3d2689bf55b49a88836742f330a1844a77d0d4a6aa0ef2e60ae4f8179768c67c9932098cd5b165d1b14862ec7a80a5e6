@@ -1,0 +1,9 @@
+import { type Provider } from "ethers";
+import { Market, type MarketId, type MarketParams } from "@morpho-org/blue-sdk";
+import type { FetchOptions } from "../types";
+export declare function fetchMarket(id: MarketId, runner: {
+    provider: Provider;
+}, { chainId, overrides }?: FetchOptions): Promise<Market>;
+export declare function fetchMarketFromConfig(params: MarketParams, runner: {
+    provider: Provider;
+}, { chainId, overrides }?: FetchOptions): Promise<Market>;

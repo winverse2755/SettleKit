@@ -1,0 +1,3 @@
+export { AaveV3L2Encoder__factory } from "./AaveV3L2Encoder__factory";
+export { AaveV3Oracle__factory } from "./AaveV3Oracle__factory";
+export { AaveV3ProtocolDataProvider__factory } from "./AaveV3ProtocolDataProvider__factory";

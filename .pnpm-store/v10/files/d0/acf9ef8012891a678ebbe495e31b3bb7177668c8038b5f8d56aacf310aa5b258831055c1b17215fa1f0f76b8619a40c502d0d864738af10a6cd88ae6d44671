@@ -1,0 +1,6 @@
+import type { Provider } from "ethers";
+import { type Address, type MarketId, VaultMarketConfig } from "@morpho-org/blue-sdk";
+import type { FetchOptions } from "../types";
+export declare function fetchVaultMarketConfig(vault: Address, marketId: MarketId, runner: {
+    provider: Provider;
+}, options?: FetchOptions): Promise<VaultMarketConfig>;

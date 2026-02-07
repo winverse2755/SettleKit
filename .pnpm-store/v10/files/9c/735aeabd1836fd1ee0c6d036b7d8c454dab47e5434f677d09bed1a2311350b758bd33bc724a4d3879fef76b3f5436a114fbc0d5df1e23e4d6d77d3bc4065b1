@@ -1,0 +1,126 @@
+import type { BaseContract, BigNumberish, BytesLike, FunctionFragment, Result, Interface, EventFragment, AddressLike, ContractRunner, ContractMethod, Listener } from "ethers";
+import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, TypedLogDescription, TypedListener, TypedContractMethod } from "../common";
+export interface VestingWalletInterface extends Interface {
+    getFunction(nameOrSignature: "beneficiary" | "duration" | "end" | "releasable(address)" | "releasable()" | "release(address)" | "release()" | "released()" | "released(address)" | "start" | "vestedAmount(uint64)" | "vestedAmount(address,uint64)"): FunctionFragment;
+    getEvent(nameOrSignatureOrTopic: "ERC20Released" | "EtherReleased"): EventFragment;
+    encodeFunctionData(functionFragment: "beneficiary", values?: undefined): string;
+    encodeFunctionData(functionFragment: "duration", values?: undefined): string;
+    encodeFunctionData(functionFragment: "end", values?: undefined): string;
+    encodeFunctionData(functionFragment: "releasable(address)", values: [AddressLike]): string;
+    encodeFunctionData(functionFragment: "releasable()", values?: undefined): string;
+    encodeFunctionData(functionFragment: "release(address)", values: [AddressLike]): string;
+    encodeFunctionData(functionFragment: "release()", values?: undefined): string;
+    encodeFunctionData(functionFragment: "released()", values?: undefined): string;
+    encodeFunctionData(functionFragment: "released(address)", values: [AddressLike]): string;
+    encodeFunctionData(functionFragment: "start", values?: undefined): string;
+    encodeFunctionData(functionFragment: "vestedAmount(uint64)", values: [BigNumberish]): string;
+    encodeFunctionData(functionFragment: "vestedAmount(address,uint64)", values: [AddressLike, BigNumberish]): string;
+    decodeFunctionResult(functionFragment: "beneficiary", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "duration", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "end", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "releasable(address)", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "releasable()", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "release(address)", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "release()", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "released()", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "released(address)", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "start", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "vestedAmount(uint64)", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "vestedAmount(address,uint64)", data: BytesLike): Result;
+}
+export declare namespace ERC20ReleasedEvent {
+    type InputTuple = [token: AddressLike, amount: BigNumberish];
+    type OutputTuple = [token: string, amount: bigint];
+    interface OutputObject {
+        token: string;
+        amount: bigint;
+    }
+    type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+    type Filter = TypedDeferredTopicFilter<Event>;
+    type Log = TypedEventLog<Event>;
+    type LogDescription = TypedLogDescription<Event>;
+}
+export declare namespace EtherReleasedEvent {
+    type InputTuple = [amount: BigNumberish];
+    type OutputTuple = [amount: bigint];
+    interface OutputObject {
+        amount: bigint;
+    }
+    type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+    type Filter = TypedDeferredTopicFilter<Event>;
+    type Log = TypedEventLog<Event>;
+    type LogDescription = TypedLogDescription<Event>;
+}
+export interface VestingWallet extends BaseContract {
+    connect(runner?: ContractRunner | null): VestingWallet;
+    waitForDeployment(): Promise<this>;
+    interface: VestingWalletInterface;
+    queryFilter<TCEvent extends TypedContractEvent>(event: TCEvent, fromBlockOrBlockhash?: string | number | undefined, toBlock?: string | number | undefined): Promise<Array<TypedEventLog<TCEvent>>>;
+    queryFilter<TCEvent extends TypedContractEvent>(filter: TypedDeferredTopicFilter<TCEvent>, fromBlockOrBlockhash?: string | number | undefined, toBlock?: string | number | undefined): Promise<Array<TypedEventLog<TCEvent>>>;
+    on<TCEvent extends TypedContractEvent>(event: TCEvent, listener: TypedListener<TCEvent>): Promise<this>;
+    on<TCEvent extends TypedContractEvent>(filter: TypedDeferredTopicFilter<TCEvent>, listener: TypedListener<TCEvent>): Promise<this>;
+    once<TCEvent extends TypedContractEvent>(event: TCEvent, listener: TypedListener<TCEvent>): Promise<this>;
+    once<TCEvent extends TypedContractEvent>(filter: TypedDeferredTopicFilter<TCEvent>, listener: TypedListener<TCEvent>): Promise<this>;
+    listeners<TCEvent extends TypedContractEvent>(event: TCEvent): Promise<Array<TypedListener<TCEvent>>>;
+    listeners(eventName?: string): Promise<Array<Listener>>;
+    removeAllListeners<TCEvent extends TypedContractEvent>(event?: TCEvent): Promise<this>;
+    beneficiary: TypedContractMethod<[], [string], "view">;
+    duration: TypedContractMethod<[], [bigint], "view">;
+    end: TypedContractMethod<[], [bigint], "view">;
+    "releasable(address)": TypedContractMethod<[
+        token: AddressLike
+    ], [
+        bigint
+    ], "view">;
+    "releasable()": TypedContractMethod<[], [bigint], "view">;
+    "release(address)": TypedContractMethod<[
+        token: AddressLike
+    ], [
+        void
+    ], "nonpayable">;
+    "release()": TypedContractMethod<[], [void], "nonpayable">;
+    "released()": TypedContractMethod<[], [bigint], "view">;
+    "released(address)": TypedContractMethod<[
+        token: AddressLike
+    ], [
+        bigint
+    ], "view">;
+    start: TypedContractMethod<[], [bigint], "view">;
+    "vestedAmount(uint64)": TypedContractMethod<[
+        timestamp: BigNumberish
+    ], [
+        bigint
+    ], "view">;
+    "vestedAmount(address,uint64)": TypedContractMethod<[
+        token: AddressLike,
+        timestamp: BigNumberish
+    ], [
+        bigint
+    ], "view">;
+    getFunction<T extends ContractMethod = ContractMethod>(key: string | FunctionFragment): T;
+    getFunction(nameOrSignature: "beneficiary"): TypedContractMethod<[], [string], "view">;
+    getFunction(nameOrSignature: "duration"): TypedContractMethod<[], [bigint], "view">;
+    getFunction(nameOrSignature: "end"): TypedContractMethod<[], [bigint], "view">;
+    getFunction(nameOrSignature: "releasable(address)"): TypedContractMethod<[token: AddressLike], [bigint], "view">;
+    getFunction(nameOrSignature: "releasable()"): TypedContractMethod<[], [bigint], "view">;
+    getFunction(nameOrSignature: "release(address)"): TypedContractMethod<[token: AddressLike], [void], "nonpayable">;
+    getFunction(nameOrSignature: "release()"): TypedContractMethod<[], [void], "nonpayable">;
+    getFunction(nameOrSignature: "released()"): TypedContractMethod<[], [bigint], "view">;
+    getFunction(nameOrSignature: "released(address)"): TypedContractMethod<[token: AddressLike], [bigint], "view">;
+    getFunction(nameOrSignature: "start"): TypedContractMethod<[], [bigint], "view">;
+    getFunction(nameOrSignature: "vestedAmount(uint64)"): TypedContractMethod<[timestamp: BigNumberish], [bigint], "view">;
+    getFunction(nameOrSignature: "vestedAmount(address,uint64)"): TypedContractMethod<[
+        token: AddressLike,
+        timestamp: BigNumberish
+    ], [
+        bigint
+    ], "view">;
+    getEvent(key: "ERC20Released"): TypedContractEvent<ERC20ReleasedEvent.InputTuple, ERC20ReleasedEvent.OutputTuple, ERC20ReleasedEvent.OutputObject>;
+    getEvent(key: "EtherReleased"): TypedContractEvent<EtherReleasedEvent.InputTuple, EtherReleasedEvent.OutputTuple, EtherReleasedEvent.OutputObject>;
+    filters: {
+        "ERC20Released(address,uint256)": TypedContractEvent<ERC20ReleasedEvent.InputTuple, ERC20ReleasedEvent.OutputTuple, ERC20ReleasedEvent.OutputObject>;
+        ERC20Released: TypedContractEvent<ERC20ReleasedEvent.InputTuple, ERC20ReleasedEvent.OutputTuple, ERC20ReleasedEvent.OutputObject>;
+        "EtherReleased(uint256)": TypedContractEvent<EtherReleasedEvent.InputTuple, EtherReleasedEvent.OutputTuple, EtherReleasedEvent.OutputObject>;
+        EtherReleased: TypedContractEvent<EtherReleasedEvent.InputTuple, EtherReleasedEvent.OutputTuple, EtherReleasedEvent.OutputObject>;
+    };
+}

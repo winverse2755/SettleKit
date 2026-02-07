@@ -1,0 +1,128 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ERC20Metadata__factory = exports.Bytes32ERC20__factory = exports.decodeString = exports.isBytes32ERC20Metadata = void 0;
+exports.fetchToken = fetchToken;
+const ethers_1 = require("ethers");
+const ethers_types_1 = require("ethers-types");
+const ethers_types_2 = require("ethers-types");
+const blue_sdk_1 = require("@morpho-org/blue-sdk");
+const isBytes32ERC20Metadata = (address, chainId) => {
+    switch (chainId) {
+        case blue_sdk_1.ChainId.EthMainnet:
+            return address === blue_sdk_1.addressesRegistry[blue_sdk_1.ChainId.EthMainnet].mkr;
+        default:
+            return false;
+    }
+};
+exports.isBytes32ERC20Metadata = isBytes32ERC20Metadata;
+const decodeString = (bytes32OrStr) => {
+    if ((0, ethers_1.isHexString)(bytes32OrStr, 32))
+        return (0, ethers_1.decodeBytes32String)(bytes32OrStr);
+    return bytes32OrStr;
+};
+exports.decodeString = decodeString;
+const _bytes32ERC20Abi = [
+    ...ethers_types_2.ERC20__factory.abi.filter((fragment) => !("name" in fragment) ||
+        (fragment.name !== "name" && fragment.name !== "symbol")),
+    {
+        inputs: [],
+        name: "symbol",
+        outputs: [
+            {
+                name: "symbol",
+                type: "bytes32",
+            },
+        ],
+        stateMutability: "view",
+        type: "function",
+    },
+    {
+        inputs: [],
+        name: "name",
+        outputs: [
+            {
+                name: "name",
+                type: "bytes32",
+            },
+        ],
+        stateMutability: "view",
+        type: "function",
+    },
+];
+var Bytes32ERC20__factory;
+(function (Bytes32ERC20__factory) {
+    Bytes32ERC20__factory.abi = _bytes32ERC20Abi;
+    function createInterface() {
+        return new ethers_1.Interface(_bytes32ERC20Abi);
+    }
+    Bytes32ERC20__factory.createInterface = createInterface;
+    function connect(address, runner) {
+        const erc20 = new ethers_1.Contract(address, _bytes32ERC20Abi, runner);
+        const name = erc20.name.bind(erc20);
+        erc20.name = Object.assign((...args) => name(...args).then(exports.decodeString), name);
+        const symbol = erc20.symbol.bind(erc20);
+        erc20.symbol = Object.assign((...args) => symbol(...args).then(exports.decodeString), symbol);
+        return erc20;
+    }
+    Bytes32ERC20__factory.connect = connect;
+})(Bytes32ERC20__factory || (exports.Bytes32ERC20__factory = Bytes32ERC20__factory = {}));
+var ERC20Metadata__factory;
+(function (ERC20Metadata__factory) {
+    function connect(address, chainId, runner) {
+        if ((0, exports.isBytes32ERC20Metadata)(address, chainId))
+            return Bytes32ERC20__factory.connect(address, runner);
+        const erc20 = ethers_types_2.ERC20__factory.connect(address, runner);
+        const name = erc20.name.bind(erc20);
+        erc20.name = Object.assign((...args) => name(...args).catch(() => Bytes32ERC20__factory.connect(address, runner).name(...args)), name);
+        const symbol = erc20.symbol.bind(erc20);
+        erc20.symbol = Object.assign((...args) => symbol(...args).catch(() => Bytes32ERC20__factory.connect(address, runner).symbol(...args)), symbol);
+        return erc20;
+    }
+    ERC20Metadata__factory.connect = connect;
+})(ERC20Metadata__factory || (exports.ERC20Metadata__factory = ERC20Metadata__factory = {}));
+async function fetchToken(address, runner, { chainId, overrides = {} } = {}) {
+    chainId ??= Number((await runner.provider.getNetwork()).chainId);
+    if (address === blue_sdk_1.NATIVE_ADDRESS)
+        return blue_sdk_1.Token.native(chainId);
+    const erc20 = ERC20Metadata__factory.connect(address, chainId, runner);
+    const erc20Permit = ethers_types_1.ERC20Permit__factory.connect(address, runner);
+    const [decimals, symbol, name, eip5267Domain] = await Promise.all([
+        erc20.decimals(overrides).catch(() => undefined),
+        erc20.symbol(overrides).catch(() => undefined),
+        erc20.name(overrides).catch(() => undefined),
+        erc20Permit
+            .eip712Domain(overrides)
+            .then(({ fields, name, version, chainId, verifyingContract, salt, extensions, }) => new blue_sdk_1.Eip5267Domain({
+            fields: fields,
+            name,
+            version,
+            chainId,
+            verifyingContract: verifyingContract,
+            salt: salt,
+            extensions,
+        }))
+            .catch(() => undefined),
+    ]);
+    const token = {
+        address,
+        name,
+        symbol,
+        decimals,
+        eip5267Domain,
+    };
+    const { wstEth, stEth } = (0, blue_sdk_1.getChainAddresses)(chainId);
+    switch (address) {
+        case wstEth: {
+            if (stEth) {
+                const wstEthToken = ethers_types_1.WStEth__factory.connect(wstEth, runner);
+                const stEthPerWstEth = await wstEthToken.stEthPerToken(overrides);
+                return new blue_sdk_1.ExchangeRateWrappedToken(token, stEth, stEthPerWstEth);
+            }
+            break;
+        }
+    }
+    const unwrapToken = (0, blue_sdk_1.getUnwrappedToken)(address, chainId);
+    if (unwrapToken)
+        return new blue_sdk_1.ConstantWrappedToken(token, unwrapToken, token.decimals);
+    return new blue_sdk_1.Token(token);
+}

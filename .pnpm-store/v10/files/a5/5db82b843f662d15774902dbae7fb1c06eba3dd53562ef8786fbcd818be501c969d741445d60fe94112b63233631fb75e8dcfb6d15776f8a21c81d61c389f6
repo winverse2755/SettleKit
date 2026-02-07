@@ -1,0 +1,1026 @@
+import { type ContractRunner } from "ethers";
+import type { GovernorCompatibilityBravo, GovernorCompatibilityBravoInterface } from "../../../governance/compatibility/GovernorCompatibilityBravo";
+export declare class GovernorCompatibilityBravo__factory {
+    static readonly abi: readonly [{
+        readonly inputs: readonly [];
+        readonly name: "Empty";
+        readonly type: "error";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "InvalidShortString";
+        readonly type: "error";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "string";
+            readonly name: "str";
+            readonly type: "string";
+        }];
+        readonly name: "StringTooLong";
+        readonly type: "error";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [];
+        readonly name: "EIP712DomainChanged";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: false;
+            readonly internalType: "uint256";
+            readonly name: "proposalId";
+            readonly type: "uint256";
+        }];
+        readonly name: "ProposalCanceled";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: false;
+            readonly internalType: "uint256";
+            readonly name: "proposalId";
+            readonly type: "uint256";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "address";
+            readonly name: "proposer";
+            readonly type: "address";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "address[]";
+            readonly name: "targets";
+            readonly type: "address[]";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "uint256[]";
+            readonly name: "values";
+            readonly type: "uint256[]";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "string[]";
+            readonly name: "signatures";
+            readonly type: "string[]";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "bytes[]";
+            readonly name: "calldatas";
+            readonly type: "bytes[]";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "uint256";
+            readonly name: "voteStart";
+            readonly type: "uint256";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "uint256";
+            readonly name: "voteEnd";
+            readonly type: "uint256";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "string";
+            readonly name: "description";
+            readonly type: "string";
+        }];
+        readonly name: "ProposalCreated";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: false;
+            readonly internalType: "uint256";
+            readonly name: "proposalId";
+            readonly type: "uint256";
+        }];
+        readonly name: "ProposalExecuted";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: false;
+            readonly internalType: "uint256";
+            readonly name: "proposalId";
+            readonly type: "uint256";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "uint256";
+            readonly name: "eta";
+            readonly type: "uint256";
+        }];
+        readonly name: "ProposalQueued";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: true;
+            readonly internalType: "address";
+            readonly name: "voter";
+            readonly type: "address";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "uint256";
+            readonly name: "proposalId";
+            readonly type: "uint256";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "uint8";
+            readonly name: "support";
+            readonly type: "uint8";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "uint256";
+            readonly name: "weight";
+            readonly type: "uint256";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "string";
+            readonly name: "reason";
+            readonly type: "string";
+        }];
+        readonly name: "VoteCast";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: true;
+            readonly internalType: "address";
+            readonly name: "voter";
+            readonly type: "address";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "uint256";
+            readonly name: "proposalId";
+            readonly type: "uint256";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "uint8";
+            readonly name: "support";
+            readonly type: "uint8";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "uint256";
+            readonly name: "weight";
+            readonly type: "uint256";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "string";
+            readonly name: "reason";
+            readonly type: "string";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "bytes";
+            readonly name: "params";
+            readonly type: "bytes";
+        }];
+        readonly name: "VoteCastWithParams";
+        readonly type: "event";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "BALLOT_TYPEHASH";
+        readonly outputs: readonly [{
+            readonly internalType: "bytes32";
+            readonly name: "";
+            readonly type: "bytes32";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "CLOCK_MODE";
+        readonly outputs: readonly [{
+            readonly internalType: "string";
+            readonly name: "";
+            readonly type: "string";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "COUNTING_MODE";
+        readonly outputs: readonly [{
+            readonly internalType: "string";
+            readonly name: "";
+            readonly type: "string";
+        }];
+        readonly stateMutability: "pure";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "EXTENDED_BALLOT_TYPEHASH";
+        readonly outputs: readonly [{
+            readonly internalType: "bytes32";
+            readonly name: "";
+            readonly type: "bytes32";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "proposalId";
+            readonly type: "uint256";
+        }];
+        readonly name: "cancel";
+        readonly outputs: readonly [];
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address[]";
+            readonly name: "targets";
+            readonly type: "address[]";
+        }, {
+            readonly internalType: "uint256[]";
+            readonly name: "values";
+            readonly type: "uint256[]";
+        }, {
+            readonly internalType: "bytes[]";
+            readonly name: "calldatas";
+            readonly type: "bytes[]";
+        }, {
+            readonly internalType: "bytes32";
+            readonly name: "descriptionHash";
+            readonly type: "bytes32";
+        }];
+        readonly name: "cancel";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "proposalId";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint8";
+            readonly name: "support";
+            readonly type: "uint8";
+        }];
+        readonly name: "castVote";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "proposalId";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint8";
+            readonly name: "support";
+            readonly type: "uint8";
+        }, {
+            readonly internalType: "uint8";
+            readonly name: "v";
+            readonly type: "uint8";
+        }, {
+            readonly internalType: "bytes32";
+            readonly name: "r";
+            readonly type: "bytes32";
+        }, {
+            readonly internalType: "bytes32";
+            readonly name: "s";
+            readonly type: "bytes32";
+        }];
+        readonly name: "castVoteBySig";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "proposalId";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint8";
+            readonly name: "support";
+            readonly type: "uint8";
+        }, {
+            readonly internalType: "string";
+            readonly name: "reason";
+            readonly type: "string";
+        }];
+        readonly name: "castVoteWithReason";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "proposalId";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint8";
+            readonly name: "support";
+            readonly type: "uint8";
+        }, {
+            readonly internalType: "string";
+            readonly name: "reason";
+            readonly type: "string";
+        }, {
+            readonly internalType: "bytes";
+            readonly name: "params";
+            readonly type: "bytes";
+        }];
+        readonly name: "castVoteWithReasonAndParams";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "proposalId";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint8";
+            readonly name: "support";
+            readonly type: "uint8";
+        }, {
+            readonly internalType: "string";
+            readonly name: "reason";
+            readonly type: "string";
+        }, {
+            readonly internalType: "bytes";
+            readonly name: "params";
+            readonly type: "bytes";
+        }, {
+            readonly internalType: "uint8";
+            readonly name: "v";
+            readonly type: "uint8";
+        }, {
+            readonly internalType: "bytes32";
+            readonly name: "r";
+            readonly type: "bytes32";
+        }, {
+            readonly internalType: "bytes32";
+            readonly name: "s";
+            readonly type: "bytes32";
+        }];
+        readonly name: "castVoteWithReasonAndParamsBySig";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "clock";
+        readonly outputs: readonly [{
+            readonly internalType: "uint48";
+            readonly name: "";
+            readonly type: "uint48";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "eip712Domain";
+        readonly outputs: readonly [{
+            readonly internalType: "bytes1";
+            readonly name: "fields";
+            readonly type: "bytes1";
+        }, {
+            readonly internalType: "string";
+            readonly name: "name";
+            readonly type: "string";
+        }, {
+            readonly internalType: "string";
+            readonly name: "version";
+            readonly type: "string";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "chainId";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "address";
+            readonly name: "verifyingContract";
+            readonly type: "address";
+        }, {
+            readonly internalType: "bytes32";
+            readonly name: "salt";
+            readonly type: "bytes32";
+        }, {
+            readonly internalType: "uint256[]";
+            readonly name: "extensions";
+            readonly type: "uint256[]";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address[]";
+            readonly name: "targets";
+            readonly type: "address[]";
+        }, {
+            readonly internalType: "uint256[]";
+            readonly name: "values";
+            readonly type: "uint256[]";
+        }, {
+            readonly internalType: "bytes[]";
+            readonly name: "calldatas";
+            readonly type: "bytes[]";
+        }, {
+            readonly internalType: "bytes32";
+            readonly name: "descriptionHash";
+            readonly type: "bytes32";
+        }];
+        readonly name: "execute";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "payable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "proposalId";
+            readonly type: "uint256";
+        }];
+        readonly name: "execute";
+        readonly outputs: readonly [];
+        readonly stateMutability: "payable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "proposalId";
+            readonly type: "uint256";
+        }];
+        readonly name: "getActions";
+        readonly outputs: readonly [{
+            readonly internalType: "address[]";
+            readonly name: "targets";
+            readonly type: "address[]";
+        }, {
+            readonly internalType: "uint256[]";
+            readonly name: "values";
+            readonly type: "uint256[]";
+        }, {
+            readonly internalType: "string[]";
+            readonly name: "signatures";
+            readonly type: "string[]";
+        }, {
+            readonly internalType: "bytes[]";
+            readonly name: "calldatas";
+            readonly type: "bytes[]";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "proposalId";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "address";
+            readonly name: "voter";
+            readonly type: "address";
+        }];
+        readonly name: "getReceipt";
+        readonly outputs: readonly [{
+            readonly components: readonly [{
+                readonly internalType: "bool";
+                readonly name: "hasVoted";
+                readonly type: "bool";
+            }, {
+                readonly internalType: "uint8";
+                readonly name: "support";
+                readonly type: "uint8";
+            }, {
+                readonly internalType: "uint96";
+                readonly name: "votes";
+                readonly type: "uint96";
+            }];
+            readonly internalType: "struct IGovernorCompatibilityBravo.Receipt";
+            readonly name: "";
+            readonly type: "tuple";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address";
+            readonly name: "account";
+            readonly type: "address";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "timepoint";
+            readonly type: "uint256";
+        }];
+        readonly name: "getVotes";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address";
+            readonly name: "account";
+            readonly type: "address";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "timepoint";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "bytes";
+            readonly name: "params";
+            readonly type: "bytes";
+        }];
+        readonly name: "getVotesWithParams";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "proposalId";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "address";
+            readonly name: "account";
+            readonly type: "address";
+        }];
+        readonly name: "hasVoted";
+        readonly outputs: readonly [{
+            readonly internalType: "bool";
+            readonly name: "";
+            readonly type: "bool";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address[]";
+            readonly name: "targets";
+            readonly type: "address[]";
+        }, {
+            readonly internalType: "uint256[]";
+            readonly name: "values";
+            readonly type: "uint256[]";
+        }, {
+            readonly internalType: "bytes[]";
+            readonly name: "calldatas";
+            readonly type: "bytes[]";
+        }, {
+            readonly internalType: "bytes32";
+            readonly name: "descriptionHash";
+            readonly type: "bytes32";
+        }];
+        readonly name: "hashProposal";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "pure";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "name";
+        readonly outputs: readonly [{
+            readonly internalType: "string";
+            readonly name: "";
+            readonly type: "string";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address";
+            readonly name: "";
+            readonly type: "address";
+        }, {
+            readonly internalType: "address";
+            readonly name: "";
+            readonly type: "address";
+        }, {
+            readonly internalType: "uint256[]";
+            readonly name: "";
+            readonly type: "uint256[]";
+        }, {
+            readonly internalType: "uint256[]";
+            readonly name: "";
+            readonly type: "uint256[]";
+        }, {
+            readonly internalType: "bytes";
+            readonly name: "";
+            readonly type: "bytes";
+        }];
+        readonly name: "onERC1155BatchReceived";
+        readonly outputs: readonly [{
+            readonly internalType: "bytes4";
+            readonly name: "";
+            readonly type: "bytes4";
+        }];
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address";
+            readonly name: "";
+            readonly type: "address";
+        }, {
+            readonly internalType: "address";
+            readonly name: "";
+            readonly type: "address";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "bytes";
+            readonly name: "";
+            readonly type: "bytes";
+        }];
+        readonly name: "onERC1155Received";
+        readonly outputs: readonly [{
+            readonly internalType: "bytes4";
+            readonly name: "";
+            readonly type: "bytes4";
+        }];
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address";
+            readonly name: "";
+            readonly type: "address";
+        }, {
+            readonly internalType: "address";
+            readonly name: "";
+            readonly type: "address";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "bytes";
+            readonly name: "";
+            readonly type: "bytes";
+        }];
+        readonly name: "onERC721Received";
+        readonly outputs: readonly [{
+            readonly internalType: "bytes4";
+            readonly name: "";
+            readonly type: "bytes4";
+        }];
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "proposalId";
+            readonly type: "uint256";
+        }];
+        readonly name: "proposalDeadline";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "proposalId";
+            readonly type: "uint256";
+        }];
+        readonly name: "proposalEta";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "proposalId";
+            readonly type: "uint256";
+        }];
+        readonly name: "proposalProposer";
+        readonly outputs: readonly [{
+            readonly internalType: "address";
+            readonly name: "";
+            readonly type: "address";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "proposalId";
+            readonly type: "uint256";
+        }];
+        readonly name: "proposalSnapshot";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "proposalThreshold";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "proposalId";
+            readonly type: "uint256";
+        }];
+        readonly name: "proposals";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "id";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "address";
+            readonly name: "proposer";
+            readonly type: "address";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "eta";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "startBlock";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "endBlock";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "forVotes";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "againstVotes";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "abstainVotes";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "bool";
+            readonly name: "canceled";
+            readonly type: "bool";
+        }, {
+            readonly internalType: "bool";
+            readonly name: "executed";
+            readonly type: "bool";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address[]";
+            readonly name: "targets";
+            readonly type: "address[]";
+        }, {
+            readonly internalType: "uint256[]";
+            readonly name: "values";
+            readonly type: "uint256[]";
+        }, {
+            readonly internalType: "bytes[]";
+            readonly name: "calldatas";
+            readonly type: "bytes[]";
+        }, {
+            readonly internalType: "string";
+            readonly name: "description";
+            readonly type: "string";
+        }];
+        readonly name: "propose";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address[]";
+            readonly name: "targets";
+            readonly type: "address[]";
+        }, {
+            readonly internalType: "uint256[]";
+            readonly name: "values";
+            readonly type: "uint256[]";
+        }, {
+            readonly internalType: "string[]";
+            readonly name: "signatures";
+            readonly type: "string[]";
+        }, {
+            readonly internalType: "bytes[]";
+            readonly name: "calldatas";
+            readonly type: "bytes[]";
+        }, {
+            readonly internalType: "string";
+            readonly name: "description";
+            readonly type: "string";
+        }];
+        readonly name: "propose";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address[]";
+            readonly name: "targets";
+            readonly type: "address[]";
+        }, {
+            readonly internalType: "uint256[]";
+            readonly name: "values";
+            readonly type: "uint256[]";
+        }, {
+            readonly internalType: "bytes[]";
+            readonly name: "calldatas";
+            readonly type: "bytes[]";
+        }, {
+            readonly internalType: "bytes32";
+            readonly name: "descriptionHash";
+            readonly type: "bytes32";
+        }];
+        readonly name: "queue";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "proposalId";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "proposalId";
+            readonly type: "uint256";
+        }];
+        readonly name: "queue";
+        readonly outputs: readonly [];
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "timepoint";
+            readonly type: "uint256";
+        }];
+        readonly name: "quorum";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "quorumVotes";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address";
+            readonly name: "target";
+            readonly type: "address";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "value";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "bytes";
+            readonly name: "data";
+            readonly type: "bytes";
+        }];
+        readonly name: "relay";
+        readonly outputs: readonly [];
+        readonly stateMutability: "payable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "proposalId";
+            readonly type: "uint256";
+        }];
+        readonly name: "state";
+        readonly outputs: readonly [{
+            readonly internalType: "enum IGovernor.ProposalState";
+            readonly name: "";
+            readonly type: "uint8";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "bytes4";
+            readonly name: "interfaceId";
+            readonly type: "bytes4";
+        }];
+        readonly name: "supportsInterface";
+        readonly outputs: readonly [{
+            readonly internalType: "bool";
+            readonly name: "";
+            readonly type: "bool";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "timelock";
+        readonly outputs: readonly [{
+            readonly internalType: "address";
+            readonly name: "";
+            readonly type: "address";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "version";
+        readonly outputs: readonly [{
+            readonly internalType: "string";
+            readonly name: "";
+            readonly type: "string";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "votingDelay";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "votingPeriod";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly stateMutability: "payable";
+        readonly type: "receive";
+    }];
+    static createInterface(): GovernorCompatibilityBravoInterface;
+    static connect(address: string, runner?: ContractRunner | null): GovernorCompatibilityBravo;
+}

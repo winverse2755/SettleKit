@@ -1,0 +1,62 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.fetchHolding = fetchHolding;
+const ethers_1 = require("ethers");
+const ethers_types_1 = require("ethers-types");
+const blue_sdk_1 = require("@morpho-org/blue-sdk");
+const morpho_ts_1 = require("@morpho-org/morpho-ts");
+async function fetchHolding(user, token, runner, { chainId, overrides = {} } = {}) {
+    chainId ??= Number((await runner.provider.getNetwork()).chainId);
+    const chainAddresses = (0, blue_sdk_1.getChainAddresses)(chainId);
+    if (token === blue_sdk_1.NATIVE_ADDRESS)
+        return new blue_sdk_1.Holding({
+            user,
+            token,
+            erc20Allowances: (0, morpho_ts_1.fromEntries)(blue_sdk_1.ERC20_ALLOWANCE_RECIPIENTS.map((label) => [label, ethers_1.MaxUint256])),
+            permit2BundlerAllowance: {
+                amount: 0n,
+                expiration: 0n,
+                nonce: 0n,
+            },
+            balance: await runner.provider.getBalance(user, overrides.blockTag),
+        });
+    const erc20 = ethers_types_1.ERC20__factory.connect(token, runner);
+    const erc2612 = ethers_types_1.ERC2612__factory.connect(token, runner);
+    const [balance, erc20Allowances, permit2BundlerAllowance, erc2612Nonce, whitelistControllerAggregator, hasErc20WrapperPermission,] = await Promise.all([
+        erc20.balanceOf(user, overrides),
+        Promise.all(blue_sdk_1.ERC20_ALLOWANCE_RECIPIENTS.map(async (label) => {
+            const spender = (0, morpho_ts_1.getValue)(chainAddresses, label);
+            if (spender == null)
+                return [label, 0n];
+            return [
+                label,
+                await erc20.allowance(user, spender, overrides),
+            ];
+        })),
+        chainAddresses.permit2 != null
+            ? ethers_types_1.Permit2__factory.connect(chainAddresses.permit2, runner).allowance(user, token, chainAddresses.bundler3.generalAdapter1, overrides)
+            : { amount: 0n, expiration: 0n, nonce: 0n },
+        erc2612.nonces(user, overrides).catch(() => undefined),
+        blue_sdk_1.permissionedBackedTokens[chainId]?.has(token)
+            ? ethers_types_1.WrappedBackedToken__factory.connect(token, runner).whitelistControllerAggregator(overrides)
+            : undefined,
+        ethers_types_1.PermissionedERC20Wrapper__factory.connect(token, runner)
+            .hasPermission(user, overrides)
+            .catch(() => !blue_sdk_1.permissionedWrapperTokens[chainId]?.has(token)),
+    ]);
+    const holding = new blue_sdk_1.Holding({
+        user,
+        token,
+        erc20Allowances: (0, morpho_ts_1.fromEntries)(erc20Allowances),
+        permit2BundlerAllowance,
+        erc2612Nonce,
+        balance,
+        canTransfer: hasErc20WrapperPermission,
+    });
+    if (whitelistControllerAggregator)
+        holding.canTransfer =
+            await ethers_types_1.BackedWhitelistControllerAggregatorV2__factory.connect(whitelistControllerAggregator, runner)
+                .isWhitelisted(user, overrides)
+                .catch(() => undefined);
+    return holding;
+}

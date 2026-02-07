@@ -1,0 +1,125 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.signMessage = exports.signMessageWithProducer = exports.sendTransaction = exports.sendTransactionWithProducer = void 0;
+const ethers_1 = require("ethers");
+const blue_sdk_1 = require("@morpho-org/blue-sdk");
+const notifications_1 = require("./notifications");
+const signatures_1 = require("./signatures");
+/**
+ * Sends a transaction via the provided signer, optionnally waiting for the corresponding transaction receipt.
+ * @param signer The signer to send the tx with.
+ * @param tx The transaction request.
+ * @param wait Whether to wait for the transaction receipt. Defaults to true.
+ * @param notificationOptions The optional notification options. Warning: if `wait` is set to true, the provided topic will never complete.
+ */
+const sendTransactionWithProducer = async (signer, req, defaultGasLimit, confirms = 1, notificationOptions) => {
+    let response;
+    try {
+        let gasLimit;
+        try {
+            gasLimit = blue_sdk_1.MathLib.wMulUp(await signer.estimateGas(req), (0, ethers_1.parseUnits)("1.1"));
+        }
+        catch (error) {
+            console.error(error);
+            if (defaultGasLimit == null)
+                throw error;
+            gasLimit = defaultGasLimit;
+        }
+        const tx = { ...req, gasLimit };
+        notificationOptions?.producer.next({
+            id: notificationOptions.id,
+            status: notifications_1.NotificationStatus.signing,
+            context: { tx },
+        });
+        response = await signer.sendTransaction(tx);
+        notificationOptions?.producer.next({
+            id: notificationOptions.id,
+            status: notifications_1.NotificationStatus.pending,
+            context: { args: notificationOptions.args, tx, response },
+        });
+        const receipt = await response.wait(confirms);
+        notificationOptions?.producer.next({
+            id: notificationOptions.id,
+            status: notifications_1.NotificationStatus.success,
+            context: { args: notificationOptions.args, tx, response, receipt },
+        });
+    }
+    catch (error) {
+        notificationOptions?.producer.next({
+            id: notificationOptions.id,
+            status: notifications_1.NotificationStatus.error,
+            context: {
+                args: notificationOptions.args,
+                tx: req,
+                response,
+                error: error,
+            },
+        });
+    }
+};
+exports.sendTransactionWithProducer = sendTransactionWithProducer;
+/**
+ * Sends a transaction via the provided signer, optionnally waiting for the corresponding transaction receipt.
+ * @param signer The signer to send the tx with.
+ * @param tx The transaction request.
+ * @param wait Whether to wait for the transaction receipt. Defaults to true.
+ * @param topic The type of notifications to emit.
+ * @param args The optional notification arguments.
+ * @return The notification consumer which receives the transaction notifications.
+ */
+const sendTransaction = (signer, tx, defaultGasLimit, confirms, 
+// biome-ignore lint/suspicious/noExplicitAny: old code
+args = {}) => {
+    const producer = new notifications_1.NotificationProducer(notifications_1.NotificationTopic.tx);
+    (0, exports.sendTransactionWithProducer)(signer, tx, defaultGasLimit, confirms, {
+        producer,
+        id: Date.now().toString(),
+        args,
+    });
+    return producer.consumer;
+};
+exports.sendTransaction = sendTransaction;
+const signMessageWithProducer = async (signer, message, notificationOptions) => {
+    notificationOptions?.producer.next({
+        id: notificationOptions.id,
+        status: notifications_1.NotificationStatus.signing,
+    });
+    try {
+        const signature = await signatures_1.SignatureUtils.safeSignTypedData(signer, message.data.domain, message.data.types, message.data.value);
+        signatures_1.SignatureUtils.verifySignature(signature, message.hash, await signer.getAddress());
+        notificationOptions?.producer.next({
+            id: notificationOptions.id,
+            status: notifications_1.NotificationStatus.success,
+            context: { message, args: notificationOptions.args, signature },
+        });
+    }
+    catch (error) {
+        notificationOptions?.producer.next({
+            id: notificationOptions.id,
+            status: notifications_1.NotificationStatus.error,
+            context: {
+                message,
+                args: notificationOptions.args,
+                error: error,
+            },
+        });
+    }
+};
+exports.signMessageWithProducer = signMessageWithProducer;
+/**
+ * Sends a signature request to the provided signer.
+ * @param signer The signer to send the approval with.
+ * @param args The approval parameters.
+ * @param encodeMessage The approval encoder to pass the approval parameters to get the approval transactions.
+ * @return The notification consumer which receives the transaction notifications.
+ */
+const signMessage = (signer, args, encodeMessage, chainId) => {
+    const producer = new notifications_1.NotificationProducer(notifications_1.NotificationTopic.signature);
+    (0, exports.signMessageWithProducer)(signer, encodeMessage(args, chainId), {
+        producer,
+        id: Date.now().toString(),
+        args,
+    });
+    return producer.consumer;
+};
+exports.signMessage = signMessage;

@@ -1,0 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.AccrualPosition = exports.Position = void 0;
+const blue_sdk_1 = require("@morpho-org/blue-sdk");
+Object.defineProperty(exports, "AccrualPosition", { enumerable: true, get: function () { return blue_sdk_1.AccrualPosition; } });
+Object.defineProperty(exports, "Position", { enumerable: true, get: function () { return blue_sdk_1.Position; } });
+const fetch_1 = require("../fetch");
+blue_sdk_1.Position.fetch = fetch_1.fetchPosition;
+blue_sdk_1.AccrualPosition.fetch = fetch_1.fetchAccrualPosition;
+blue_sdk_1.AccrualPosition.fetchFromConfig = fetch_1.fetchAccrualPositionFromConfig;
