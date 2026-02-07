@@ -1,0 +1,12 @@
+/* Elimina todo el contenido y deja solo esto: */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: #111827; /* bg-gray-900 */
+  color: white;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}

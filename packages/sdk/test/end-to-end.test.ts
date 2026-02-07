@@ -128,18 +128,18 @@ const Colors = {
     reset: '\x1b[0m',
     bold: '\x1b[1m',
     dim: '\x1b[2m',
-    
+
     // Log level colors
     debug: '\x1b[36m',   // cyan
     info: '\x1b[32m',    // green
     warn: '\x1b[33m',    // yellow
     error: '\x1b[31m',   // red
-    
+
     // Status colors
     success: '\x1b[32m', // green
     failure: '\x1b[31m', // red
     pending: '\x1b[33m', // yellow
-    
+
     // Decorative
     blue: '\x1b[34m',
     magenta: '\x1b[35m',
@@ -383,7 +383,7 @@ export class TestLogger {
     status(label: string, success: boolean, details?: string): void {
         const icon = success ? '✓' : '✗';
         const color = success ? Colors.success : Colors.failure;
-        
+
         if (this.config.colorOutput) {
             const statusText = `${color}${icon}${Colors.reset} ${label}`;
             const detailText = details ? ` ${Colors.gray}(${details})${Colors.reset}` : '';
@@ -518,7 +518,7 @@ export function calculateTestStats(results: { name: string; report: TestReport }
 
     for (const { report } of results) {
         totalDurationMs += report.result.metadata.durationMs;
-        
+
         if (report.success) {
             passed++;
         } else if (report.result.execution.status === 'aborted') {
@@ -564,8 +564,8 @@ export function generateJsonReport(
     performance: PerformanceMetrics
 ): string {
     const report: DetailedTestReport = {
-        summary: result.execution.status === 'completed' 
-            ? 'Test PASSED' 
+        summary: result.execution.status === 'completed'
+            ? 'Test PASSED'
             : result.execution.status === 'aborted'
                 ? 'Test ABORTED'
                 : 'Test FAILED',
@@ -882,9 +882,9 @@ export class EndToEndOrchestrator {
             const transferDuration = this.perfTracker.endPhase('transfer');
 
             if (!transferResult.success) {
-                this.logger.error(`Transfer failed: ${transferResult.error}`, { 
+                this.logger.error(`Transfer failed: ${transferResult.error}`, {
                     phase: 'transfer',
-                    durationMs: transferDuration 
+                    durationMs: transferDuration
                 });
                 this.log(`Transfer failed: ${transferResult.error}`);
                 return this.buildErrorResult(
@@ -894,7 +894,7 @@ export class EndToEndOrchestrator {
                 );
             }
 
-            this.logger.info(`Transfer successful`, { 
+            this.logger.info(`Transfer successful`, {
                 phase: 'transfer',
                 durationMs: transferDuration,
                 metadata: { txHash: transferResult.txHash }
@@ -910,8 +910,8 @@ export class EndToEndOrchestrator {
                         step.status === 'completed'
                             ? '✓'
                             : step.status === 'failed'
-                              ? '✗'
-                              : '○';
+                                ? '✗'
+                                : '○';
                     this.logger.debug(`  ${statusIcon} ${step.step}${step.txHash ? ` (${step.txHash.slice(0, 10)}...)` : ''}`, { phase: 'transfer' });
                     this.log(
                         `  ${statusIcon} ${step.step}${step.txHash ? ` (${step.txHash.slice(0, 10)}...)` : ''}`
@@ -945,7 +945,7 @@ export class EndToEndOrchestrator {
                 const rawAmount = parseUnits(this.config.amount, USDC_DECIMALS).toString();
 
                 this.log(`[Autonomous] Calling agent.selectAndExecute() with ${this.config.amount} USDC...`);
-                this.logger.info(`Starting autonomous pool selection and execution`, { 
+                this.logger.info(`Starting autonomous pool selection and execution`, {
                     phase: 'autonomous',
                     metadata: { amount: this.config.amount, rawAmount }
                 });
@@ -956,17 +956,17 @@ export class EndToEndOrchestrator {
 
                 // Extract risk metrics from execution result
                 risk = execution.risk;
-                decision = execution.status === 'completed' ? 'execute' : 
-                           execution.status === 'aborted' ? 'abort' : 'abort';
+                decision = execution.status === 'completed' ? 'execute' :
+                    execution.status === 'aborted' ? 'abort' : 'abort';
 
-                this.logger.info(`Autonomous selection complete`, { 
+                this.logger.info(`Autonomous selection complete`, {
                     phase: 'autonomous',
-                    durationMs: riskDuration 
+                    durationMs: riskDuration
                 });
                 this.logger.info(`Execution Confidence: ${(risk.execution_confidence * 100).toFixed(1)}%`, { phase: 'autonomous' });
                 this.logger.info(`Slippage P95: ${(risk.slippage_p95 * 100).toFixed(2)}%`, { phase: 'autonomous' });
                 this.logger.info(`Price Impact: ${(risk.price_impact * 100).toFixed(2)}%`, { phase: 'autonomous' });
-                this.logger.info(`Final Status: ${execution.status.toUpperCase()}`, { 
+                this.logger.info(`Final Status: ${execution.status.toUpperCase()}`, {
                     phase: 'autonomous',
                     metadata: { status: execution.status, reason: execution.reason }
                 });
@@ -982,10 +982,10 @@ export class EndToEndOrchestrator {
                 const executionDuration = this.perfTracker.endPhase('execution');
 
                 const statusEmoji = execution.status === 'completed' ? '✓' : execution.status === 'aborted' ? '⚠' : '✗';
-                this.logger.info(`${statusEmoji} Execution Status: ${execution.status}`, { 
+                this.logger.info(`${statusEmoji} Execution Status: ${execution.status}`, {
                     phase: 'execution',
                     durationMs: executionDuration,
-                    metadata: { 
+                    metadata: {
                         txHash: execution.txHash,
                         positionId: execution.positionId,
                         reason: execution.reason
@@ -1009,7 +1009,7 @@ export class EndToEndOrchestrator {
                 // ═══════════════════════════════════════════════════════════════
                 // LEGACY MODE: Use provided poolKey/poolId
                 // ═══════════════════════════════════════════════════════════════
-                
+
                 // Step 2: Initialize agent and evaluate risk
                 this.logger.subsection('Phase 2: Risk Evaluation');
                 this.perfTracker.startPhase('riskEvaluation');
@@ -1019,15 +1019,15 @@ export class EndToEndOrchestrator {
                 decision = evalResult.decision;
                 const riskDuration = this.perfTracker.endPhase('riskEvaluation');
 
-                this.logger.info(`Risk evaluation complete`, { 
+                this.logger.info(`Risk evaluation complete`, {
                     phase: 'riskEvaluation',
-                    durationMs: riskDuration 
+                    durationMs: riskDuration
                 });
                 this.logger.info(`Execution Confidence: ${(risk.execution_confidence * 100).toFixed(1)}%`, { phase: 'riskEvaluation' });
                 this.logger.info(`Slippage P95: ${(risk.slippage_p95 * 100).toFixed(2)}%`, { phase: 'riskEvaluation' });
                 this.logger.info(`Price Impact: ${(risk.price_impact * 100).toFixed(2)}%`, { phase: 'riskEvaluation' });
                 this.logger.info(`Finality Delay P95: ${risk.finality_delay_p95}s`, { phase: 'riskEvaluation' });
-                this.logger.info(`Agent Decision: ${decision.toUpperCase()}`, { 
+                this.logger.info(`Agent Decision: ${decision.toUpperCase()}`, {
                     phase: 'riskEvaluation',
                     metadata: { decision, recommendedAction: risk.recommended_action }
                 });
@@ -1053,10 +1053,10 @@ export class EndToEndOrchestrator {
                 const executionDuration = this.perfTracker.endPhase('execution');
 
                 const statusEmoji = execution.status === 'completed' ? '✓' : execution.status === 'aborted' ? '⚠' : '✗';
-                this.logger.info(`${statusEmoji} Execution Status: ${execution.status}`, { 
+                this.logger.info(`${statusEmoji} Execution Status: ${execution.status}`, {
                     phase: 'execution',
                     durationMs: executionDuration,
-                    metadata: { 
+                    metadata: {
                         txHash: execution.txHash,
                         positionId: execution.positionId,
                         reason: execution.reason
@@ -1616,7 +1616,7 @@ export class EndToEndOrchestrator {
         const tickSpacing = this.config.poolKey.tickSpacing; // 60 for 0.30% pools
         const tickLower = Math.floor((currentTick - 2000) / tickSpacing) * tickSpacing;
         const tickUpper = Math.floor((currentTick - 100) / tickSpacing) * tickSpacing;
-        
+
         this.log(`[Live] One-sided USDC deposit: tickLower=${tickLower}, tickUpper=${tickUpper} (below current tick ${currentTick})`);
 
         // Build deposit intent with raw amount and one-sided tick range for UniswapLiquidityExecutor
@@ -2022,7 +2022,7 @@ export async function testLiveCCTPTransfer(): Promise<DetailedTestReport> {
     console.log('\n🧪 TEST: Live CCTP Transfer');
     console.log('   Mode: LIVE - Real blockchain transactions');
     console.log('   Networks: Base Sepolia → Arc Testnet\n');
-    
+
     return runEndToEndTest({
         mode: 'live',
         amount: '5', // 5 USDC for full flow test
@@ -2098,7 +2098,7 @@ export async function testLiveCCTPAndUniswap(): Promise<{
 
     // Run CCTP Transfer first
     const cctpResult = await testLiveCCTPTransfer();
-    
+
     // Run Uniswap Execution second
     const uniswapResult = await testLiveUniswapExecution();
 
@@ -2196,8 +2196,8 @@ function printSuiteSummary(
         const statusIcon = report.success
             ? '\x1b[32m✓ PASS  \x1b[0m'
             : report.result.execution.status === 'aborted'
-              ? '\x1b[33m⚠ ABORT \x1b[0m'
-              : '\x1b[31m✗ FAIL  \x1b[0m';
+                ? '\x1b[33m⚠ ABORT \x1b[0m'
+                : '\x1b[31m✗ FAIL  \x1b[0m';
 
         const duration = `${report.result.metadata.durationMs}ms`.padStart(8);
         const testName = name.padEnd(40);
@@ -2210,10 +2210,10 @@ function printSuiteSummary(
     console.log('\n┌──────────────────────────────────────────────────────────────────┐');
     console.log('│                          STATISTICS                              │');
     console.log('├──────────────────────────────────────────────────────────────────┤');
-    
+
     const passRate = stats.successRate.toFixed(1);
     const passBar = '█'.repeat(Math.round(stats.successRate / 5)) + '░'.repeat(20 - Math.round(stats.successRate / 5));
-    
+
     console.log(`│  Total Tests:     ${stats.total.toString().padStart(4)}                                          │`);
     console.log(`│  Passed:          \x1b[32m${stats.passed.toString().padStart(4)}\x1b[0m                                          │`);
     console.log(`│  Failed:          \x1b[31m${stats.failed.toString().padStart(4)}\x1b[0m                                          │`);
@@ -2262,8 +2262,8 @@ function printSuiteSummary(
                     step.status === 'completed'
                         ? '\x1b[32m✓\x1b[0m'
                         : step.status === 'failed'
-                          ? '\x1b[31m✗\x1b[0m'
-                          : '\x1b[33m○\x1b[0m';
+                            ? '\x1b[31m✗\x1b[0m'
+                            : '\x1b[33m○\x1b[0m';
                 const stepName = step.step.charAt(0).toUpperCase() + step.step.slice(1);
                 const txInfo = step.txHash ? `tx: ${step.txHash.slice(0, 16)}...` : '';
                 const errorInfo = step.error ? `error: ${step.error.slice(0, 20)}...` : '';
@@ -2381,7 +2381,7 @@ async function main() {
 
     // Calculate final status
     const stats = calculateTestStats(results);
-    
+
     // Exit with appropriate code
     process.exit(stats.failed > 0 ? 1 : 0);
 }
