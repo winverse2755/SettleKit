@@ -33,6 +33,7 @@ import type {
     AgentDecision,
     DepositLiquidityIntent,
     ExecutionResult,
+    PoolSelectionResult,
 } from '../types/agent';
 import type { RiskMetrics } from '../types/risk';
 import {
@@ -43,22 +44,10 @@ import {
     UniswapLiquidityExecutor,
     type LiquidityDepositParams,
 } from '../../../agent/UniswapLiquidityExecutor';
-import { getPoolState } from '../utils/pool-utils';
+import { getPoolState, type PoolKey } from '../utils/pool-utils';
 
-// ============================================================================
-// Types
-// ============================================================================
-
-/**
- * Pool key for Uniswap v4
- */
-export interface PoolKey {
-    currency0: Address;
-    currency1: Address;
-    fee: number;
-    tickSpacing: number;
-    hooks: Address;
-}
+// Re-export PoolKey for consumers of FullFlowOrchestrator
+export type { PoolKey };
 
 /**
  * Configuration for the full flow orchestrator
@@ -70,10 +59,12 @@ export interface FullFlowConfig {
     recipient: string;
     /** Optional custom agent policy overrides */
     agentPolicy?: Partial<AgentPolicy>;
-    /** Pool key for Uniswap v4 */
-    poolKey: PoolKey;
+    /** Pool key for Uniswap v4 (optional if useAutonomousSelection is true) */
+    poolKey?: PoolKey;
     /** Optional direct pool ID (overrides computed poolId from poolKey) */
     poolId?: `0x${string}`;
+    /** Enable autonomous pool selection - agent discovers and selects optimal pool */
+    useAutonomousSelection?: boolean;
 }
 
 /**
@@ -90,6 +81,8 @@ export interface FullFlowResult {
     decision: AgentDecision;
     /** Final execution result (liquidity deposit) */
     execution: ExecutionResult;
+    /** Pool selection details (only present in autonomous mode) */
+    poolSelection?: PoolSelectionResult;
     /** Metadata about the full flow */
     metadata: {
         startTime: number;
@@ -212,17 +205,61 @@ export class FullFlowOrchestrator {
             // Initialize agent and executor
             await this.initializeAgent();
 
-            // Evaluate risk
-            const { risk, decision } = await this.evaluateRisk();
+            // Declare variables for results
+            let risk: RiskMetrics;
+            let decision: AgentDecision;
+            let execution: ExecutionResult;
 
-            this.log(`Risk Metrics:`);
-            this.log(`  - Confidence: ${(risk.execution_confidence * 100).toFixed(1)}%`);
-            this.log(`  - Slippage P95: ${(risk.slippage_p95 * 100).toFixed(2)}%`);
-            this.log(`  - Price Impact: ${(risk.price_impact * 100).toFixed(2)}%`);
-            this.log(`Agent Decision: ${decision.toUpperCase()}`);
+            // Check if using autonomous pool selection
+            if (this.config.useAutonomousSelection) {
+                // ═══════════════════════════════════════════════════════════════
+                // AUTONOMOUS MODE: Agent discovers, evaluates, and selects pool
+                // ═══════════════════════════════════════════════════════════════
+                this.log(`[Autonomous] Agent will discover and select optimal pool`);
 
-            // Execute based on decision
-            const execution = await this.executeBasedOnDecision(decision, risk);
+                if (!this.agent) {
+                    throw new Error('Agent not initialized for autonomous mode');
+                }
+
+                // Convert human-readable amount to raw USDC base units (6 decimals)
+                const USDC_DECIMALS = 6;
+                const rawAmount = parseUnits(this.config.amount, USDC_DECIMALS).toString();
+
+                this.log(`[Autonomous] Calling selectAndExecute() with ${this.config.amount} USDC...`);
+
+                // Use agent's autonomous selectAndExecute method
+                execution = await this.agent.selectAndExecute(rawAmount, this.config.recipient);
+
+                // Extract risk metrics from execution result
+                risk = execution.risk;
+                decision = execution.status === 'completed' ? 'execute' : 
+                           execution.status === 'aborted' ? 'abort' : 'abort';
+
+                this.log(`[Autonomous] Pool selection and execution complete`);
+                this.log(`Risk Metrics from selected pool:`);
+                this.log(`  - Confidence: ${(risk.execution_confidence * 100).toFixed(1)}%`);
+                this.log(`  - Slippage P95: ${(risk.slippage_p95 * 100).toFixed(2)}%`);
+                this.log(`  - Price Impact: ${(risk.price_impact * 100).toFixed(2)}%`);
+                this.log(`Final Decision: ${decision.toUpperCase()}`);
+            } else {
+                // ═══════════════════════════════════════════════════════════════
+                // LEGACY MODE: Use provided poolKey/poolId
+                // ═══════════════════════════════════════════════════════════════
+                
+                // Evaluate risk
+                const evalResult = await this.evaluateRisk();
+                risk = evalResult.risk;
+                decision = evalResult.decision;
+
+                this.log(`Risk Metrics:`);
+                this.log(`  - Confidence: ${(risk.execution_confidence * 100).toFixed(1)}%`);
+                this.log(`  - Slippage P95: ${(risk.slippage_p95 * 100).toFixed(2)}%`);
+                this.log(`  - Price Impact: ${(risk.price_impact * 100).toFixed(2)}%`);
+                this.log(`Agent Decision: ${decision.toUpperCase()}`);
+
+                // Execute based on decision
+                execution = await this.executeBasedOnDecision(decision, risk);
+            }
 
             if (execution.status === 'completed') {
                 this.log(`✓ Leg 3 SUCCESS - TxHash: ${execution.txHash}`);
@@ -359,7 +396,9 @@ export class FullFlowOrchestrator {
     }
 
     /**
-     * Evaluate risk using the SettleAgent's simulator
+     * Evaluate risk using the SettleAgent's simulator.
+     * This method is only used in legacy mode (when poolKey/poolId is provided).
+     * For autonomous mode, use selectAndExecute() directly.
      */
     private async evaluateRisk(): Promise<{
         risk: RiskMetrics;
@@ -367,6 +406,11 @@ export class FullFlowOrchestrator {
     }> {
         if (!this.agent) {
             throw new Error('Agent not initialized');
+        }
+
+        // Require poolKey or poolId for legacy mode
+        if (!this.config.poolKey && !this.config.poolId) {
+            throw new Error('Pool key or pool ID is required for legacy risk evaluation. Use autonomous mode for pool discovery.');
         }
 
         // Convert human-readable amount to raw USDC base units (6 decimals)
@@ -535,8 +579,13 @@ export class FullFlowOrchestrator {
 
     /**
      * Compute the pool ID from the pool key using keccak256(abi.encode(poolKey))
+     * @throws Error if poolKey is not provided
      */
     private computePoolId(): `0x${string}` {
+        if (!this.config.poolKey) {
+            throw new Error('Pool key is required to compute pool ID. Use autonomous mode for pool discovery.');
+        }
+
         const { encodeAbiParameters, keccak256 } = require('viem');
 
         const encoded = encodeAbiParameters(
@@ -617,19 +666,31 @@ export class FullFlowOrchestrator {
 }
 
 /**
- * Factory function to create a FullFlowOrchestrator with common defaults
+ * Factory function to create a FullFlowOrchestrator with common defaults.
+ * 
+ * For legacy mode (explicit pool selection):
+ * ```typescript
+ * const orchestrator = createFullFlowOrchestrator('5.0', recipient, poolKey);
+ * ```
+ * 
+ * For autonomous mode (agent discovers and selects pool):
+ * ```typescript
+ * const orchestrator = createFullFlowOrchestrator('5.0', recipient, undefined, policy, true);
+ * ```
  */
 export function createFullFlowOrchestrator(
     amount: string,
     recipient: string,
-    poolKey: PoolKey,
-    agentPolicy?: Partial<AgentPolicy>
+    poolKey?: PoolKey,
+    agentPolicy?: Partial<AgentPolicy>,
+    useAutonomousSelection?: boolean
 ): FullFlowOrchestrator {
     return new FullFlowOrchestrator({
         amount,
         recipient,
         poolKey,
         agentPolicy,
+        useAutonomousSelection,
     });
 }
 

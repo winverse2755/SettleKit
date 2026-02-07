@@ -1,4 +1,5 @@
 import type { RiskMetrics } from './risk';
+import type { DiscoveredPool, PoolKey } from '../utils/pool-discovery';
 
 /**
  * Policy configuration for the SettleAgent decision engine.
@@ -98,4 +99,72 @@ export interface ExecutionLog {
 
   /** Current retry count (if applicable) */
   retryCount?: number;
+}
+
+// =============================================================================
+// Liquidity Policy & Pool Selection Types
+// =============================================================================
+
+/**
+ * Extended policy for pool selection and liquidity provision.
+ * Includes criteria for choosing optimal pools.
+ */
+export interface LiquidityPolicy extends AgentPolicy {
+  /** Minimum pool liquidity in raw units (e.g., 10n ** 18n for 1 token unit) */
+  min_liquidity: bigint;
+
+  /** Preferred fee tiers in order of preference (e.g., [3000, 500, 10000]) */
+  preferred_fee_tiers: number[];
+
+  /** Maximum acceptable fee tier (e.g., 10000 for 1%) */
+  max_fee_tier: number;
+
+  /** Minimum acceptable fee tier (e.g., 100 for 0.01%) */
+  min_fee_tier: number;
+
+  /** Preferred tick range width for concentrated liquidity */
+  tick_range_width: number;
+
+  /** Position type: 'one_sided_usdc' | 'one_sided_eth' | 'balanced' */
+  position_type: 'one_sided_usdc' | 'one_sided_eth' | 'balanced';
+}
+
+/**
+ * Evaluation result for a single pool candidate
+ */
+export interface PoolEvaluation {
+  /** The discovered pool being evaluated */
+  pool: DiscoveredPool;
+
+  /** Risk metrics from simulation */
+  risk: RiskMetrics;
+
+  /** Agent decision based on evaluation */
+  decision: AgentDecision;
+
+  /** Score from 0-100, higher is better */
+  score: number;
+
+  /** Reasons explaining the score */
+  reasons: string[];
+
+  /** Whether the pool passes minimum thresholds */
+  eligible: boolean;
+}
+
+/**
+ * Result of pool selection process
+ */
+export interface PoolSelectionResult {
+  /** The selected pool, or null if none eligible */
+  selectedPool: DiscoveredPool | null;
+
+  /** The pool key for the selected pool */
+  poolKey: PoolKey | null;
+
+  /** Evaluations for all candidate pools */
+  allEvaluations: PoolEvaluation[];
+
+  /** Reason for the selection decision */
+  selectionReason: string;
 }

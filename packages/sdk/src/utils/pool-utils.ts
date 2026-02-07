@@ -1,6 +1,22 @@
 // packages/sdk/src/utils/pool-utils.ts
 // Uniswap v4 pool query helpers using viem
 
+// Re-export pool discovery utilities
+export {
+    discoverPools,
+    discoverEthUsdcPools,
+    computePoolId,
+    generatePoolKeys,
+    findBestPool,
+    feeToPercent,
+    sqrtPriceX96ToPrice,
+    STANDARD_FEE_TIERS,
+    TOKEN_ADDRESSES,
+    type PoolKey,
+    type DiscoveredPool,
+    type FeeTierConfig,
+} from './pool-discovery';
+
 import {
     createPublicClient,
     http,
