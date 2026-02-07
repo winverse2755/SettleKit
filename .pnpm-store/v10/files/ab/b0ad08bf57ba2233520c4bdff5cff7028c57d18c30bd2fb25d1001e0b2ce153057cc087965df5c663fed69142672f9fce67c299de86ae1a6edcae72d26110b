@@ -1,6 +1,0 @@
-import { Signature, type Signer, type TypedDataDomain, type TypedDataField } from "ethers";
-import type { Address } from "@morpho-org/blue-sdk";
-import type { SignatureMessage } from "./types";
-export declare function safeSignTypedData(signer: Signer, domain: TypedDataDomain, types: Record<string, TypedDataField[]>, value: Record<string, any>): Promise<Signature>;
-export declare function verifySignature(signature: Signature, hash: string, signerAddress: Address): void;
-export declare function getMessage(domain: TypedDataDomain, types: Record<string, TypedDataField[]>, value: Record<string, any>): SignatureMessage;

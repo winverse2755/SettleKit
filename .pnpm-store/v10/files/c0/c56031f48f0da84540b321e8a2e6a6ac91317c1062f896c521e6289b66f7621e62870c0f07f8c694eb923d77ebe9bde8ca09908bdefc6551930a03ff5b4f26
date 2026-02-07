@@ -1,4 +1,0 @@
-export { ATokenV3__factory } from "./ATokenV3__factory";
-export { DelegationAwareATokenV3__factory } from "./DelegationAwareATokenV3__factory";
-export { StableDebtTokenV3__factory } from "./StableDebtTokenV3__factory";
-export { VariableDebtTokenV3__factory } from "./VariableDebtTokenV3__factory";

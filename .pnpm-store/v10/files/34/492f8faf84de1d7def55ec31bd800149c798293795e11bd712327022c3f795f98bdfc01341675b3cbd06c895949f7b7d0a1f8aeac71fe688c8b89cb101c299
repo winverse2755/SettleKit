@@ -1,2 +1,0 @@
-export type { MorphoAaveV3 } from "./MorphoAaveV3";
-export type { MorphoAaveV3BulkerGateway } from "./MorphoAaveV3BulkerGateway";

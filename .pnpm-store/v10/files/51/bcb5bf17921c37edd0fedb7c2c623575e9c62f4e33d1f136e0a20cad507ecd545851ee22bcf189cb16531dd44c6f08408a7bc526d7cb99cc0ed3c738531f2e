@@ -1,1 +1,0 @@
-export type { Permit2 } from "./Permit2";

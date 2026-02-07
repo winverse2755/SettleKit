@@ -1,2 +1,0 @@
-export { ConvexStakingWrapperMorpho__factory } from "./ConvexStakingWrapperMorpho__factory";
-export { TricryptoLpOracleMorpho__factory } from "./TricryptoLpOracleMorpho__factory";

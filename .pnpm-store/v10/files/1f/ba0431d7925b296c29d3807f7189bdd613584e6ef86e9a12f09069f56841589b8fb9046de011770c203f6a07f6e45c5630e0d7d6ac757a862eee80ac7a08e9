@@ -1,2 +1,0 @@
-export type { ConvexStakingWrapperMorpho } from "./ConvexStakingWrapperMorpho";
-export type { TricryptoLpOracleMorpho } from "./TricryptoLpOracleMorpho";

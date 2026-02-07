@@ -1,4 +1,0 @@
-export type { AaveV3DefaultReserveInterestRateStrategy } from "./AaveV3DefaultReserveInterestRateStrategy";
-export type { AaveV3L2Pool } from "./AaveV3L2Pool";
-export type { AaveV3Pool } from "./AaveV3Pool";
-export type { AaveV3PoolConfigurator } from "./AaveV3PoolConfigurator";

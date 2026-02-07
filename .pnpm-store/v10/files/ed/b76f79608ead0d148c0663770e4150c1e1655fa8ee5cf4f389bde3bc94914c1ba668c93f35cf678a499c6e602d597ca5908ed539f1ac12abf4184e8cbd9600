@@ -1,2 +1,0 @@
-export { BeaconProxy__factory } from "./BeaconProxy__factory";
-export { UpgradeableBeacon__factory } from "./UpgradeableBeacon__factory";

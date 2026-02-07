@@ -1,1 +1,0 @@
-export { Votes__factory } from "./Votes__factory";
