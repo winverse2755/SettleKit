@@ -15,16 +15,16 @@ import {
     encodeAbiParameters,
     parseAbiParameters,
 } from 'viem';
-import { unichainSepolia, CHAINS, type ChainKey } from '../sdk/src/config/networks';
-import { getPoolState, type PoolState } from '../sdk/src/utils/pool-utils';
-import type { DepositLiquidityIntent } from '../sdk/src/types/agent';
+import { unichainSepolia, CHAINS, type ChainKey } from '../config/networks';
+import { getPoolState, type PoolState } from '../utils/pool-utils';
+import type { DepositLiquidityIntent } from '../types/agent';
 import {
     getSqrtRatioAtTick,
     getLiquidityForAmount0,
     getLiquidityForAmount1,
     getLiquidityForAmounts,
     getAmountsForLiquidity,
-} from '../sdk/src/utils/liquidity-math';
+} from '../utils/liquidity-math';
 
 /**
  * Helper function to get amounts for liquidity (wrapper around getAmountsForLiquidity)

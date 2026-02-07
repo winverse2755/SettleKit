@@ -43,7 +43,7 @@ import {
 import {
     UniswapLiquidityExecutor,
     type LiquidityDepositParams,
-} from '../../../agent/UniswapLiquidityExecutor';
+} from './UniswapLiquidityExecutor';
 import { getPoolState, type PoolKey } from '../utils/pool-utils';
 
 // Re-export PoolKey for consumers of FullFlowOrchestrator

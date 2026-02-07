@@ -58,7 +58,7 @@ import {
     UniswapLiquidityExecutor,
     type LiquidityDepositParams,
     type LiquidityDepositResult,
-} from '../../agent/UniswapLiquidityExecutor';
+} from '../src/core/UniswapLiquidityExecutor';
 import type {
     AgentPolicy,
     AgentDecision,

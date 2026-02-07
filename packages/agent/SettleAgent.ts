@@ -5,7 +5,7 @@ import { RiskSimulator } from '../sdk/src/simulators/RiskSimulator';
 import {
     UniswapLiquidityExecutor,
     type LiquidityDepositParams,
-} from './UniswapLiquidityExecutor';
+} from '../sdk/src/core/UniswapLiquidityExecutor';
 import type {
     AgentPolicy,
     AgentDecision,
