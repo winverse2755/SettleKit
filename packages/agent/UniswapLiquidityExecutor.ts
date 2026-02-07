@@ -18,6 +18,26 @@ import {
 import { unichainSepolia, CHAINS, type ChainKey } from '../sdk/src/config/networks';
 import { getPoolState, type PoolState } from '../sdk/src/utils/pool-utils';
 import type { DepositLiquidityIntent } from '../sdk/src/types/agent';
+import {
+    getSqrtRatioAtTick,
+    getLiquidityForAmount0,
+    getLiquidityForAmount1,
+    getLiquidityForAmounts,
+    getAmountsForLiquidity,
+} from '../sdk/src/utils/liquidity-math';
+
+/**
+ * Helper function to get amounts for liquidity (wrapper around getAmountsForLiquidity)
+ * Returns the token amounts required for a given liquidity position
+ */
+function getAmountsForLiquidityHelper(
+    sqrtRatioX96: bigint,
+    sqrtRatioAX96: bigint,
+    sqrtRatioBX96: bigint,
+    liquidity: bigint
+): { amount0: bigint; amount1: bigint } {
+    return getAmountsForLiquidity(sqrtRatioX96, sqrtRatioAX96, sqrtRatioBX96, liquidity);
+}
 
 // Uniswap v4 PositionManager ABI (relevant functions for liquidity management)
 // Note: mint() is an internal function - use modifyLiquidities() as the external entry point
@@ -485,15 +505,96 @@ export class UniswapLiquidityExecutor {
             // Calculate deadline: use provided deadline or default to 20 minutes from now
             const deadline = params.deadline ?? BigInt(Math.floor(Date.now() / 1000) + DEFAULT_DEADLINE_SECONDS);
 
-            // Encode MINT_POSITION action parameters
-            // Using uint128 max values for amount0Max and amount1Max to allow slippage
+            // Get current pool state to determine position type
+            const poolState = await this.getPoolState(params.poolId as `0x${string}`);
+            const currentSqrtPriceX96 = poolState.sqrtPriceX96;
+
+            // Calculate sqrt price ratios for tick boundaries
+            const sqrtRatioAX96 = getSqrtRatioAtTick(params.tickLower);
+            const sqrtRatioBX96 = getSqrtRatioAtTick(params.tickUpper);
+
+            // Determine liquidity based on position type relative to current price
+            // For ETH/USDC pool: token0 = ETH, token1 = USDC
+            let liquidity: bigint;
+            let amount0Max: bigint;
+            let amount1Max: bigint;
+
+            if (currentSqrtPriceX96 <= sqrtRatioAX96) {
+                // Current price is below the range - only token0 (ETH) is needed
+                // This means we're providing liquidity above the current price
+                liquidity = getLiquidityForAmount0(sqrtRatioAX96, sqrtRatioBX96, amountBigInt);
+                // Add 5% buffer for slippage/rounding
+                amount0Max = (amountBigInt * 105n) / 100n;
+                amount1Max = 0n;
+            } else if (currentSqrtPriceX96 >= sqrtRatioBX96) {
+                // Current price is above the range - only token1 (USDC) is needed
+                // This is a one-sided USDC deposit (range is below current price)
+                liquidity = getLiquidityForAmount1(sqrtRatioAX96, sqrtRatioBX96, amountBigInt);
+                amount0Max = 0n;
+                // Add 5% buffer for slippage/rounding
+                amount1Max = (amountBigInt * 105n) / 100n;
+            } else {
+                // Current price is within the range - both tokens needed
+                // NOTE: For one-sided USDC deposits, the tick range should be set BELOW
+                // the current price so this branch is not reached. If you reach here with
+                // only USDC available, the deposit will fail.
+                liquidity = getLiquidityForAmounts(
+                    currentSqrtPriceX96,
+                    sqrtRatioAX96,
+                    sqrtRatioBX96,
+                    amountBigInt, // amount0 (ETH)
+                    amountBigInt  // amount1 (USDC)
+                );
+                // Calculate actual max amounts needed for this liquidity
+                const amounts = getAmountsForLiquidityHelper(
+                    currentSqrtPriceX96,
+                    sqrtRatioAX96,
+                    sqrtRatioBX96,
+                    liquidity
+                );
+                // Add 5% buffer for slippage
+                amount0Max = (amounts.amount0 * 105n) / 100n;
+                amount1Max = (amounts.amount1 * 105n) / 100n;
+            }
+
+            // Debug logging: Verify liquidity calculation
+            const positionType = currentSqrtPriceX96 <= sqrtRatioAX96
+                ? 'above-range (token0 only)'
+                : currentSqrtPriceX96 >= sqrtRatioBX96
+                    ? 'below-range (token1 only)'
+                    : 'in-range (both tokens)';
+
+            console.log(`[Executor] ========== Liquidity Calculation Debug ==========`);
+            console.log(`[Executor] Input amount: ${amountBigInt} (raw units)`);
+            console.log(`[Executor] Tick range: ${params.tickLower} to ${params.tickUpper}`);
+            console.log(`[Executor] Current pool tick: ${poolState.tick}`);
+            console.log(`[Executor] Position type: ${positionType}`);
+            console.log(`[Executor] sqrtRatioAX96 (lower): ${sqrtRatioAX96}`);
+            console.log(`[Executor] sqrtRatioBX96 (upper): ${sqrtRatioBX96}`);
+            console.log(`[Executor] currentSqrtPriceX96: ${currentSqrtPriceX96}`);
+            console.log(`[Executor] Calculated liquidity: ${liquidity}`);
+            console.log(`[Executor] amount0Max (token0): ${amount0Max}`);
+            console.log(`[Executor] amount1Max (token1): ${amount1Max}`);
+
+            // Reverse calculation to verify expected deposit amounts
+            const expectedAmounts = getAmountsForLiquidityHelper(
+                currentSqrtPriceX96,
+                sqrtRatioAX96,
+                sqrtRatioBX96,
+                liquidity
+            );
+            console.log(`[Executor] Expected amount0 deposit: ${expectedAmounts.amount0}`);
+            console.log(`[Executor] Expected amount1 deposit: ${expectedAmounts.amount1}`);
+            console.log(`[Executor] ====================================================`);
+
+            // Encode MINT_POSITION action parameters with calculated liquidity
             const mintParams = encodeMintPositionParams(
                 params.poolKey,
                 params.tickLower,
                 params.tickUpper,
-                amountBigInt, // liquidity
-                amountBigInt, // amount0Max
-                amountBigInt, // amount1Max
+                liquidity,    // Properly calculated liquidity value
+                amount0Max,   // Maximum token0 to spend
+                amount1Max,   // Maximum token1 to spend
                 recipient,
                 '0x' // hookData
             );
@@ -547,6 +648,9 @@ export class UniswapLiquidityExecutor {
      * Deposit liquidity using a DepositLiquidityIntent
      * Convenience method that converts intent to deposit params
      * 
+     * For one-sided USDC deposits, this method calculates an optimal tick range
+     * that is BELOW the current price, ensuring only token1 (USDC) is required.
+     * 
      * @param intent - The deposit liquidity intent
      * @param poolKey - Pool key components (required)
      * @param deadline - Optional transaction deadline as Unix timestamp (seconds)
@@ -557,9 +661,66 @@ export class UniswapLiquidityExecutor {
         poolKey: LiquidityDepositParams['poolKey'],
         deadline?: bigint
     ): Promise<LiquidityDepositResult> {
-        // Default tick range if not specified (full range)
-        const tickLower = intent.tickLower ?? -887220;
-        const tickUpper = intent.tickUpper ?? 887220;
+        let tickLower: number;
+        let tickUpper: number;
+
+        if (intent.tickLower !== undefined && intent.tickUpper !== undefined) {
+            // Use provided tick range
+            tickLower = intent.tickLower;
+            tickUpper = intent.tickUpper;
+        } else {
+            // Calculate one-sided USDC tick range (below current price)
+            // This ensures only token1 (USDC) is required for the deposit
+            if (!poolKey) {
+                return {
+                    success: false,
+                    error: 'poolKey is required to calculate tick range for one-sided USDC deposit',
+                };
+            }
+
+            try {
+                // Fetch current pool state to get current tick
+                const poolState = await this.getPoolState(intent.poolId as `0x${string}`);
+                const currentTick = poolState.tick;
+                const tickSpacing = poolKey.tickSpacing;
+
+                // Create range BELOW current price (one-sided USDC)
+                // Range: [currentTick - 2000, currentTick - 100], aligned to tickSpacing
+                // This ensures currentSqrtPriceX96 >= sqrtRatioBX96, requiring only token1
+                tickLower = Math.floor((currentTick - 2000) / tickSpacing) * tickSpacing;
+                tickUpper = Math.floor((currentTick - 100) / tickSpacing) * tickSpacing;
+
+                // Ensure tickLower < tickUpper
+                if (tickLower >= tickUpper) {
+                    tickLower = tickUpper - tickSpacing;
+                }
+
+                // Validate that the tick range is BELOW the current price
+                // For one-sided USDC deposits, we need: currentSqrtPriceX96 >= sqrtRatioBX96
+                const currentSqrtPriceX96 = poolState.sqrtPriceX96;
+                const sqrtRatioBX96 = getSqrtRatioAtTick(tickUpper);
+
+                if (currentSqrtPriceX96 < sqrtRatioBX96) {
+                    return {
+                        success: false,
+                        error: `Tick range overlaps current price - not a valid one-sided USDC position. ` +
+                            `Upper tick ${tickUpper} must be below current tick ${currentTick} for one-sided USDC deposit.`,
+                    };
+                }
+
+                console.log(`[Executor] Calculated one-sided USDC tick range:`);
+                console.log(`[Executor]   Current tick: ${currentTick}`);
+                console.log(`[Executor]   tickSpacing: ${tickSpacing}`);
+                console.log(`[Executor]   tickLower: ${tickLower}`);
+                console.log(`[Executor]   tickUpper: ${tickUpper}`);
+                console.log(`[Executor]   Validation passed: currentSqrtPriceX96 (${currentSqrtPriceX96}) >= sqrtRatioBX96 (${sqrtRatioBX96})`);
+            } catch (error) {
+                return {
+                    success: false,
+                    error: `Failed to calculate tick range: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                };
+            }
+        }
 
         return this.deposit({
             poolId: intent.poolId,
