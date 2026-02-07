@@ -5,14 +5,18 @@ import { RiskSimulator } from '../sdk/src/simulators/RiskSimulator';
 import {
     UniswapLiquidityExecutor,
     type LiquidityDepositParams,
-} from './UniswapLiquidityExecutor';
+} from '../sdk/src/core/UniswapLiquidityExecutor';
 import type {
     AgentPolicy,
     AgentDecision,
     DepositLiquidityIntent,
     ExecutionResult,
     ExecutionLog,
+    LiquidityPolicy,
+    PoolEvaluation,
+    PoolSelectionResult,
 } from '../sdk/src/types/agent';
+import { discoverEthUsdcPools, type DiscoveredPool } from '../sdk/src/utils/pool-discovery';
 import type { RiskMetrics, SimulationParams } from '../sdk/src/types/risk';
 import type { ChainKey } from '../sdk/src/config/networks';
 
@@ -27,6 +31,26 @@ export const DEFAULT_AGENT_POLICY: AgentPolicy = {
     retry_attempts: 3,
     retry_delay_seconds: 30,
     fallback_strategy: 'wait',
+};
+
+/**
+ * Default liquidity policy with sensible defaults for pool selection.
+ * 
+ * This policy extends DEFAULT_AGENT_POLICY with pool selection criteria:
+ * - Accepts any pool liquidity level (min_liquidity: 0n)
+ * - Prefers 0.30% fee tier, then 0.05% (common for ETH/USDC)
+ * - Allows fee tiers from 0.01% to 1%
+ * - Uses a tick range width of 2000 (~20% price range)
+ * - Defaults to one-sided USDC positions for simplicity
+ */
+export const DEFAULT_LIQUIDITY_POLICY: LiquidityPolicy = {
+    ...DEFAULT_AGENT_POLICY,
+    min_liquidity: 0n,                    // Accept any liquidity level
+    preferred_fee_tiers: [3000, 500],     // Prefer 0.30%, then 0.05%
+    max_fee_tier: 10000,                  // Max 1%
+    min_fee_tier: 100,                    // Min 0.01%
+    tick_range_width: 2000,               // ~20% price range
+    position_type: 'one_sided_usdc',      // One-sided USDC position
 };
 
 /**
@@ -385,6 +409,351 @@ export class SettleAgent {
             decision,
             reason: decision === 'abort' ? this.getAbortReason(risk) : undefined,
         };
+    }
+
+    // =========================================================================
+    // Pool Evaluation Methods
+    // =========================================================================
+
+    /**
+     * Evaluate a discovered pool for liquidity provision.
+     * 
+     * This method runs a risk simulation on the pool and evaluates it against
+     * the agent's policy thresholds. It returns a comprehensive evaluation
+     * including risk metrics, score, decision, and eligibility.
+     * 
+     * @param pool - The discovered pool to evaluate
+     * @param amount - The USDC amount to deposit (6 decimals, as string)
+     * @returns Pool evaluation with risk metrics, score, and decision
+     * 
+     * @example
+     * ```typescript
+     * const evaluation = await agent.evaluatePool(discoveredPool, '1000000');
+     * console.log(evaluation.score);    // 85
+     * console.log(evaluation.decision); // 'execute'
+     * console.log(evaluation.eligible); // true
+     * ```
+     */
+    async evaluatePool(pool: DiscoveredPool, amount: string): Promise<PoolEvaluation> {
+        console.log(`[SettleAgent] Evaluating pool ${pool.poolId.slice(0, 10)}... (${pool.feePercent} fee)`);
+
+        // Build simulation parameters for this pool
+        const simulationParams: SimulationParams = {
+            sourceChain: 'base',
+            hubChain: 'arc',
+            destChain: 'unichain',
+            poolId: pool.poolId,
+            amountIn: amount,
+            tokenIn: 'USDC',
+            tokenOut: 'USDC',
+        };
+
+        // Run risk simulation
+        const risk = await this.simulator.simulate(simulationParams);
+
+        // Make decision based on risk metrics
+        const decision = this.makeDecision(risk);
+
+        // Calculate score and determine eligibility
+        const { score, reasons, eligible } = this.scorePool(pool, risk);
+
+        console.log(`[SettleAgent]   Liquidity: ${pool.liquidityDepth}, Slippage: ${(risk.slippage_p95 * 100).toFixed(2)}%, Impact: ${(risk.price_impact * 100).toFixed(2)}%`);
+        console.log(`[SettleAgent]   Score: ${score}/100, Decision: ${decision}, Eligible: ${eligible}`);
+
+        return {
+            pool,
+            risk,
+            decision,
+            score,
+            reasons,
+            eligible,
+        };
+    }
+
+    /**
+     * Discover pools and select the best one based on policy criteria.
+     * 
+     * This method:
+     * 1. Discovers all ETH/USDC pools on the target chain
+     * 2. Filters to initialized pools only
+     * 3. Evaluates each pool (runs risk simulation, scores)
+     * 4. Selects the highest-scoring eligible pool
+     * 
+     * @param amount - The USDC amount to deposit (6 decimals, as string)
+     * @returns Pool selection result with the best pool and all evaluations
+     * 
+     * @example
+     * ```typescript
+     * const selection = await agent.selectPool('1000000');
+     * if (selection.selectedPool) {
+     *     console.log(`Selected: ${selection.selectedPool.feePercent} fee pool`);
+     *     console.log(`Score: ${selection.allEvaluations[0].score}/100`);
+     * }
+     * ```
+     */
+    async selectPool(amount: string): Promise<PoolSelectionResult> {
+        console.log(`[SettleAgent] Discovering pools for ${amount} USDC deposit...`);
+
+        // 1. Discover all ETH/USDC pools on the target chain
+        const pools = await discoverEthUsdcPools(this.chainKey);
+        const initializedPools = pools.filter(p => p.initialized);
+
+        console.log(`[SettleAgent] Found ${pools.length} total pools, ${initializedPools.length} initialized`);
+
+        if (initializedPools.length === 0) {
+            return {
+                selectedPool: null,
+                poolKey: null,
+                allEvaluations: [],
+                selectionReason: 'No initialized ETH/USDC pools found on chain',
+            };
+        }
+
+        // 2. Evaluate each initialized pool
+        const evaluations: PoolEvaluation[] = [];
+        for (const pool of initializedPools) {
+            const evaluation = await this.evaluatePool(pool, amount);
+            evaluations.push(evaluation);
+        }
+
+        // 3. Filter to eligible pools and sort by score (descending)
+        const eligibleEvaluations = evaluations
+            .filter(e => e.eligible)
+            .sort((a, b) => b.score - a.score);
+
+        // 4. Select the best eligible pool
+        if (eligibleEvaluations.length === 0) {
+            // No eligible pools - provide detailed reason
+            const ineligibleReasons = evaluations
+                .map(e => `${e.pool.feePercent}: ${e.reasons.filter(r => r.includes('ineligible') || r.includes('exceeds') || r.includes('below')).join(', ')}`)
+                .join('; ');
+
+            return {
+                selectedPool: null,
+                poolKey: null,
+                allEvaluations: evaluations,
+                selectionReason: `No pools meet eligibility criteria. ${ineligibleReasons}`,
+            };
+        }
+
+        const bestEvaluation = eligibleEvaluations[0];
+        console.log(`[SettleAgent] Selected pool: ${bestEvaluation.pool.feePercent} fee (score: ${bestEvaluation.score}/100)`);
+
+        return {
+            selectedPool: bestEvaluation.pool,
+            poolKey: bestEvaluation.pool.poolKey,
+            allEvaluations: evaluations,
+            selectionReason: `Selected ${bestEvaluation.pool.feePercent} fee pool with score ${bestEvaluation.score}/100`,
+        };
+    }
+
+    /**
+     * Main entry point - Automatically discover, select, and execute liquidity deposit.
+     * 
+     * This method provides a streamlined interface that doesn't require a poolId:
+     * 1. Discovers all ETH/USDC pools on the target chain
+     * 2. Evaluates and scores each pool based on policy
+     * 3. Selects the best eligible pool
+     * 4. Executes the liquidity deposit
+     * 
+     * Use this method when you want the agent to autonomously select the optimal pool.
+     * Use `evaluateAndExecute()` when you have a specific pool in mind.
+     * 
+     * @param amount - The USDC amount to deposit (6 decimals, as string)
+     * @param recipient - Optional LP token recipient address (defaults to sender)
+     * @returns Execution result with status, risk metrics, and optional transaction details
+     * 
+     * @example
+     * ```typescript
+     * // Agent automatically selects the best pool
+     * const result = await agent.selectAndExecute('5000000', recipientAddress);
+     * 
+     * console.log(result.status);     // 'completed' | 'aborted' | 'failed'
+     * console.log(result.txHash);     // Transaction hash if successful
+     * console.log(result.positionId); // NFT position ID if successful
+     * ```
+     */
+    async selectAndExecute(amount: string, recipient?: string): Promise<ExecutionResult> {
+        console.log(`[SettleAgent] Starting autonomous pool selection for ${amount} USDC deposit...`);
+
+        // 1. Discover and select the best pool
+        const selection = await this.selectPool(amount);
+
+        // 2. Check if a suitable pool was found
+        if (!selection.selectedPool || !selection.poolKey) {
+            console.log(`[SettleAgent] Pool selection failed: ${selection.selectionReason}`);
+            return {
+                status: 'aborted',
+                reason: selection.selectionReason,
+                risk: this.getDefaultRisk(),
+                timestamp: Date.now(),
+            };
+        }
+
+        console.log(`[SettleAgent] Pool selected: ${selection.selectedPool.feePercent} fee`);
+        console.log(`[SettleAgent] Pool ID: ${selection.selectedPool.poolId}`);
+
+        // 3. Build intent with selected pool
+        const intent: DepositLiquidityIntent = {
+            poolId: selection.selectedPool.poolId,
+            amount,
+            recipient,
+        };
+
+        // 4. Execute with the selected pool
+        return this.evaluateAndExecute(intent, selection.poolKey);
+    }
+
+    /**
+     * Get default risk metrics for cases where simulation cannot be run.
+     * Used when aborting due to no eligible pools.
+     */
+    private getDefaultRisk(): RiskMetrics {
+        return {
+            finality_delay_p50: 0,
+            finality_delay_p95: 0,
+            capital_at_risk_seconds: 0,
+            slippage_p50: 0,
+            slippage_p95: 0,
+            price_impact: 0,
+            pool_liquidity_depth: 'none',
+            execution_confidence: 0,
+            recommended_action: 'abort',
+        };
+    }
+
+    /**
+     * Score a pool based on multiple factors and policy thresholds.
+     * 
+     * Scoring algorithm weighs:
+     * 1. Fee tier preference (0-25 points)
+     * 2. Liquidity depth (0-30 points penalty)
+     * 3. Slippage (0-20 points penalty)
+     * 4. Price impact (0-15 points penalty)
+     * 5. Execution confidence bonus (0-10 points)
+     * 
+     * @param pool - The discovered pool to score
+     * @param risk - Risk metrics from simulation
+     * @returns Score (0-100), reasons array, and eligibility flag
+     */
+    private scorePool(
+        pool: DiscoveredPool,
+        risk: RiskMetrics
+    ): { score: number; reasons: string[]; eligible: boolean } {
+        let score = 100;
+        const reasons: string[] = [];
+        let eligible = true;
+
+        // Get liquidity policy if available, otherwise use base policy checks
+        const liquidityPolicy = this.policy as Partial<LiquidityPolicy>;
+
+        // 1. Fee tier preference (0-25 points penalty)
+        if (liquidityPolicy.preferred_fee_tiers?.length) {
+            const feeIndex = liquidityPolicy.preferred_fee_tiers.indexOf(pool.poolKey.fee);
+            if (feeIndex === 0) {
+                reasons.push(`Preferred fee tier (${pool.feePercent})`);
+            } else if (feeIndex > 0) {
+                const penalty = feeIndex * 5;
+                score -= penalty;
+                reasons.push(`Fee tier ${pool.feePercent} is preference #${feeIndex + 1} (-${penalty})`);
+            } else {
+                score -= 15;
+                reasons.push(`Fee tier ${pool.feePercent} not in preferred list (-15)`);
+            }
+        }
+
+        // Check fee tier bounds
+        if (liquidityPolicy.max_fee_tier && pool.poolKey.fee > liquidityPolicy.max_fee_tier) {
+            eligible = false;
+            reasons.push(`Fee tier ${pool.feePercent} exceeds maximum`);
+        }
+        if (liquidityPolicy.min_fee_tier && pool.poolKey.fee < liquidityPolicy.min_fee_tier) {
+            eligible = false;
+            reasons.push(`Fee tier ${pool.feePercent} below minimum`);
+        }
+
+        // 2. Liquidity depth (0-30 points penalty)
+        switch (pool.liquidityDepth) {
+            case 'deep':
+                reasons.push('Deep liquidity (+0)');
+                break;
+            case 'moderate':
+                score -= 15;
+                reasons.push('Moderate liquidity (-15)');
+                break;
+            case 'shallow':
+                score -= 30;
+                reasons.push('Shallow liquidity (-30)');
+                break;
+            case 'none':
+                score -= 50;
+                eligible = false;
+                reasons.push('No liquidity (-50, ineligible)');
+                break;
+        }
+
+        // Check minimum liquidity threshold
+        if (liquidityPolicy.min_liquidity !== undefined && pool.liquidity < liquidityPolicy.min_liquidity) {
+            eligible = false;
+            reasons.push(`Liquidity ${pool.liquidity} below minimum ${liquidityPolicy.min_liquidity}`);
+        }
+
+        // 3. Slippage (0-20 points penalty)
+        if (risk.slippage_p95 > 0.03) {
+            score -= 20;
+            reasons.push(`High slippage ${(risk.slippage_p95 * 100).toFixed(2)}% (-20)`);
+        } else if (risk.slippage_p95 > 0.01) {
+            score -= 10;
+            reasons.push(`Moderate slippage ${(risk.slippage_p95 * 100).toFixed(2)}% (-10)`);
+        } else {
+            reasons.push(`Low slippage ${(risk.slippage_p95 * 100).toFixed(2)}% (+0)`);
+        }
+
+        // Check policy slippage threshold
+        if (risk.slippage_p95 > this.policy.max_slippage) {
+            eligible = false;
+            reasons.push(`Slippage exceeds policy max ${(this.policy.max_slippage * 100).toFixed(2)}%`);
+        }
+
+        // 4. Price impact (0-15 points penalty)
+        if (risk.price_impact > 0.02) {
+            score -= 15;
+            reasons.push(`High price impact ${(risk.price_impact * 100).toFixed(2)}% (-15)`);
+        } else if (risk.price_impact > 0.005) {
+            score -= 7;
+            reasons.push(`Moderate price impact ${(risk.price_impact * 100).toFixed(2)}% (-7)`);
+        } else {
+            reasons.push(`Low price impact ${(risk.price_impact * 100).toFixed(2)}% (+0)`);
+        }
+
+        // Check policy price impact threshold
+        if (risk.price_impact > this.policy.max_price_impact) {
+            eligible = false;
+            reasons.push(`Price impact exceeds policy max ${(this.policy.max_price_impact * 100).toFixed(2)}%`);
+        }
+
+        // 5. Execution confidence bonus (0-10 points)
+        const confidenceBonus = Math.floor(risk.execution_confidence * 10);
+        score += confidenceBonus;
+        reasons.push(`Execution confidence ${(risk.execution_confidence * 100).toFixed(0)}% (+${confidenceBonus})`);
+
+        // Check policy confidence threshold
+        if (risk.execution_confidence < this.policy.min_confidence) {
+            eligible = false;
+            reasons.push(`Confidence below policy min ${(this.policy.min_confidence * 100).toFixed(0)}%`);
+        }
+
+        // 6. Pool must be initialized
+        if (!pool.initialized) {
+            eligible = false;
+            score = 0;
+            reasons.push('Pool not initialized (ineligible)');
+        }
+
+        // Clamp score to 0-100
+        score = Math.max(0, Math.min(100, score));
+
+        return { score, reasons, eligible };
     }
 }
 

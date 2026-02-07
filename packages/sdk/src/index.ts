@@ -19,4 +19,4 @@ export * from './core/FullFlowOrchestrator';
 
 // Agents
 export * from '../../agent/SettleAgent';
-export * from '../../agent/UniswapLiquidityExecutor';
+export * from './core/UniswapLiquidityExecutor';
