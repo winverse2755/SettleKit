@@ -40,7 +40,6 @@ function getAmountsForLiquidityHelper(
 }
 
 // Uniswap v4 PositionManager ABI (relevant functions for liquidity management)
-// Note: mint() is an internal function - use modifyLiquidities() as the external entry point
 const POSITION_MANAGER_ABI = [
     {
         name: 'modifyLiquidities',

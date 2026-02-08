@@ -107,22 +107,7 @@ export interface FullFlowError {
 // FullFlowOrchestrator Class
 // ============================================================================
 
-/**
- * FullFlowOrchestrator coordinates the complete 3-leg cross-chain flow:
- *
- * ```
- * Base Sepolia (USDC)
- *       │
- *       ▼ [Leg 1: ArcTransferLeg]
- * Arc Hub (USDC)
- *       │
- *       ▼ [Leg 2: HubToUnichainLeg]
- * Unichain (USDC)
- *       │
- *       ▼ [Leg 3: SettleAgent + UniswapLiquidityExecutor]
- * Uniswap v4 Pool (LP Position)
- * ```
- */
+// FullFlowOrchestrator coordinates the complete 3-leg cross-chain flow
 export class FullFlowOrchestrator {
     private config: FullFlowConfig;
     private agent: SettleAgent | null = null;

@@ -7,7 +7,7 @@ import { createViemAdapterFromPrivateKey } from '@circle-fin/adapter-viem-v2';
 import { createWalletClient, http, parseUnits } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
-// ---------- helpers ----------
+// helpers
 function asHex(value: string): `0x${string}` {
     if (!value.startsWith('0x')) {
         throw new Error(`Invalid hex string: ${value}`);
@@ -15,7 +15,7 @@ function asHex(value: string): `0x${string}` {
     return value as `0x${string}`;
 }
 
-// ---------- minimal ERC20 ABI ----------
+//  minimal ERC20 ABI
 const ERC20_TRANSFER_ABI = [
     {
         name: 'transfer',
@@ -29,7 +29,7 @@ const ERC20_TRANSFER_ABI = [
     }
 ] as const;
 
-// ---------- ENV ----------
+// ENV 
 const {
     PRIVATE_KEY,
     ARC_RPC,
@@ -46,7 +46,7 @@ const arcTestnet = {
     }
 } as const;
 
-// ===================================================
+// ArcTransferLeg
 
 export class ArcTransferLeg extends Leg {
     name = 'Arc USDC Transfer (BridgeKit)';
