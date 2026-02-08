@@ -109,6 +109,15 @@ This allows agents to reason about cross-chain capital movement as if it were a 
 
 ---
 
+## 🧪 Uniswap v4 Testnet Proof
+
+This project interacts with Uniswap v4 on the Unichain Sepolia testnet.
+
+🔗 Transaction proof on Uniscan:  
+https://sepolia.uniscan.xyz/tx/0xd3b512d39c6c28f5f3117a294c7e7cced486256131f49357174b51370943b63c
+
+---
+
 ## 🚀 What This Demonstrates
 
 SettleKit shows how:
