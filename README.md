@@ -25,7 +25,7 @@ SettleKit plans, simulates risk, and deterministically executes the entire cross
 
 ## 🏗 Architecture
 
-![SettleKit Architecture](./docs/architecture-diagram.png)
+![SettleKit Architecture](./docs/architecture-diagram.jpg)
 
 ---
 
