@@ -81,11 +81,9 @@ This integration is part of the future roadmap and is not included in the curren
 
 ---
 
-## 🖥 Frontend (Planned)
+## 🖥 Frontend
 
-A user-facing frontend is planned to visualize settlement intent, risk reports, and execution steps.
-
-The current MVP focuses entirely on the SDK and agent-driven backend execution.
+It's a user-facing frontend where we can visualize the settlement intent, risk reports and execution steps.
 
 ---
 
