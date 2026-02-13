@@ -38,7 +38,7 @@ const {
 
 const arcTestnet = {
     id: 5042002,
-    name: 'Arc Testnet',
+    name: 'Unichain Testnet',
     network: 'arc-testnet',
     nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
     rpcUrls: {
@@ -46,10 +46,10 @@ const arcTestnet = {
     }
 } as const;
 
-// ArcTransferLeg
+// UnichainTransferLeg
 
 export class ArcTransferLeg extends Leg {
-    name = 'Arc USDC Transfer (BridgeKit)';
+    name = 'Unichain USDC Transfer (BridgeKit)';
 
     private amount: string;
     private recipient: string;
@@ -73,7 +73,7 @@ export class ArcTransferLeg extends Leg {
             gasEstimate: 250000n,
             estimatedTimeMs: 20000,
             failureProbability: 0.02,
-            notes: 'BridgeKit CCTP transfer Base → Arc'
+            notes: 'BridgeKit CCTP transfer Base → Unichain'
         };
     }
 
@@ -84,10 +84,10 @@ export class ArcTransferLeg extends Leg {
             privateKey: asHex(PRIVATE_KEY)
         });
 
-        // -------- 1) Bridge Base → Arc (mint to sender wallet) --------
+        // -------- 1) Bridge (mint to sender wallet) --------
         const result = await kit.bridge({
-            from: { adapter, chain: 'Base_Sepolia' },
-            to: { adapter, chain: 'Arc_Testnet' },
+            from: { adapter, chain: 'Base_Sepolia' },       // specify from
+            to: { adapter, chain: 'Unichain_Sepolia' },     // specify to
             amount: this.amount
         });
 
@@ -95,7 +95,7 @@ export class ArcTransferLeg extends Leg {
             console.log(`[BridgeKit] ${step.name}`, step.txHash);
         }
 
-        // -------- 2) Transfer USDC to recipient on Arc --------
+        // -------- 2) Transfer USDC to recipient on Unichain --------
         const arcWallet = createWalletClient({
             account: privateKeyToAccount(asHex(PRIVATE_KEY)),
             chain: arcTestnet,
