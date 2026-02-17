@@ -874,8 +874,8 @@ export class EndToEndOrchestrator {
         this.log(`Recipient: ${this.config.recipient}`);
 
         try {
-            // Step 1: Execute CCTP Transfer (Base → Arc → Unichain)
-            this.logger.subsection('Phase 1: CCTP Transfer (Base → Arc → Unichain)');
+            // Step 1: Execute CCTP Transfer (Base → Unichain)
+            this.logger.subsection('Phase 1: CCTP Transfer (Base → Unichain)');
             this.perfTracker.startPhase('transfer');
             this.log('\n--- Step 1: CCTP Transfer (2 legs) ---');
             const transferResult = await this.executeTransfer();
