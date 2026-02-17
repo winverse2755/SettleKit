@@ -1797,7 +1797,7 @@ export async function runEndToEndTest(
     // Note: poolId is computed from poolKey using computePoolId() in EndToEndOrchestrator
     const defaultConfig: TestConfig = {
         mode: 'live',
-        amount: '0.5', // 0.5 USDC (human-readable format, ArcTransferLeg uses parseUnits internally)
+        amount: '2', // 2 USDC (human-readable format, ArcTransferLeg uses parseUnits internally)
         recipient:
             process.env.RECIPIENT_ADDRESS ||
             '0x0000000000000000000000000000000000000001',
@@ -1940,11 +1940,11 @@ function printDetailedReport(report: DetailedTestReport): void {
 export async function testLiveCCTPTransfer(): Promise<DetailedTestReport> {
     console.log('\n🧪 TEST: Live CCTP Transfer');
     console.log('   Mode: LIVE - Real blockchain transactions');
-    console.log('   Networks: Base Sepolia → Arc Testnet\n');
+    console.log('   Networks: Base Sepolia → Unichain Sepolia\n');
     
     return runEndToEndTest({
         mode: 'live',
-        amount: '5', // 5 USDC for full flow test
+        amount: '2', // 2 USDC for full flow test
         recipient: process.env.RECIPIENT_ADDRESS || '',
         agentPolicy: {
             max_slippage: 0.05, // 5% slippage tolerance for testnet
@@ -1977,7 +1977,7 @@ export async function testLiveUniswapExecution(): Promise<DetailedTestReport> {
 
     return runEndToEndTest({
         mode: 'live',
-        amount: '5', // 5 USDC for testnet
+        amount: '2', // 2 USDC for testnet
         recipient,
         agentPolicy: {
             max_slippage: 0.10,         // 10% max slippage for testnet
@@ -1995,33 +1995,6 @@ export async function testLiveUniswapExecution(): Promise<DetailedTestReport> {
             hooks: '0x0000000000000000000000000000000000000000' as Address,
         },
     }, { verbose: true });
-}
-
-/**
- * Combined live test: CCTP Transfer + Uniswap Execution
- * 
- * Runs both live tests sequentially:
- * 1. CCTP Transfer from Base Sepolia to Arc Testnet
- * 2. Uniswap liquidity deposit on Unichain Sepolia
- * 
- * Run with: LIVE_FULL_TEST=true npx ts-node packages/sdk/test/end-to-end.test.ts
- */
-export async function testLiveCCTPAndUniswap(): Promise<{
-    cctpResult: DetailedTestReport;
-    uniswapResult: DetailedTestReport;
-}> {
-    console.log('\n🧪 TEST: Live CCTP + Uniswap Combined');
-    console.log('   Mode: LIVE - Full end-to-end flow');
-    console.log('   1. CCTP Transfer: Base Sepolia → Arc Testnet');
-    console.log('   2. Uniswap Deposit: Unichain Sepolia\n');
-
-    // Run CCTP Transfer first
-    const cctpResult = await testLiveCCTPTransfer();
-    
-    // Run Uniswap Execution second
-    const uniswapResult = await testLiveUniswapExecution();
-
-    return { cctpResult, uniswapResult };
 }
 
 /**
@@ -2057,7 +2030,7 @@ export async function testAutonomousPoolSelection(): Promise<DetailedTestReport>
 
     return runEndToEndTest({
         mode: 'live',
-        amount: '5', // 5 USDC for testnet
+        amount: '2', // 2 USDC for testnet
         recipient,
         useAutonomousSelection: true, // Enable autonomous mode - no poolKey needed
         agentPolicy: {
@@ -2237,8 +2210,7 @@ async function main() {
     if (runAutonomousTest) {
         console.log('🤖 Running AUTONOMOUS POOL SELECTION test');
         console.log('   This will execute the complete cross-chain flow with autonomous pool selection:');
-        console.log('   • Phase 1: CCTP Transfer Leg 1 (Base Sepolia → Arc Testnet)');
-        console.log('   • Phase 1: CCTP Transfer Leg 2 (Arc Testnet → Unichain Sepolia)');
+        console.log('   • Phase 1: CCTP Transfer (Base Sepolia → Unichain Sepolia)');
         console.log('   • Phase 2 & 3: Autonomous Pool Discovery, Evaluation, and Execution');
         console.log('   Agent will discover ETH/USDC pools and select the optimal one');
         console.log('');
@@ -2253,8 +2225,7 @@ async function main() {
         // Run single unified end-to-end flow with explicit pool
         console.log('🔴 Running LIVE end-to-end test');
         console.log('   This will execute the complete cross-chain flow:');
-        console.log('   • Phase 1: CCTP Transfer Leg 1 (Base Sepolia → Arc Testnet)');
-        console.log('   • Phase 1: CCTP Transfer Leg 2 (Arc Testnet → Unichain Sepolia)');
+        console.log('   • Phase 1: CCTP Transfer (Base Sepolia → Unichain Sepolia)');
         console.log('   • Phase 2: Risk Evaluation');
         console.log('   • Phase 3: Uniswap Liquidity Deposit (Unichain Sepolia)');
         console.log('   Ensure PRIVATE_KEY is set and account has USDC');
@@ -2267,7 +2238,7 @@ async function main() {
 
         const report = await runEndToEndTest({
             mode: 'live',
-            amount: '5', // 5 USDC for full flow test
+            amount: '2', // 2 USDC for full flow test
             recipient: process.env.RECIPIENT_ADDRESS || process.env.PUBLIC_ADDRESS || '',
             agentPolicy: {
                 max_slippage: 0.10,
