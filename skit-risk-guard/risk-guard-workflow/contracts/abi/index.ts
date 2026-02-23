@@ -4,7 +4,6 @@
 /**
  * Chainlink AggregatorV3Interface ABI
  * Used to fetch price data from Chainlink Data Feeds
- * @see https://docs.chain.link/data-feeds/api-reference
  */
 export const AggregatorV3InterfaceABI = [
   {
