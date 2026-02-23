@@ -1,5 +1,6 @@
 // skit-risk-guard/risk-guard-workflow/main.ts
-// CRE Risk Guard Workflow - Aggregates risk data for cross-chain settlements
+// CRE Risk Guard Workflow - Complete risk assessment for cross-chain settlements
+// Workflow: HTTP trigger → data fetches → threshold evaluation → emit report
 
 import {
   HTTPCapability,
@@ -12,67 +13,96 @@ import {
 import type {
   SettlementIntent,
   WorkflowConfig,
-  RiskDataFetch,
-  WorkflowResponse,
+  RiskReport,
+  OracleData,
+  PoolData,
+  BridgeData,
 } from "./types";
 import { fetchOracleData } from "./fetchers/oracle";
 import { fetchPoolData } from "./fetchers/pool";
 import { fetchBridgeData } from "./fetchers/bridge";
+import {
+  evaluateRisk,
+  determineStatus,
+  buildReport,
+  getSummary,
+} from "./evaluator";
+import {
+  emitReport,
+  getEmissionTargets,
+} from "./emitter";
 
 /**
- * Main HTTP trigger handler for risk data aggregation.
- * Receives a settlement intent and fetches risk data from multiple sources:
- * 1. Oracle data (Chainlink Data Feeds via EVMClient)
- * 2. Pool health (Uniswap v4 via EVMClient with Tenderly fork)
- * 3. Bridge status (Circle CCTP API via HTTPClient)
+ * Main HTTP trigger handler for complete risk assessment.
+ * 
+ * Workflow steps:
+ * 1. Ingest Settlement Intent (HTTP trigger)
+ * 2. Fetch Oracle Data (Chainlink Data Feeds via EVMClient)
+ * 3. Fetch Pool Health (Uniswap v4 via EVMClient with Tenderly fork)
+ * 4. Fetch Bridge Status (Circle CCTP API via HTTPClient)
+ * 5. Evaluate Risk Thresholds
+ * 6. Emit Risk Report (webhook or executor signal)
  */
 const onHttpTrigger = (
   runtime: Runtime<WorkflowConfig>,
   payload: HTTPPayload
-): WorkflowResponse => {
-  const fetchedAt = Date.now();
-  const errors: string[] = [];
+): RiskReport => {
+  const executionId = `risk-${Date.now()}`;
+  const fetchErrors: string[] = [];
 
-  // Parse settlement intent from HTTP payload
+  runtime.log("=".repeat(60));
+  runtime.log("CRE Risk Guard Workflow - Starting risk assessment");
+  runtime.log(`Execution ID: ${executionId}`);
+  runtime.log(`Emission targets: ${getEmissionTargets(runtime.config)}`);
+  runtime.log("=".repeat(60));
+
+  // ============================================================
+  // Step 1: Parse Settlement Intent from HTTP payload
+  // ============================================================
+  runtime.log("\n[Step 1] Parsing settlement intent...");
+
   if (!payload.input || payload.input.length === 0) {
-    runtime.log("HTTP trigger payload is empty");
-    return {
-      success: false,
-      error: "Empty request payload",
-    };
+    runtime.log("ERROR: HTTP trigger payload is empty");
+    return createErrorReport("Empty request payload", executionId);
   }
 
   let intent: SettlementIntent;
   try {
     intent = decodeJson(payload.input) as SettlementIntent;
-    runtime.log(`Received settlement intent for ${intent.amount} ${intent.token}`);
-    runtime.log(`Route: ${intent.sourceChain} -> ${intent.targetChain}`);
+    runtime.log(`Settlement intent received:`);
+    runtime.log(`  Token: ${intent.token}`);
+    runtime.log(`  Amount: ${intent.amount}`);
+    runtime.log(`  Route: ${intent.sourceChain} -> ${intent.targetChain}`);
+    runtime.log(`  Max slippage: ${(intent.maxSlippageTolerance * 100).toFixed(2)}%`);
+    runtime.log(`  Max bridge delay: ${intent.maxBridgeDelay}ms`);
   } catch (error) {
-    runtime.log("Failed to parse settlement intent");
-    return {
-      success: false,
-      error: "Invalid JSON payload",
-    };
+    runtime.log("ERROR: Failed to parse settlement intent");
+    return createErrorReport("Invalid JSON payload", executionId);
   }
 
   // Validate required fields
   if (!intent.sourceChain || !intent.targetChain || !intent.amount) {
-    return {
-      success: false,
-      error: "Missing required fields: sourceChain, targetChain, amount",
-    };
+    runtime.log("ERROR: Missing required fields");
+    return createErrorReport(
+      "Missing required fields: sourceChain, targetChain, amount",
+      executionId
+    );
   }
 
-  // Step 1: Fetch Oracle Data (Chainlink Data Feeds)
-  runtime.log("Step 1: Fetching oracle data from Chainlink Data Feeds...");
-  let oracleData;
+  // ============================================================
+  // Step 2: Fetch Oracle Data (Chainlink Data Feeds)
+  // ============================================================
+  runtime.log("\n[Step 2] Fetching oracle data from Chainlink Data Feeds...");
+  let oracleData: OracleData;
   try {
     oracleData = fetchOracleData(runtime);
-    runtime.log(`Oracle fetch complete - ETH/USD: ${oracleData.ethUsdPrice}`);
+    runtime.log(`  ETH/USD: $${Number(oracleData.ethUsdPrice) / 1e8}`);
+    runtime.log(`  USDC/USD: $${Number(oracleData.usdcUsdPrice) / 1e8}`);
+    runtime.log(`  Timestamp: ${oracleData.timestamp}`);
   } catch (error) {
     const errorMsg = `Oracle fetch failed: ${error}`;
-    runtime.log(errorMsg);
-    errors.push(errorMsg);
+    runtime.log(`  ERROR: ${errorMsg}`);
+    fetchErrors.push(errorMsg);
     oracleData = {
       ethUsdPrice: 0n,
       usdcUsdPrice: 0n,
@@ -80,16 +110,21 @@ const onHttpTrigger = (
     };
   }
 
-  // Step 2: Fetch Pool Health (Uniswap v4 via Tenderly fork)
-  runtime.log("Step 2: Fetching pool health data...");
-  let poolData;
+  // ============================================================
+  // Step 3: Fetch Pool Health (Uniswap v4 via Tenderly fork)
+  // ============================================================
+  runtime.log("\n[Step 3] Fetching pool health data via Tenderly fork...");
+  let poolData: PoolData;
   try {
     poolData = fetchPoolData(runtime, intent);
-    runtime.log(`Pool fetch complete - liquidity: ${poolData.liquidity}`);
+    runtime.log(`  Liquidity: ${poolData.liquidity.toString()}`);
+    runtime.log(`  Liquidity depth: ${poolData.liquidityDepth}`);
+    runtime.log(`  Current tick: ${poolData.tick}`);
+    runtime.log(`  LP fee: ${poolData.lpFee / 10000}%`);
   } catch (error) {
     const errorMsg = `Pool fetch failed: ${error}`;
-    runtime.log(errorMsg);
-    errors.push(errorMsg);
+    runtime.log(`  ERROR: ${errorMsg}`);
+    fetchErrors.push(errorMsg);
     poolData = {
       sqrtPriceX96: 0n,
       tick: 0,
@@ -99,47 +134,142 @@ const onHttpTrigger = (
     };
   }
 
-  // Step 3: Fetch Bridge Status (Circle CCTP API)
-  runtime.log("Step 3: Fetching bridge status from CCTP API...");
-  let bridgeData;
+  // ============================================================
+  // Step 4: Fetch Bridge Status (Circle CCTP API)
+  // ============================================================
+  runtime.log("\n[Step 4] Fetching bridge status from CCTP API...");
+  let bridgeData: BridgeData;
   try {
     bridgeData = fetchBridgeData(runtime, intent);
-    runtime.log(`Bridge fetch complete - status: ${bridgeData.attestationStatus}`);
+    runtime.log(`  Attestation status: ${bridgeData.attestationStatus}`);
+    runtime.log(`  Estimated confirmation: ${bridgeData.estimatedConfirmationMs}ms`);
+    if (bridgeData.queuePosition !== undefined) {
+      runtime.log(`  Queue position: ${bridgeData.queuePosition}`);
+    }
   } catch (error) {
     const errorMsg = `Bridge fetch failed: ${error}`;
-    runtime.log(errorMsg);
-    errors.push(errorMsg);
+    runtime.log(`  ERROR: ${errorMsg}`);
+    fetchErrors.push(errorMsg);
     bridgeData = {
       attestationStatus: "unknown" as const,
       estimatedConfirmationMs: 900000, // Default 15 minutes
     };
   }
 
-  // Aggregate all risk data
-  const riskData: RiskDataFetch = {
-    oracle: oracleData,
-    pool: poolData,
-    bridge: bridgeData,
-    intent,
-    metadata: {
-      fetchedAt,
-      complete: errors.length === 0,
-      errors: errors.length > 0 ? errors : undefined,
-    },
-  };
-
-  runtime.log("Risk data aggregation complete");
-  runtime.log(`Complete: ${riskData.metadata.complete}`);
-  if (errors.length > 0) {
-    runtime.log(`Errors encountered: ${errors.join(", ")}`);
+  // Log fetch summary
+  if (fetchErrors.length > 0) {
+    runtime.log(`\nFetch completed with ${fetchErrors.length} error(s)`);
+  } else {
+    runtime.log("\nAll data fetches completed successfully");
   }
 
-  return {
-    success: true,
-    data: riskData,
-    executionId: `risk-${fetchedAt}`,
-  };
+  // ============================================================
+  // Step 5: Evaluate Risk Thresholds
+  // ============================================================
+  runtime.log("\n[Step 5] Evaluating risk thresholds...");
+
+  const checks = evaluateRisk(intent, oracleData, poolData, bridgeData, runtime.config);
+  const status = determineStatus(checks);
+  const summary = getSummary(status, checks);
+
+  runtime.log(`\nRisk evaluation results:`);
+  for (const check of checks) {
+    const icon = check.passed ? "✓" : "✗";
+    runtime.log(`  ${icon} ${check.name}: ${check.description}`);
+    runtime.log(`    Actual: ${check.actual}, Threshold: ${check.threshold}, Severity: ${check.severity}`);
+  }
+
+  runtime.log(`\nStatus: ${status}`);
+  runtime.log(`Summary: ${summary}`);
+
+  // ============================================================
+  // Step 6: Build and Emit Risk Report
+  // ============================================================
+  runtime.log("\n[Step 6] Building and emitting risk report...");
+
+  const report = buildReport(
+    status,
+    checks,
+    oracleData,
+    poolData,
+    intent,
+    runtime.config,
+    executionId
+  );
+
+  // Add fetch errors to report metadata if any
+  if (fetchErrors.length > 0) {
+    report.metadata = {
+      ...report.metadata,
+      notes: [...(report.metadata?.notes ?? []), ...fetchErrors],
+    };
+  }
+
+  runtime.log(`  Recipe ID: ${report.recipeId}`);
+  runtime.log(`  Explorer URL: ${report.explorerUrl}`);
+  runtime.log(`  Tenderly sim success: ${report.tenderlySim.success}`);
+
+  // Emit report based on status
+  const emitResult = emitReport(runtime, report);
+  if (emitResult.success) {
+    runtime.log(`  Report emitted successfully`);
+  } else {
+    runtime.log(`  Report emission failed: ${emitResult.error}`);
+  }
+
+  runtime.log("\n" + "=".repeat(60));
+  runtime.log(`Risk assessment complete - Status: ${status}`);
+  runtime.log("=".repeat(60));
+
+  return report;
 };
+
+/**
+ * Creates an error report for early failures (parsing, validation).
+ */
+function createErrorReport(error: string, executionId: string): RiskReport {
+  return {
+    status: "BLOCKED",
+    checks: [
+      {
+        name: "validation",
+        passed: false,
+        actual: error,
+        threshold: "valid input",
+        severity: "critical",
+        description: `Validation failed: ${error}`,
+      },
+    ],
+    oracleData: {
+      ethUsdPrice: "0",
+      usdcUsdPrice: "0",
+      timestamp: 0,
+    },
+    tenderlySim: {
+      success: false,
+      gasEstimate: "0",
+      expectedOutput: "0",
+    },
+    explorerUrl: "",
+    recipeId: `error-${executionId}`,
+    timestamp: Date.now(),
+    intent: {
+      sourceChain: "",
+      targetChain: "",
+      token: "",
+      amount: "0",
+      targetPoolAddress: "",
+      maxSlippageTolerance: 0,
+      maxBridgeDelay: 0,
+      sourceRpc: "",
+      targetRpc: "",
+    },
+    metadata: {
+      executionId,
+      notes: [error],
+    },
+  };
+}
 
 /**
  * Initializes the CRE workflow with HTTP trigger.

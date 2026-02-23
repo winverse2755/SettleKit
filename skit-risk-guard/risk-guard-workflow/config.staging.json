@@ -21,5 +21,14 @@
     "baseSepolia": 6,
     "polygon": 7,
     "polygonAmoy": 7
+  },
+  "webhookUrl": "",
+  "executorUrl": "",
+  "tenderlyExplorerBase": "https://dashboard.tenderly.co/explorer/vnet",
+  "thresholds": {
+    "maxPriceDeviationPercent": 1,
+    "criticalSlippageMultiplier": 2,
+    "minLiquidityDepth": "moderate",
+    "maxPriceStalenessSeconds": 3600
   }
 }

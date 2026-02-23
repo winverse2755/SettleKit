@@ -111,6 +111,20 @@ export interface ChainlinkFeedConfig {
 }
 
 /**
+ * Threshold configuration for risk evaluation.
+ */
+export interface ThresholdConfig {
+  /** Maximum acceptable price deviation between oracle and DEX (e.g., 1 for 1%) */
+  maxPriceDeviationPercent: number;
+  /** Multiplier for critical slippage threshold (e.g., 2 means 2x max = critical) */
+  criticalSlippageMultiplier: number;
+  /** Minimum required liquidity depth */
+  minLiquidityDepth: "deep" | "moderate" | "shallow";
+  /** Maximum acceptable price staleness in seconds */
+  maxPriceStalenessSeconds: number;
+}
+
+/**
  * Workflow configuration loaded from config.staging.json.
  */
 export interface WorkflowConfig {
@@ -129,6 +143,14 @@ export interface WorkflowConfig {
   cctpDomains?: {
     [chain: string]: number;
   };
+  /** Backend webhook URL for BLOCKED/WARNING reports */
+  webhookUrl?: string;
+  /** Deterministic executor URL for APPROVED reports */
+  executorUrl?: string;
+  /** Tenderly explorer base URL */
+  tenderlyExplorerBase?: string;
+  /** Risk evaluation thresholds */
+  thresholds?: ThresholdConfig;
 }
 
 /**
@@ -202,4 +224,123 @@ export interface RiskEvaluation {
   };
   /** Human-readable summary */
   summary: string;
+}
+
+// ============================================================================
+// Risk Report Types (Phase 2: Threshold Evaluation & Report Emission)
+// ============================================================================
+
+/**
+ * Severity level for risk checks.
+ * - info: Informational, does not affect status
+ * - warning: Non-critical, results in WARNING status
+ * - critical: Critical failure, results in BLOCKED status
+ */
+export type CheckSeverity = "info" | "warning" | "critical";
+
+/**
+ * Risk report status.
+ * - APPROVED: All checks pass, settlement can proceed
+ * - WARNING: Some non-critical checks failed, needs review
+ * - BLOCKED: Critical checks failed, settlement should not proceed
+ */
+export type RiskStatus = "APPROVED" | "WARNING" | "BLOCKED";
+
+/**
+ * Individual risk check result.
+ */
+export interface RiskCheck {
+  /** Check name (e.g., "slippage", "liquidity", "bridgeDelay", "priceDeviation") */
+  name: string;
+  /** Whether the check passed */
+  passed: boolean;
+  /** Actual value observed */
+  actual: string | number;
+  /** Threshold value for comparison */
+  threshold: string | number;
+  /** Severity level of this check */
+  severity: CheckSeverity;
+  /** Human-readable description */
+  description?: string;
+}
+
+/**
+ * Tenderly simulation result data.
+ */
+export interface TenderlySim {
+  /** Whether the simulation succeeded */
+  success: boolean;
+  /** Estimated gas for the transaction */
+  gasEstimate: string;
+  /** Expected output amount from the swap */
+  expectedOutput: string;
+  /** Tenderly Virtual TestNet ID (extracted from RPC URL) */
+  vnetId?: string;
+  /** Transaction hash if simulation was executed */
+  txHash?: string;
+}
+
+/**
+ * Oracle data in serializable format for the report.
+ */
+export interface OracleDataReport {
+  /** ETH/USD price as string (bigint serialized) */
+  ethUsdPrice: string;
+  /** USDC/USD price as string (bigint serialized) */
+  usdcUsdPrice: string;
+  /** Block timestamp when prices were fetched */
+  timestamp: number;
+}
+
+/**
+ * Complete risk report emitted by the workflow.
+ */
+export interface RiskReport {
+  /** Overall risk status */
+  status: RiskStatus;
+  /** Individual check results */
+  checks: RiskCheck[];
+  /** Oracle data used in evaluation */
+  oracleData: OracleDataReport;
+  /** Tenderly simulation results */
+  tenderlySim: TenderlySim;
+  /** Tenderly explorer URL for traceability */
+  explorerUrl: string;
+  /** Unique recipe/settlement ID */
+  recipeId: string;
+  /** Report generation timestamp */
+  timestamp: number;
+  /** Original settlement intent */
+  intent: SettlementIntent;
+  /** Additional metadata */
+  metadata?: {
+    /** Workflow execution ID */
+    executionId?: string;
+    /** Any warnings or notes */
+    notes?: string[];
+  };
+}
+
+/**
+ * Webhook payload for backend notification.
+ */
+export interface WebhookPayload {
+  /** Event type */
+  event: "RISK_REPORT";
+  /** The risk report */
+  report: RiskReport;
+  /** Webhook timestamp */
+  sentAt: number;
+}
+
+/**
+ * Executor signal payload for approved settlements.
+ */
+export interface ExecutorSignal {
+  /** Signal type */
+  action: "EXECUTE";
+  /** The risk report */
+  report: RiskReport;
+  /** Signal timestamp */
+  signalAt: number;
 }
