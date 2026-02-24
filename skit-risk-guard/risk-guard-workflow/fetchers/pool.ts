@@ -39,15 +39,17 @@ export function fetchPoolData(
   runtime: Runtime<WorkflowConfig>,
   intent: SettlementIntent
 ): PoolData {
-  // Use Unichain Sepolia network for pool queries
+  // Use Unichain Sepolia testnet (RPC overridden via project.yaml with Tenderly fork URL)
   const network = getNetwork({
     chainFamily: "evm",
-    chainSelectorName: "ethereum-testnet-sepolia", // Fallback - actual RPC configured via project.yaml
+    chainSelectorName: "ethereum-testnet-sepolia-unichain-1",
     isTestnet: true,
   });
 
   if (!network) {
-    throw new Error("Network not found for pool queries");
+    throw new Error(
+      "Unichain Sepolia network not found. Ensure 'ethereum-testnet-sepolia-unichain-1' is configured in project.yaml rpcs."
+    );
   }
 
   const evmClient = new EVMClient(network.chainSelector.selector);
