@@ -38,7 +38,7 @@ import {
  * Workflow steps:
  * 1. Ingest Settlement Intent (HTTP trigger)
  * 2. Fetch Oracle Data (Chainlink Data Feeds via EVMClient)
- * 3. Fetch Pool Health (Uniswap v4 via EVMClient with Tenderly fork)
+ * 3. Fetch Pool Health (Uniswap v4 via HTTP eth_call → Tenderly RPC)  // Unichain not supported by CRE yet so cant use EVMClient
  * 4. Fetch Bridge Status (Circle CCTP API via HTTPClient)
  * 5. Evaluate Risk Thresholds
  * 6. Emit Risk Report (webhook or executor signal)
@@ -111,9 +111,9 @@ const onHttpTrigger = (
   }
 
   // ============================================================
-  // Step 3: Fetch Pool Health (Uniswap v4 via Tenderly fork)
+  // Step 3: Fetch Pool Health (Uniswap v4 via HTTP eth_call → Tenderly RPC)
   // ============================================================
-  runtime.log("\n[Step 3] Fetching pool health data via Tenderly fork...");
+  runtime.log("\n[Step 3] Fetching pool health data via Tenderly RPC (HTTP eth_call)...");
   let poolData: PoolData;
   try {
     poolData = fetchPoolData(runtime, intent);
