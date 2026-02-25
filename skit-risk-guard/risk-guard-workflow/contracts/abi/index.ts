@@ -156,19 +156,11 @@ export const POOL_MANAGER_STORAGE = {
  */
 export const CCTP_DOMAINS = {
   ethereum: 0,
-  avalanche: 1,
-  optimism: 2,
-  arbitrum: 3,
   base: 6,
-  polygon: 7,
   unichain: 10,
   // Testnet domains
   ethereumSepolia: 0,
-  avalancheFuji: 1,
-  optimismSepolia: 2,
-  arbitrumSepolia: 3,
   baseSepolia: 6,
-  polygonAmoy: 7,
   unichainSepolia: 10,
 } as const;
 

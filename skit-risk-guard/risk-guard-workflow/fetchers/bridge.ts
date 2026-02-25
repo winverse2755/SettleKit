@@ -24,10 +24,6 @@ const DEFAULT_CCTP_API_URL = "https://iris-api-sandbox.circle.com";
 const ESTIMATED_CONFIRMATION_TIMES: Record<number, number> = {
   [CCTP_DOMAINS.ethereumSepolia]: 900000, // ~15 minutes
   [CCTP_DOMAINS.baseSepolia]: 600000, // ~10 minutes
-  [CCTP_DOMAINS.arbitrumSepolia]: 600000, // ~10 minutes
-  [CCTP_DOMAINS.optimismSepolia]: 600000, // ~10 minutes
-  [CCTP_DOMAINS.avalancheFuji]: 60000, // ~1 minute
-  [CCTP_DOMAINS.polygonAmoy]: 300000, // ~5 minutes
   [CCTP_DOMAINS.unichainSepolia]: 900000, // ~15 minutes
 };
 
@@ -40,14 +36,6 @@ function getChainDomain(chainName: string): number | undefined {
     ethereumSepolia: CCTP_DOMAINS.ethereumSepolia,
     base: CCTP_DOMAINS.base,
     baseSepolia: CCTP_DOMAINS.baseSepolia,
-    arbitrum: CCTP_DOMAINS.arbitrum,
-    arbitrumSepolia: CCTP_DOMAINS.arbitrumSepolia,
-    optimism: CCTP_DOMAINS.optimism,
-    optimismSepolia: CCTP_DOMAINS.optimismSepolia,
-    avalanche: CCTP_DOMAINS.avalanche,
-    avalancheFuji: CCTP_DOMAINS.avalancheFuji,
-    polygon: CCTP_DOMAINS.polygon,
-    polygonAmoy: CCTP_DOMAINS.polygonAmoy,
     unichain: CCTP_DOMAINS.unichain,
     unichainSepolia: CCTP_DOMAINS.unichainSepolia,
   };

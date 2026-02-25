@@ -16280,18 +16280,10 @@ var POOL_MANAGER_STORAGE = {
 };
 var CCTP_DOMAINS = {
   ethereum: 0,
-  avalanche: 1,
-  optimism: 2,
-  arbitrum: 3,
   base: 6,
-  polygon: 7,
   unichain: 10,
   ethereumSepolia: 0,
-  avalancheFuji: 1,
-  optimismSepolia: 2,
-  arbitrumSepolia: 3,
   baseSepolia: 6,
-  polygonAmoy: 7,
   unichainSepolia: 10
 };
 function fetchOracleData(runtime2) {
@@ -16437,10 +16429,6 @@ var DEFAULT_CCTP_API_URL = "https://iris-api-sandbox.circle.com";
 var ESTIMATED_CONFIRMATION_TIMES = {
   [CCTP_DOMAINS.ethereumSepolia]: 900000,
   [CCTP_DOMAINS.baseSepolia]: 600000,
-  [CCTP_DOMAINS.arbitrumSepolia]: 600000,
-  [CCTP_DOMAINS.optimismSepolia]: 600000,
-  [CCTP_DOMAINS.avalancheFuji]: 60000,
-  [CCTP_DOMAINS.polygonAmoy]: 300000,
   [CCTP_DOMAINS.unichainSepolia]: 900000 // ~15 minutes
 };
 function getChainDomain(chainName) {
@@ -16449,14 +16437,6 @@ function getChainDomain(chainName) {
     ethereumSepolia: CCTP_DOMAINS.ethereumSepolia,
     base: CCTP_DOMAINS.base,
     baseSepolia: CCTP_DOMAINS.baseSepolia,
-    arbitrum: CCTP_DOMAINS.arbitrum,
-    arbitrumSepolia: CCTP_DOMAINS.arbitrumSepolia,
-    optimism: CCTP_DOMAINS.optimism,
-    optimismSepolia: CCTP_DOMAINS.optimismSepolia,
-    avalanche: CCTP_DOMAINS.avalanche,
-    avalancheFuji: CCTP_DOMAINS.avalancheFuji,
-    polygon: CCTP_DOMAINS.polygon,
-    polygonAmoy: CCTP_DOMAINS.polygonAmoy,
     unichain: CCTP_DOMAINS.unichain,
     unichainSepolia: CCTP_DOMAINS.unichainSepolia
   };
