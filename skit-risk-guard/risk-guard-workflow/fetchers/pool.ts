@@ -53,6 +53,25 @@ interface BatchEthCallResult {
 }
 
 /**
+ * Pure-JS base64 encoder — CRE's runtime does not expose the `btoa` global.
+ */
+function toBase64(str: string): string {
+  const chars =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  let result = "";
+  for (let i = 0; i < str.length; i += 3) {
+    const a = str.charCodeAt(i);
+    const b = str.charCodeAt(i + 1);
+    const c = str.charCodeAt(i + 2);
+    result += chars[a >> 2];
+    result += chars[((a & 3) << 4) | (b >> 4)];
+    result += isNaN(b) ? "=" : chars[((b & 15) << 2) | (c >> 6)];
+    result += isNaN(c) ? "=" : chars[c & 63];
+  }
+  return result;
+}
+
+/**
  * Makes two eth_call requests in a single JSON-RPC batch to the Tenderly RPC.
  * Called inside HTTPClient.sendRequest so CRE nodes reach consensus on results.
  */
@@ -84,12 +103,14 @@ function batchPoolEthCall(
     },
   ]);
 
+  const encodedBody = toBase64(body);
+
   const response = sendRequester
     .sendRequest({
       url: rpcUrl,
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body,
+      body: encodedBody,
       timeout: "10s",
     })
     .result();

@@ -35,6 +35,21 @@ export class FatalStateError extends Error {
 }
 
 /**
+ * Returns true when the chain name looks like a testnet.
+ * Matches common testnet suffixes/keywords used in this codebase.
+ */
+function isTestnetChain(chainName: string): boolean {
+  const lower = chainName.toLowerCase();
+  return (
+    lower.includes("sepolia") ||
+    lower.includes("testnet") ||
+    lower.includes("goerli") ||
+    lower.includes("mumbai") ||
+    lower.includes("fuji")
+  );
+}
+
+/**
  * Evaluates all risk checks for a settlement.
  * Returns an array of RiskCheck results.
  */
@@ -58,7 +73,20 @@ export function evaluateRisk(
   checks.push(evaluateBridgeDelay(intent, bridge));
 
   // 4. Oracle vs DEX Price Deviation Check
-  checks.push(evaluatePriceDeviation(oracle, pool, thresholds));
+  // Skipped on testnet: no real trading activity means the DEX price is
+  // meaningless and will always diverge wildly from the oracle.
+  if (isTestnetChain(intent.targetChain)) {
+    checks.push({
+      name: "priceDeviation",
+      passed: true,
+      actual: "N/A",
+      threshold: thresholds.maxPriceDeviationPercent,
+      severity: "info",
+      description: `Price deviation check skipped — testnet chain (${intent.targetChain}) has no reliable market price`,
+    });
+  } else {
+    checks.push(evaluatePriceDeviation(oracle, pool, thresholds));
+  }
 
   // 5. Price Staleness Check (bonus check)
   checks.push(evaluatePriceStaleness(oracle, thresholds));
