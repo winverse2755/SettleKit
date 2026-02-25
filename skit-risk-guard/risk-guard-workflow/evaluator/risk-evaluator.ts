@@ -27,6 +27,13 @@ import {
   buildTenderlyExplorerUrl,
 } from "./thresholds";
 
+export class FatalStateError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "FatalStateError";
+  }
+}
+
 /**
  * Evaluates all risk checks for a settlement.
  * Returns an array of RiskCheck results.
@@ -55,6 +62,10 @@ export function evaluateRisk(
 
   // 5. Price Staleness Check (bonus check)
   checks.push(evaluatePriceStaleness(oracle, thresholds));
+
+  if (!pool || pool.liquidity === 0n) {
+    throw new FatalStateError("Pool state unavailable");
+ }
 
   return checks;
 }
