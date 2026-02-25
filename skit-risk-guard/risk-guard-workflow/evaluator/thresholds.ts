@@ -124,14 +124,17 @@ export function isPriceStale(
 }
 
 /**
- * Extract Tenderly vnet ID from RPC URL.
+ * Extract Tenderly vnet ID from RPC URL without relying on the `URL` global
+ * (not available in the CRE QuickJS runtime).
  * URL format: https://virtual.{chain}.eu.rpc.tenderly.co/{vnet-id}
  */
 export function extractTenderlyVnetId(rpcUrl: string): string | undefined {
   try {
-    const url = new URL(rpcUrl);
-    const pathParts = url.pathname.split("/").filter(Boolean);
-    return pathParts[pathParts.length - 1];
+    const stripped = rpcUrl.replace(/\/$/, "");
+    const lastSlash = stripped.lastIndexOf("/");
+    if (lastSlash === -1) return undefined;
+    const segment = stripped.slice(lastSlash + 1);
+    return segment.length > 0 ? segment : undefined;
   } catch {
     return undefined;
   }

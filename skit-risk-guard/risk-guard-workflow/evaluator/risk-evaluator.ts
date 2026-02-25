@@ -288,12 +288,14 @@ export function buildReport(
     success: pool.sqrtPriceX96 > 0n, // Pool readable = sim success
     gasEstimate: "250000", // Estimated gas for swap
     expectedOutput: calculateExpectedOutput(intent, pool),
-    vnetId,
+    // Omit vnetId entirely when undefined — CRE's QuickJS serializer
+    // cannot wrap undefined values and will throw at return time.
+    ...(vnetId !== undefined ? { vnetId } : {}),
   };
 
   // Build explorer URL
   const explorerBase =
-    config.tenderlyExplorerBase ?? "https://dashboard.tenderly.co/explorer/vnet";
+    config.tenderlyExplorerBase ?? "https://dashboard.tenderly.co/explorer/vnet/d64dbd1d-9664-445b-b168-b90bdf7af8db/transactions";
   const explorerUrl = vnetId
     ? buildTenderlyExplorerUrl(explorerBase, vnetId)
     : explorerBase;
@@ -321,7 +323,8 @@ export function buildReport(
     intent,
     metadata: {
       executionId,
-      notes: notes.length > 0 ? notes : undefined,
+      // Omit notes when empty — undefined inside objects crashes CRE's serializer.
+      ...(notes.length > 0 ? { notes } : {}),
     },
   };
 }

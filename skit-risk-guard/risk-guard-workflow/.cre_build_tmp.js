@@ -16640,9 +16640,12 @@ function isPriceStale(oracleTimestamp, maxStalenessSeconds) {
 }
 function extractTenderlyVnetId(rpcUrl) {
   try {
-    const url = new URL(rpcUrl);
-    const pathParts = url.pathname.split("/").filter(Boolean);
-    return pathParts[pathParts.length - 1];
+    const stripped = rpcUrl.replace(/\/$/, "");
+    const lastSlash = stripped.lastIndexOf("/");
+    if (lastSlash === -1)
+      return;
+    const segment = stripped.slice(lastSlash + 1);
+    return segment.length > 0 ? segment : undefined;
   } catch {
     return;
   }
@@ -16783,9 +16786,9 @@ function buildReport(status, checks, oracle, pool, intent, config, executionId) 
     success: pool.sqrtPriceX96 > 0n,
     gasEstimate: "250000",
     expectedOutput: calculateExpectedOutput(intent, pool),
-    vnetId
+    ...vnetId !== undefined ? { vnetId } : {}
   };
-  const explorerBase = config.tenderlyExplorerBase ?? "https://dashboard.tenderly.co/explorer/vnet";
+  const explorerBase = config.tenderlyExplorerBase ?? "https://dashboard.tenderly.co/explorer/vnet/d64dbd1d-9664-445b-b168-b90bdf7af8db/transactions";
   const explorerUrl = vnetId ? buildTenderlyExplorerUrl(explorerBase, vnetId) : explorerBase;
   const recipeId = generateRecipeId(intent, executionId);
   const notes = [];
@@ -16804,7 +16807,7 @@ function buildReport(status, checks, oracle, pool, intent, config, executionId) 
     intent,
     metadata: {
       executionId,
-      notes: notes.length > 0 ? notes : undefined
+      ...notes.length > 0 ? { notes } : {}
     }
   };
 }
@@ -16890,8 +16893,22 @@ function signalExecutor(runtime2, report2) {
     return { success: false, error: errorMsg };
   }
 }
+function toBase642(str) {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  let result = "";
+  for (let i2 = 0;i2 < str.length; i2 += 3) {
+    const a = str.charCodeAt(i2);
+    const b = str.charCodeAt(i2 + 1);
+    const c = str.charCodeAt(i2 + 2);
+    result += chars[a >> 2];
+    result += chars[(a & 3) << 4 | b >> 4];
+    result += isNaN(b) ? "=" : chars[(b & 15) << 2 | c >> 6];
+    result += isNaN(c) ? "=" : chars[c & 63];
+  }
+  return result;
+}
 function sendWebhookRequest(sendRequester, url, body) {
-  const bodyBase64 = Buffer.from(body).toString("base64");
+  const bodyBase64 = toBase642(body);
   const response = sendRequester.sendRequest({
     url,
     method: "POST",
