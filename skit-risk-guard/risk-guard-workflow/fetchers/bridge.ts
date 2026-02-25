@@ -28,6 +28,7 @@ const ESTIMATED_CONFIRMATION_TIMES: Record<number, number> = {
   [CCTP_DOMAINS.optimismSepolia]: 600000, // ~10 minutes
   [CCTP_DOMAINS.avalancheFuji]: 60000, // ~1 minute
   [CCTP_DOMAINS.polygonAmoy]: 300000, // ~5 minutes
+  [CCTP_DOMAINS.unichainSepolia]: 900000, // ~15 minutes
 };
 
 /**
@@ -47,6 +48,8 @@ function getChainDomain(chainName: string): number | undefined {
     avalancheFuji: CCTP_DOMAINS.avalancheFuji,
     polygon: CCTP_DOMAINS.polygon,
     polygonAmoy: CCTP_DOMAINS.polygonAmoy,
+    unichain: CCTP_DOMAINS.unichain,
+    unichainSepolia: CCTP_DOMAINS.unichainSepolia,
   };
   return chainMap[chainName];
 }

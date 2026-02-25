@@ -161,6 +161,7 @@ export const CCTP_DOMAINS = {
   arbitrum: 3,
   base: 6,
   polygon: 7,
+  unichain: 10,
   // Testnet domains
   ethereumSepolia: 0,
   avalancheFuji: 1,
@@ -168,6 +169,7 @@ export const CCTP_DOMAINS = {
   arbitrumSepolia: 3,
   baseSepolia: 6,
   polygonAmoy: 7,
+  unichainSepolia: 10,
 } as const;
 
 /**
