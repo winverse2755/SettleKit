@@ -16158,6 +16158,7 @@ var sendErrorResponse = (error) => {
   hostBindings.sendResponse(payload);
 };
 var zeroAddress = "0x0000000000000000000000000000000000000000";
+init_decodeAbiParameters();
 init_decodeFunctionResult();
 init_encodeAbiParameters();
 init_encodeFunctionData();
@@ -16342,59 +16343,138 @@ function fetchOracleData(runtime2) {
     roundId: ethRoundId
   };
 }
-function fetchPoolData(runtime2, intent) {
-  const network248 = getNetwork({
-    chainFamily: "evm",
-    chainSelectorName: "ethereum-testnet-sepolia-unichain-1",
-    isTestnet: true
-  });
-  if (!network248) {
-    throw new Error("Unichain Sepolia network not found. Ensure 'ethereum-testnet-sepolia-unichain-1' is configured in project.yaml rpcs.");
+var MOCK_POOL_DATA = {
+  sqrtPriceX96: 79228162514264337593543950336n,
+  tick: 0,
+  liquidity: 500000n * 10n ** 18n,
+  liquidityDepth: "moderate",
+  lpFee: 100,
+  protocolFee: 0
+};
+function toBase64(str) {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  let result = "";
+  for (let i2 = 0;i2 < str.length; i2 += 3) {
+    const a = str.charCodeAt(i2);
+    const b = str.charCodeAt(i2 + 1);
+    const c = str.charCodeAt(i2 + 2);
+    result += chars[a >> 2];
+    result += chars[(a & 3) << 4 | b >> 4];
+    result += isNaN(b) ? "=" : chars[(b & 15) << 2 | c >> 6];
+    result += isNaN(c) ? "=" : chars[c & 63];
   }
-  const evmClient = new ClientCapability(network248.chainSelector.selector);
+  return result;
+}
+function batchPoolEthCall(sendRequester, rpcUrl, poolManagerAddress, slot0Calldata, liquidityCalldata) {
+  const body = JSON.stringify([
+    {
+      jsonrpc: "2.0",
+      method: "eth_call",
+      params: [
+        { from: zeroAddress, to: poolManagerAddress, data: slot0Calldata },
+        "latest"
+      ],
+      id: 1
+    },
+    {
+      jsonrpc: "2.0",
+      method: "eth_call",
+      params: [
+        { from: zeroAddress, to: poolManagerAddress, data: liquidityCalldata },
+        "latest"
+      ],
+      id: 2
+    }
+  ]);
+  const encodedBody = toBase64(body);
+  const response = sendRequester.sendRequest({
+    url: rpcUrl,
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: encodedBody,
+    timeout: "10s"
+  }).result();
+  if (!ok(response)) {
+    return {
+      success: false,
+      slot0Data: "0x",
+      liquidityData: "0x",
+      error: "HTTP request to Tenderly RPC failed"
+    };
+  }
+  try {
+    const parsed = json(response);
+    if (!Array.isArray(parsed) || parsed.length < 2) {
+      return {
+        success: false,
+        slot0Data: "0x",
+        liquidityData: "0x",
+        error: "Unexpected JSON-RPC batch response format"
+      };
+    }
+    const slot0Item = parsed.find((r) => r.id === 1);
+    const liquidityItem = parsed.find((r) => r.id === 2);
+    if (slot0Item?.error || liquidityItem?.error) {
+      const msg = slot0Item?.error?.message ?? liquidityItem?.error?.message ?? "unknown";
+      return { success: false, slot0Data: "0x", liquidityData: "0x", error: msg };
+    }
+    return {
+      success: true,
+      slot0Data: slot0Item?.result ?? "0x",
+      liquidityData: liquidityItem?.result ?? "0x"
+    };
+  } catch (e) {
+    return {
+      success: false,
+      slot0Data: "0x",
+      liquidityData: "0x",
+      error: `Failed to parse RPC response: ${e}`
+    };
+  }
+}
+function fetchPoolData(runtime2, intent) {
+  const rpcUrl = intent.targetRpc;
+  if (!rpcUrl) {
+    runtime2.log("Warning: No targetRpc in intent — skipping on-chain pool read, using mock pool data");
+    return { ...MOCK_POOL_DATA };
+  }
   const poolManagerAddress = runtime2.config.poolManagerAddress ?? CONTRACT_ADDRESSES.unichainSepolia.poolManager;
   const poolId = intent.targetPoolAddress;
   runtime2.log(`Fetching pool state for pool ID: ${poolId}`);
   runtime2.log(`Using PoolManager at: ${poolManagerAddress}`);
+  runtime2.log(`RPC endpoint: ${rpcUrl}`);
   const poolStateSlot = keccak256(encodeAbiParameters([{ type: "bytes32" }, { type: "uint256" }], [poolId, POOL_MANAGER_STORAGE.POOLS_SLOT]));
   const liquiditySlot = "0x" + (BigInt(poolStateSlot) + POOL_MANAGER_STORAGE.LIQUIDITY_OFFSET).toString(16).padStart(64, "0");
-  const slot0CallData = encodeFunctionData({
+  const slot0Calldata = encodeFunctionData({
     abi: PoolManagerABI,
     functionName: "extsload",
     args: [poolStateSlot]
   });
-  const liquidityCallData = encodeFunctionData({
+  const liquidityCalldata = encodeFunctionData({
     abi: PoolManagerABI,
     functionName: "extsload",
     args: [liquiditySlot]
   });
-  const slot0Response = evmClient.callContract(runtime2, {
-    call: encodeCallMsg({
-      from: zeroAddress,
-      to: poolManagerAddress,
-      data: slot0CallData
-    }),
-    blockNumber: LAST_FINALIZED_BLOCK_NUMBER
-  }).result();
-  const liquidityResponse = evmClient.callContract(runtime2, {
-    call: encodeCallMsg({
-      from: zeroAddress,
-      to: poolManagerAddress,
-      data: liquidityCallData
-    }),
-    blockNumber: LAST_FINALIZED_BLOCK_NUMBER
-  }).result();
-  const slot0Value = decodeFunctionResult({
-    abi: PoolManagerABI,
-    functionName: "extsload",
-    data: bytesToHex(slot0Response.data)
-  });
-  const slot1Value = decodeFunctionResult({
-    abi: PoolManagerABI,
-    functionName: "extsload",
-    data: bytesToHex(liquidityResponse.data)
-  });
+  const httpClient = new ClientCapability2;
+  const result = httpClient.sendRequest(runtime2, batchPoolEthCall, consensusIdenticalAggregation())(rpcUrl, poolManagerAddress, slot0Calldata, liquidityCalldata).result();
+  if (!result.success) {
+    runtime2.log(`Warning: Pool RPC call failed (${result.error}) — using mock pool data`);
+    return { ...MOCK_POOL_DATA };
+  }
+  let slot0Value;
+  let slot1Value;
+  try {
+    [slot0Value] = decodeAbiParameters([{ type: "bytes32" }], result.slot0Data);
+    [slot1Value] = decodeAbiParameters([{ type: "bytes32" }], result.liquidityData);
+  } catch (e) {
+    runtime2.log(`Warning: Failed to decode pool storage slots (${e}) — using mock pool data`);
+    return { ...MOCK_POOL_DATA };
+  }
   const slot0BigInt = BigInt(slot0Value);
+  if (slot0BigInt === 0n) {
+    runtime2.log("Warning: Pool not initialized on-chain (sqrtPriceX96 = 0) — using mock pool data");
+    return { ...MOCK_POOL_DATA };
+  }
   const sqrtPriceX96 = slot0BigInt & (1n << 160n) - 1n;
   const tickRaw = Number(slot0BigInt >> 160n & (1n << 24n) - 1n);
   const tick = tickRaw >= 8388608 ? tickRaw - 16777216 : tickRaw;
@@ -16429,7 +16509,7 @@ var DEFAULT_CCTP_API_URL = "https://iris-api-sandbox.circle.com";
 var ESTIMATED_CONFIRMATION_TIMES = {
   [CCTP_DOMAINS.ethereumSepolia]: 900000,
   [CCTP_DOMAINS.baseSepolia]: 600000,
-  [CCTP_DOMAINS.unichainSepolia]: 900000 // ~15 minutes
+  [CCTP_DOMAINS.unichainSepolia]: 900000
 };
 function getChainDomain(chainName) {
   const chainMap = {
@@ -16571,14 +16651,39 @@ function buildTenderlyExplorerUrl(baseUrl, vnetId, txHash) {
   const base = `${baseUrl}/${vnetId}/transactions`;
   return txHash ? `${base}/${txHash}` : base;
 }
+
+class FatalStateError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "FatalStateError";
+  }
+}
+function isTestnetChain(chainName) {
+  const lower = chainName.toLowerCase();
+  return lower.includes("sepolia") || lower.includes("testnet") || lower.includes("goerli") || lower.includes("mumbai") || lower.includes("fuji");
+}
 function evaluateRisk(intent, oracle, pool, bridge, config) {
   const thresholds = config.thresholds ?? DEFAULT_THRESHOLDS;
   const checks = [];
   checks.push(evaluateSlippage(intent, pool, thresholds));
   checks.push(evaluateLiquidity(intent, pool, thresholds));
   checks.push(evaluateBridgeDelay(intent, bridge));
-  checks.push(evaluatePriceDeviation(oracle, pool, thresholds));
+  if (isTestnetChain(intent.targetChain)) {
+    checks.push({
+      name: "priceDeviation",
+      passed: true,
+      actual: "N/A",
+      threshold: thresholds.maxPriceDeviationPercent,
+      severity: "info",
+      description: `Price deviation check skipped — testnet chain (${intent.targetChain}) has no reliable market price`
+    });
+  } else {
+    checks.push(evaluatePriceDeviation(oracle, pool, thresholds));
+  }
   checks.push(evaluatePriceStaleness(oracle, thresholds));
+  if (!pool || pool.liquidity === 0n) {
+    throw new FatalStateError("Pool state unavailable");
+  }
   return checks;
 }
 function evaluateSlippage(intent, pool, thresholds) {
@@ -16876,7 +16981,7 @@ var onHttpTrigger = (runtime2, payload) => {
     };
   }
   runtime2.log(`
-[Step 3] Fetching pool health data via Tenderly fork...`);
+[Step 3] Fetching pool health data via Tenderly RPC (HTTP eth_call)...`);
   let poolData;
   try {
     poolData = fetchPoolData(runtime2, intent);

@@ -11,16 +11,10 @@
   "cctpDomains": {
     "ethereum": 0,
     "ethereumSepolia": 0,
-    "avalanche": 1,
-    "avalancheFuji": 1,
-    "optimism": 2,
-    "optimismSepolia": 2,
-    "arbitrum": 3,
-    "arbitrumSepolia": 3,
     "base": 6,
     "baseSepolia": 6,
-    "polygon": 7,
-    "polygonAmoy": 7
+    "unichain": 10,
+    "unichainSepolia": 10
   },
   "webhookUrl": "",
   "executorUrl": "",
