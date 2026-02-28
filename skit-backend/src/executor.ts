@@ -81,16 +81,31 @@ const ERC20_ABI = [
 // PoolManager ABI for getSlot0
 const POOL_MANAGER_ABI = [
   {
-    name: "getSlot0",
-    type: "function",
-    stateMutability: "view",
-    inputs: [{ name: "poolId", type: "bytes32" }],
-    outputs: [
-      { name: "sqrtPriceX96", type: "uint160" },
-      { name: "tick", type: "int24" },
-      { name: "protocolFee", type: "uint24" },
-      { name: "lpFee", type: "uint24" },
-    ],
+      name: 'extsload',
+      type: 'function',
+      stateMutability: 'view',
+      inputs: [{ name: 'slot', type: 'bytes32' }],
+      outputs: [{ name: 'value', type: 'bytes32' }],
+  },
+  {
+      name: 'initialize',
+      type: 'function',
+      stateMutability: 'nonpayable',
+      inputs: [
+          {
+              name: 'key',
+              type: 'tuple',
+              components: [
+                  { name: 'currency0', type: 'address' },
+                  { name: 'currency1', type: 'address' },
+                  { name: 'fee', type: 'uint24' },
+                  { name: 'tickSpacing', type: 'int24' },
+                  { name: 'hooks', type: 'address' },
+              ],
+          },
+          { name: 'sqrtPriceX96', type: 'uint160' },
+      ],
+      outputs: [{ name: 'tick', type: 'int24' }],
   },
 ] as const;
 
@@ -182,6 +197,9 @@ function encodeSettlePairParams(
 // Q96 constant for sqrt price calculations
 const Q96 = 2n ** 96n;
 
+// Storage slot for the pools mapping in Uniswap v4 PoolManager
+const POOLS_SLOT = 6n;
+
 function getSqrtRatioAtTick(tick: number): bigint {
   const absTick = Math.abs(tick);
   let ratio =
@@ -253,7 +271,7 @@ export class SettlementExecutor {
     this.publicClient = createPublicClient({
       chain: UNICHAIN_VNET as any,
       transport: http(UNICHAIN_VNET.rpcUrls.default.http[0]),
-    });
+    }) as PublicClient;
 
     if (privateKey) {
       this.account = privateKeyToAccount(privateKey);
@@ -289,27 +307,63 @@ export class SettlementExecutor {
 
     try {
       const intent = report.intent;
-      const poolId = intent.targetPoolAddress as `0x${string}`;
       const amount = BigInt(intent.amount);
 
-      console.log("[Executor] Pool ID:", poolId);
+      // Pool key for ETH/USDC pool on Unichain Sepolia
+      // Note: targetPoolAddress in the intent refers to the Pool Manager address, not the pool ID
+      const poolKey = {
+        currency0: "0x0000000000000000000000000000000000000000" as Address, // ETH
+        currency1: ADDRESSES.usdc, // USDC
+        fee: 3000,
+        tickSpacing: 60,
+        hooks: "0x0000000000000000000000000000000000000000" as Address,
+      };
+
+      // Compute pool ID from pool key: keccak256(abi.encode(currency0, currency1, fee, tickSpacing, hooks))
+      const poolId = keccak256(
+        encodeAbiParameters(
+          parseAbiParameters("address, address, uint24, int24, address"),
+          [poolKey.currency0, poolKey.currency1, poolKey.fee, poolKey.tickSpacing, poolKey.hooks]
+        )
+      );
+
+      console.log("[Executor] Pool ID (computed):", poolId);
       console.log("[Executor] Amount:", amount.toString());
 
-      // Get current pool state
+      // Get current pool state via extsload.
+      // Storage layout: slot = keccak256(abi.encode(poolId, POOLS_SLOT))
+      // slot0 packs: sqrtPriceX96 (160 bits) | tick (24 bits signed) | protocolFee (24 bits) | lpFee (24 bits)
       let sqrtPriceX96: bigint;
       let currentTick: number;
-      
+
       try {
-        const result = await this.publicClient.readContract({
+        const poolStateSlot = keccak256(
+          encodeAbiParameters(
+            [{ type: "bytes32" }, { type: "uint256" }],
+            [poolId, POOLS_SLOT]
+          )
+        );
+
+        const slot0Data = await this.publicClient.readContract({
           address: ADDRESSES.poolManager,
           abi: POOL_MANAGER_ABI,
-          functionName: "getSlot0",
-          args: [poolId],
+          functionName: "extsload",
+          args: [poolStateSlot],
         });
-        sqrtPriceX96 = result[0];
-        currentTick = result[1];
+
+        const slot0Value = BigInt(slot0Data);
+        sqrtPriceX96 = slot0Value & ((1n << 160n) - 1n);
+
+        if (sqrtPriceX96 === 0n) {
+          throw new Error("Pool not initialized (sqrtPriceX96 = 0)");
+        }
+
+        // Extract tick: 24-bit signed int starting at bit 160
+        const tickRaw = Number((slot0Value >> 160n) & 0xffffffn);
+        currentTick = tickRaw > 0x7fffff ? tickRaw - 0x1000000 : tickRaw;
       } catch (poolError) {
         console.log("[Executor] Pool not found on VNet, executing simple USDC transfer instead");
+        console.log("[Executor] Pool error:", poolError instanceof Error ? poolError.message : poolError);
         return this.executeSimpleTransfer(report);
       }
 
@@ -353,15 +407,6 @@ export class SettlementExecutor {
         await this.publicClient.waitForTransactionReceipt({ hash: approvalHash });
         console.log("[Executor] Approval confirmed:", approvalHash);
       }
-
-      // Pool key for ETH/USDC pool on Unichain Sepolia
-      const poolKey = {
-        currency0: "0x0000000000000000000000000000000000000000" as Address, // ETH
-        currency1: ADDRESSES.usdc, // USDC
-        fee: 3000,
-        tickSpacing: 60,
-        hooks: "0x0000000000000000000000000000000000000000" as Address,
-      };
 
       // Calculate tick range below current price for one-sided USDC deposit
       const tickSpacing = poolKey.tickSpacing;

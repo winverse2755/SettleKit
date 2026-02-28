@@ -17,7 +17,7 @@ const testIntent = {
   targetChain: "unichainSepolia",
   token: "USDC",
   amount: "1000000", // 1 USDC (6 decimals)
-  targetPoolAddress: "0x1927686e9757bb312fc499e480536d466c788dcdc86a1b62c82643157f05b603",
+  targetPoolAddress: "0x00b036b58a818b1bc34d502d3fe730db729e62ac",
   maxSlippageTolerance: 0.01,
   maxBridgeDelay: 1200000,
   sourceRpc: "https://virtual.base-sepolia.eu.rpc.tenderly.co/eda241e6-2aa8-4abe-9db9-784bd0ceb88d",
