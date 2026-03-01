@@ -1,0 +1,13 @@
+{
+  "schedule": "0 0 * * *",
+  "backendUrl": "http://localhost:3001",
+  "webhookUrl": "http://localhost:3001/webhook",
+  "targetRpc": "https://virtual.astrochain-sepolia.eu.rpc.tenderly.co/bd73fda9-3ee0-46de-9dec-8204367d2668",
+  "poolManagerAddress": "0x00b036b58a818b1bc34d502d3fe730db729e62ac",
+  "liquidityThreshold": "999999999999999999999999999999999999999",
+  "poolRegistry": [
+    "0x1927686e9757bb312fc499e480536d466c788dcdc86a1b62c82643157f05b603",
+    "0x8ebf9a6a4441d3933bac6c3883b281296d35f08a77e7609b465904796493c565",
+    "0x2416572822faafe979baf31ef1892753017fc0ccd358b82eba9a93289b8e2565"
+  ]
+}

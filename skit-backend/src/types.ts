@@ -16,8 +16,16 @@ export interface SettlementIntent {
 }
 
 export type CheckSeverity = "info" | "warning" | "critical";
-export type RiskStatus = "APPROVED" | "WARNING" | "BLOCKED";
+export type RiskStatus =
+  | "APPROVED"
+  | "WARNING"
+  | "BLOCKED"
+  | "HEALTHY"
+  | "MOVE_RECOMMENDED";
 export type SettlementStatus = "PENDING" | "APPROVED" | "WARNING" | "BLOCKED" | "EXECUTED" | "FAILED";
+export type PositionStatus = "ACTIVE" | "CLOSED";
+export type MonitoringStatus = "HEALTHY" | "MOVE_RECOMMENDED";
+export type RebalanceStatus = "PENDING" | "EXECUTED" | "FAILED";
 
 export interface RiskCheck {
   name: string;
@@ -63,10 +71,26 @@ export interface WebhookPayload {
   sentAt: number;
 }
 
+export interface MonitoringReportPayload {
+  event: "MONITORING_REPORT";
+  report: MonitoringReport;
+  sentAt: number;
+}
+
 export interface ExecutorSignal {
   action: "EXECUTE";
   report: RiskReport;
   signalAt: number;
+}
+
+export interface RebalanceRequest {
+  positionId: string;
+  currentPool: string;
+  nextBestPool: string;
+  depositAmount: string;
+  chain?: string;
+  reason?: string;
+  rpcUrl?: string;
 }
 
 export interface Settlement {
@@ -78,6 +102,64 @@ export interface Settlement {
   explorerUrl?: string;
   createdAt: number;
   updatedAt: number;
+}
+
+export interface Position {
+  positionId: string;
+  poolAddress: string;
+  depositAmount: string;
+  chain: string;
+  rpcUrl?: string;
+  status: PositionStatus;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface PositionRow {
+  position_id: string;
+  pool_address: string;
+  deposit_amount: string;
+  chain: string;
+  rpc_url: string | null;
+  status: string;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface MonitoringReport {
+  reportId: string;
+  positionId: string;
+  poolAddress: string;
+  depositAmount: string;
+  currentLiquidity: string;
+  status: MonitoringStatus;
+  nextBestPool?: string;
+  nextBestLiquidity?: string;
+  reason: string;
+  chain: string;
+  timestamp: number;
+  executionStatus?: RebalanceStatus;
+  executionTxHash?: string;
+  executionError?: string;
+}
+
+export interface MonitoringReportRow {
+  report_id: string;
+  position_id: string;
+  pool_address: string;
+  deposit_amount: string;
+  current_liquidity: string;
+  status: string;
+  next_best_pool: string | null;
+  next_best_liquidity: string | null;
+  reason: string;
+  chain: string;
+  timestamp: number;
+  execution_status: string | null;
+  execution_tx_hash: string | null;
+  execution_error: string | null;
+  created_at: number;
+  updated_at: number;
 }
 
 export interface SettlementRow {

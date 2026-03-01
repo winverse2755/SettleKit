@@ -17,10 +17,19 @@ import {
   getSettlementByRecipeId,
   updateSettlementStatus,
   getAllSettlements,
+  getActivePositions,
+  createMonitoringReport,
+  updateMonitoringReportExecution,
+  createOrUpdatePosition,
+  updatePositionPool,
   closeDatabase,
 } from "./db.js";
 import { getExecutor } from "./executor.js";
 import type {
+  MonitoringReport,
+  MonitoringReportPayload,
+  RebalanceRequest,
+  SettlementStatus,
   SettlementIntent,
   WebhookPayload,
   ExecutorSignal,
@@ -97,18 +106,66 @@ app.post("/trigger", async (req: Request, res: Response) => {
 /**
  * POST /webhook
  * 
- * Receives risk reports from the CRE workflow.
- * Updates settlement status and triggers execution for approved settlements.
+ * Receives risk/monitoring reports from CRE workflows.
  */
 app.post("/webhook", async (req: Request, res: Response) => {
   console.log("\n[/webhook] Received webhook");
   
   try {
-    // Handle both WebhookPayload and ExecutorSignal formats
-    const body = req.body as WebhookPayload | ExecutorSignal;
-    
+    // Handle settlement and monitoring events.
+    const body = req.body as
+      | WebhookPayload
+      | MonitoringReportPayload
+      | ExecutorSignal
+      | RiskReport;
+
+    if ("event" in body && body.event === "MONITORING_REPORT") {
+      const report = body.report as MonitoringReport;
+      console.log(`[/webhook] Received MONITORING_REPORT event`);
+      console.log(`[/webhook] Monitoring status: ${report.status}`);
+      console.log(`[/webhook] Position ID: ${report.positionId}`);
+
+      createMonitoringReport(report);
+
+      if (report.status === "MOVE_RECOMMENDED" && report.nextBestPool) {
+        console.log(`[/webhook] MOVE_RECOMMENDED - triggering immediate rebalance`);
+        const executor = getExecutor();
+        const rebalanceRequest: RebalanceRequest = {
+          positionId: report.positionId,
+          currentPool: report.poolAddress,
+          nextBestPool: report.nextBestPool,
+          depositAmount: report.depositAmount,
+          chain: report.chain,
+          reason: report.reason,
+        };
+
+        const result = await executor.executeRebalance(rebalanceRequest);
+        if (result.success) {
+          updateMonitoringReportExecution(
+            report.reportId,
+            "EXECUTED",
+            result.txHash
+          );
+          updatePositionPool(report.positionId, report.nextBestPool);
+        } else {
+          updateMonitoringReportExecution(
+            report.reportId,
+            "FAILED",
+            undefined,
+            result.error
+          );
+        }
+      }
+
+      const response: WebhookResponse = {
+        success: true,
+        message: `Monitoring report ${report.reportId} processed`,
+      };
+      res.status(200).json(response);
+      return;
+    }
+
     let report: RiskReport;
-    
     if ("event" in body && body.event === "RISK_REPORT") {
       report = body.report;
       console.log(`[/webhook] Received RISK_REPORT event`);
@@ -116,12 +173,24 @@ app.post("/webhook", async (req: Request, res: Response) => {
       report = body.report;
       console.log(`[/webhook] Received EXECUTE signal`);
     } else {
-      // Try to parse as direct RiskReport
-      report = body as unknown as RiskReport;
+      report = body as RiskReport;
     }
     
     console.log(`[/webhook] Report status: ${report.status}`);
     console.log(`[/webhook] Recipe ID: ${report.recipeId}`);
+
+    if (
+      report.status !== "APPROVED" &&
+      report.status !== "WARNING" &&
+      report.status !== "BLOCKED"
+    ) {
+      res.status(400).json({
+        success: false,
+        error: `Unsupported settlement risk status: ${report.status}`,
+      } as WebhookResponse);
+      return;
+    }
+    const settlementStatus: SettlementStatus = report.status;
     
     // Find the matching settlement
     let settlement = getSettlementByRecipeId(report.recipeId);
@@ -137,7 +206,7 @@ app.post("/webhook", async (req: Request, res: Response) => {
     // Update settlement with risk report
     let updatedSettlement = updateSettlementStatus(
       settlement.id,
-      report.status,
+      settlementStatus,
       report
     );
     
@@ -241,6 +310,73 @@ app.get("/settlements", (_req: Request, res: Response) => {
 });
 
 /**
+ * GET /positions
+ *
+ * Lists active deposited positions used by the monitoring workflow.
+ */
+app.get("/positions", (_req: Request, res: Response) => {
+  console.log("\n[/positions] Fetching active positions");
+  try {
+    const positions = getActivePositions();
+    res.status(200).json(positions);
+  } catch (error) {
+    console.error("[/positions] Error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/**
+ * POST /rebalance
+ *
+ * Manual rebalance trigger for operations testing.
+ */
+app.post("/rebalance", async (req: Request, res: Response) => {
+  console.log("\n[/rebalance] Received rebalance request");
+  try {
+    const request = req.body as RebalanceRequest;
+    if (
+      !request.positionId ||
+      !request.currentPool ||
+      !request.nextBestPool ||
+      !request.depositAmount
+    ) {
+      res.status(400).json({
+        error:
+          "Missing required fields: positionId, currentPool, nextBestPool, depositAmount",
+      });
+      return;
+    }
+
+    // Ensure the position exists/updates before execution starts.
+    createOrUpdatePosition({
+      positionId: request.positionId,
+      poolAddress: request.currentPool,
+      depositAmount: request.depositAmount,
+      chain: request.chain ?? "unichainSepolia",
+      rpcUrl: request.rpcUrl,
+      status: "ACTIVE",
+    });
+
+    const executor = getExecutor();
+    const result = await executor.executeRebalance(request);
+
+    if (result.success) {
+      updatePositionPool(request.positionId, request.nextBestPool);
+    }
+
+    res.status(result.success ? 200 : 500).json({
+      success: result.success,
+      txHash: result.txHash,
+      explorerUrl: result.explorerUrl,
+      error: result.error,
+    });
+  } catch (error) {
+    console.error("[/rebalance] Error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/**
  * GET /health
  * 
  * Health check endpoint.
@@ -278,6 +414,8 @@ app.listen(PORT, () => {
   console.log(`  POST /webhook          - Receive CRE risk reports`);
   console.log(`  GET  /settlement/:id   - Get settlement details`);
   console.log(`  GET  /settlements      - List all settlements`);
+  console.log(`  GET  /positions        - List active positions`);
+  console.log(`  POST /rebalance        - Trigger manual rebalance`);
   console.log(`  GET  /health           - Health check`);
   console.log("=".repeat(60));
   

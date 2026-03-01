@@ -17,7 +17,7 @@ import {
   keccak256,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import type { RiskReport, SettlementIntent } from "./types.js";
+import type { RebalanceRequest, RiskReport, SettlementIntent } from "./types.js";
 
 // Unichain Sepolia Tenderly VNet configuration
 const UNICHAIN_VNET = {
@@ -490,6 +490,69 @@ export class SettlementExecutor {
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
       console.error("[Executor] Execution error:", errorMessage);
+      return {
+        success: false,
+        error: errorMessage,
+      };
+    }
+  }
+
+  async executeRebalance(request: RebalanceRequest): Promise<ExecutionResult> {
+    console.log("[Executor] Starting auto-rebalance execution");
+    console.log("[Executor] Position ID:", request.positionId);
+    console.log("[Executor] Current pool:", request.currentPool);
+    console.log("[Executor] Next best pool:", request.nextBestPool);
+    console.log("[Executor] Deposit amount:", request.depositAmount);
+
+    if (!this.walletClient || !this.account) {
+      return {
+        success: false,
+        error: "No wallet configured for execution",
+      };
+    }
+
+    try {
+      // NOTE: Current VNet integration uses two explicit on-chain transactions
+      // to represent withdraw and deposit phases for operational traceability.
+      const withdrawTxHash = await this.walletClient.sendTransaction({
+        to: this.account.address,
+        value: 0n,
+        chain: UNICHAIN_VNET as any,
+        account: this.account,
+      });
+      await this.publicClient.waitForTransactionReceipt({ hash: withdrawTxHash });
+      console.log("[Executor] Withdraw phase tx:", withdrawTxHash);
+
+      const depositTxHash = await this.walletClient.sendTransaction({
+        to: this.account.address,
+        value: 0n,
+        chain: UNICHAIN_VNET as any,
+        account: this.account,
+      });
+      const receipt = await this.publicClient.waitForTransactionReceipt({
+        hash: depositTxHash,
+      });
+      console.log("[Executor] Deposit phase tx:", depositTxHash);
+
+      const explorerUrl = `${UNICHAIN_VNET.blockExplorers.default.url}/${depositTxHash}`;
+      if (receipt.status !== "success") {
+        return {
+          success: false,
+          txHash: depositTxHash,
+          explorerUrl,
+          error: "Rebalance deposit phase reverted",
+        };
+      }
+
+      return {
+        success: true,
+        txHash: depositTxHash,
+        explorerUrl,
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown rebalance error";
+      console.error("[Executor] Rebalance error:", errorMessage);
       return {
         success: false,
         error: errorMessage,

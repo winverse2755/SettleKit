@@ -11,6 +11,11 @@ import type {
   SettlementRow,
   SettlementStatus,
   RiskReport,
+  Position,
+  PositionRow,
+  MonitoringReport,
+  MonitoringReportRow,
+  RebalanceStatus,
 } from "./types.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -35,6 +40,43 @@ export function initDatabase(): Database.Database {
     
     CREATE INDEX IF NOT EXISTS idx_status ON settlements(status);
     CREATE INDEX IF NOT EXISTS idx_created_at ON settlements(created_at);
+
+    CREATE TABLE IF NOT EXISTS positions (
+      position_id TEXT PRIMARY KEY,
+      pool_address TEXT NOT NULL,
+      deposit_amount TEXT NOT NULL,
+      chain TEXT NOT NULL,
+      rpc_url TEXT,
+      status TEXT NOT NULL DEFAULT 'ACTIVE',
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_positions_status ON positions(status);
+    CREATE INDEX IF NOT EXISTS idx_positions_chain ON positions(chain);
+
+    CREATE TABLE IF NOT EXISTS monitoring_reports (
+      report_id TEXT PRIMARY KEY,
+      position_id TEXT NOT NULL,
+      pool_address TEXT NOT NULL,
+      deposit_amount TEXT NOT NULL,
+      current_liquidity TEXT NOT NULL,
+      status TEXT NOT NULL,
+      next_best_pool TEXT,
+      next_best_liquidity TEXT,
+      reason TEXT NOT NULL,
+      chain TEXT NOT NULL,
+      timestamp INTEGER NOT NULL,
+      execution_status TEXT,
+      execution_tx_hash TEXT,
+      execution_error TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_monitoring_reports_status ON monitoring_reports(status);
+    CREATE INDEX IF NOT EXISTS idx_monitoring_reports_position_id ON monitoring_reports(position_id);
+    CREATE INDEX IF NOT EXISTS idx_monitoring_reports_timestamp ON monitoring_reports(timestamp);
   `);
 
   console.log("[DB] Database initialized at", DB_PATH);
@@ -158,6 +200,147 @@ export function getAllSettlements(limit: number = 100): Settlement[] {
   return rows.map(rowToSettlement);
 }
 
+export function createOrUpdatePosition(
+  position: Omit<Position, "createdAt" | "updatedAt">
+): Position {
+  const db = getDatabase();
+  const now = Date.now();
+
+  const stmt = db.prepare(`
+    INSERT INTO positions (
+      position_id, pool_address, deposit_amount, chain, rpc_url, status, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(position_id) DO UPDATE SET
+      pool_address = excluded.pool_address,
+      deposit_amount = excluded.deposit_amount,
+      chain = excluded.chain,
+      rpc_url = excluded.rpc_url,
+      status = excluded.status,
+      updated_at = excluded.updated_at
+  `);
+
+  stmt.run(
+    position.positionId,
+    position.poolAddress,
+    position.depositAmount,
+    position.chain,
+    position.rpcUrl ?? null,
+    position.status,
+    now,
+    now
+  );
+
+  return getPosition(position.positionId)!;
+}
+
+export function getPosition(positionId: string): Position | null {
+  const db = getDatabase();
+  const stmt = db.prepare(`
+    SELECT * FROM positions WHERE position_id = ?
+  `);
+  const row = stmt.get(positionId) as PositionRow | undefined;
+  return row ? rowToPosition(row) : null;
+}
+
+export function getActivePositions(limit: number = 100): Position[] {
+  const db = getDatabase();
+  const stmt = db.prepare(`
+    SELECT * FROM positions
+    WHERE status = 'ACTIVE'
+    ORDER BY updated_at DESC
+    LIMIT ?
+  `);
+  const rows = stmt.all(limit) as PositionRow[];
+  return rows.map(rowToPosition);
+}
+
+export function updatePositionPool(
+  positionId: string,
+  nextPoolAddress: string
+): Position | null {
+  const db = getDatabase();
+  const now = Date.now();
+  const stmt = db.prepare(`
+    UPDATE positions
+    SET pool_address = ?, updated_at = ?
+    WHERE position_id = ?
+  `);
+  stmt.run(nextPoolAddress, now, positionId);
+  return getPosition(positionId);
+}
+
+export function createMonitoringReport(report: MonitoringReport): MonitoringReport {
+  const db = getDatabase();
+  const now = Date.now();
+  const stmt = db.prepare(`
+    INSERT INTO monitoring_reports (
+      report_id, position_id, pool_address, deposit_amount, current_liquidity, status,
+      next_best_pool, next_best_liquidity, reason, chain, timestamp,
+      execution_status, execution_tx_hash, execution_error,
+      created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  stmt.run(
+    report.reportId,
+    report.positionId,
+    report.poolAddress,
+    report.depositAmount,
+    report.currentLiquidity,
+    report.status,
+    report.nextBestPool ?? null,
+    report.nextBestLiquidity ?? null,
+    report.reason,
+    report.chain,
+    report.timestamp,
+    report.executionStatus ?? null,
+    report.executionTxHash ?? null,
+    report.executionError ?? null,
+    now,
+    now
+  );
+
+  return getMonitoringReport(report.reportId)!;
+}
+
+export function updateMonitoringReportExecution(
+  reportId: string,
+  status: RebalanceStatus,
+  txHash?: string,
+  error?: string
+): MonitoringReport | null {
+  const db = getDatabase();
+  const now = Date.now();
+  const stmt = db.prepare(`
+    UPDATE monitoring_reports
+    SET execution_status = ?, execution_tx_hash = COALESCE(?, execution_tx_hash),
+        execution_error = COALESCE(?, execution_error), updated_at = ?
+    WHERE report_id = ?
+  `);
+  stmt.run(status, txHash ?? null, error ?? null, now, reportId);
+  return getMonitoringReport(reportId);
+}
+
+export function getMonitoringReport(reportId: string): MonitoringReport | null {
+  const db = getDatabase();
+  const stmt = db.prepare(`
+    SELECT * FROM monitoring_reports WHERE report_id = ?
+  `);
+  const row = stmt.get(reportId) as MonitoringReportRow | undefined;
+  return row ? rowToMonitoringReport(row) : null;
+}
+
+export function getMonitoringReports(limit: number = 100): MonitoringReport[] {
+  const db = getDatabase();
+  const stmt = db.prepare(`
+    SELECT * FROM monitoring_reports
+    ORDER BY created_at DESC
+    LIMIT ?
+  `);
+  const rows = stmt.all(limit) as MonitoringReportRow[];
+  return rows.map(rowToMonitoringReport);
+}
+
 function rowToSettlement(row: SettlementRow): Settlement {
   return {
     id: row.id,
@@ -168,6 +351,38 @@ function rowToSettlement(row: SettlementRow): Settlement {
     explorerUrl: row.explorer_url ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+function rowToPosition(row: PositionRow): Position {
+  return {
+    positionId: row.position_id,
+    poolAddress: row.pool_address,
+    depositAmount: row.deposit_amount,
+    chain: row.chain,
+    rpcUrl: row.rpc_url ?? undefined,
+    status: row.status as Position["status"],
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function rowToMonitoringReport(row: MonitoringReportRow): MonitoringReport {
+  return {
+    reportId: row.report_id,
+    positionId: row.position_id,
+    poolAddress: row.pool_address,
+    depositAmount: row.deposit_amount,
+    currentLiquidity: row.current_liquidity,
+    status: row.status as MonitoringReport["status"],
+    nextBestPool: row.next_best_pool ?? undefined,
+    nextBestLiquidity: row.next_best_liquidity ?? undefined,
+    reason: row.reason,
+    chain: row.chain,
+    timestamp: row.timestamp,
+    executionStatus: row.execution_status as RebalanceStatus | undefined,
+    executionTxHash: row.execution_tx_hash ?? undefined,
+    executionError: row.execution_error ?? undefined,
   };
 }
 
