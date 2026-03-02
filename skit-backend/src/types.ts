@@ -162,6 +162,18 @@ export interface MonitoringReportRow {
   updated_at: number;
 }
 
+export interface TelegramAlertSetting {
+  chatId: string;
+  enabled: boolean;
+  updatedAt: number;
+}
+
+export interface PositionWithMonitoring extends Position {
+  latestMonitoringStatus?: MonitoringStatus;
+  latestLiquidity?: string;
+  lastScanAt?: number;
+}
+
 export interface SettlementRow {
   id: string;
   intent: string;

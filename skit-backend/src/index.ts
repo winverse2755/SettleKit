@@ -18,13 +18,24 @@ import {
   updateSettlementStatus,
   getAllSettlements,
   getActivePositions,
+  getActivePositionsWithMonitoring,
+  getPosition,
   createMonitoringReport,
+  getLatestMonitoringReportByPosition,
   updateMonitoringReportExecution,
   createOrUpdatePosition,
   updatePositionPool,
+  getEnabledTelegramChatIds,
+  setTelegramAlerts,
   closeDatabase,
 } from "./db.js";
 import { getExecutor } from "./executor.js";
+import {
+  TelegramBotService,
+  formatHistory,
+  formatMonitoringAlert,
+  formatPositions,
+} from "./telegram.js";
 import type {
   MonitoringReport,
   MonitoringReportPayload,
@@ -41,12 +52,182 @@ import type {
 
 const PORT = process.env.PORT || 3001;
 const CRE_WORKFLOW_URL = process.env.CRE_WORKFLOW_URL;
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const BASE_VNET_RPC =
+  process.env.BASE_VNET_RPC ??
+  "https://virtual.base-sepolia.eu.rpc.tenderly.co/eda241e6-2aa8-4abe-9db9-784bd0ceb88d";
+const UNICHAIN_VNET_RPC =
+  process.env.UNICHAIN_VNET_RPC ??
+  "https://virtual.astrochain-sepolia.eu.rpc.tenderly.co/bd73fda9-3ee0-46de-9dec-8204367d2668";
 
 const app = express();
 app.use(express.json());
 
 // Initialize database
 initDatabase();
+
+async function fetchRpcBlockNumber(rpcUrl: string): Promise<bigint> {
+  const response = await fetch(rpcUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "eth_blockNumber",
+      params: [],
+    }),
+  });
+  const json = (await response.json()) as { result?: string };
+  if (!json.result) throw new Error("No block number in RPC response");
+  return BigInt(json.result);
+}
+
+let telegramBot: TelegramBotService | null = null;
+
+if (TELEGRAM_BOT_TOKEN) {
+  telegramBot = new TelegramBotService(TELEGRAM_BOT_TOKEN, {
+    onSimulate: async (args) => {
+      if (args.length < 3) {
+        return "Usage: /simulate <amount> <from_chain> <to_pool>";
+      }
+      const [amount, fromChain, toPool] = args;
+      const intent: SettlementIntent = {
+        sourceChain: fromChain,
+        targetChain: "unichainSepolia",
+        token: "USDC",
+        amount,
+        targetPoolAddress: toPool,
+        maxSlippageTolerance: 0.01,
+        maxBridgeDelay: 1_200_000,
+        sourceRpc: BASE_VNET_RPC,
+        targetRpc: UNICHAIN_VNET_RPC,
+      };
+
+      const settlementId = uuidv4();
+      createSettlement(settlementId, intent);
+      if (CRE_WORKFLOW_URL) {
+        await fetch(CRE_WORKFLOW_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(intent),
+        });
+      }
+
+      // Wait briefly for webhook callback to attach risk report.
+      let settlement = getSettlement(settlementId);
+      for (let i = 0; i < 10; i += 1) {
+        if (settlement?.riskReport) break;
+        await new Promise((r) => setTimeout(r, 2000));
+        settlement = getSettlement(settlementId);
+      }
+
+      if (!settlement?.riskReport) {
+        return `Simulation submitted (pending)\nsettlementId=${settlementId}\nstatus=PENDING`;
+      }
+
+      const report = settlement.riskReport;
+      const slippageCheck = report.checks.find((c) => c.name === "slippage");
+      const liquidityCheck = report.checks.find((c) => c.name === "liquidity");
+      const bridgeCheck = report.checks.find((c) => c.name === "bridgeDelay");
+      return [
+        "Simulation result:",
+        `status=${report.status}`,
+        `recipeId=${report.recipeId}`,
+        `slippage=${slippageCheck?.actual ?? "n/a"}`,
+        `liquidity=${liquidityCheck?.actual ?? "n/a"}`,
+        `bridgeETA(ms)=${bridgeCheck?.actual ?? "n/a"}`,
+        `gasEstimate=${report.tenderlySim.gasEstimate}`,
+        `tenderly=${report.explorerUrl}`,
+      ].join("\n");
+    },
+    onStatus: async (args) => {
+      if (args.length < 1) return "Usage: /status <recipeId>";
+      const settlement = getSettlementByRecipeId(args[0]);
+      if (!settlement) return "Settlement not found for recipeId.";
+      const report = settlement.riskReport;
+      const activeFlags =
+        report?.checks.filter((c) => !c.passed).map((c) => c.name).join(", ") ??
+        "none";
+      return [
+        `settlementId=${settlement.id}`,
+        `status=${settlement.status}`,
+        `executionStep=${settlement.status}`,
+        `activeRiskFlags=${activeFlags || "none"}`,
+        `tenderly=${settlement.explorerUrl ?? report?.explorerUrl ?? "n/a"}`,
+      ].join("\n");
+    },
+    onAlerts: async (chatId, args) => {
+      const mode = args[0]?.toLowerCase();
+      if (mode !== "on" && mode !== "off") return "Usage: /alerts on|off";
+      setTelegramAlerts(chatId, mode === "on");
+      return `Alerts ${mode === "on" ? "enabled" : "disabled"}.`;
+    },
+    onApprove: async (args) => {
+      if (args.length < 1) return "Usage: /approve <recipeId>";
+      const settlement = getSettlementByRecipeId(args[0]);
+      if (!settlement) return "Settlement not found.";
+      if (settlement.status === "BLOCKED") {
+        return "Cannot approve BLOCKED settlement until failing condition resolves.";
+      }
+      if (settlement.status !== "WARNING") {
+        return `Settlement is ${settlement.status}, only WARNING can be approved.`;
+      }
+      if (!settlement.riskReport) {
+        return "No risk report found for this settlement.";
+      }
+      const approvedReport = { ...settlement.riskReport, status: "APPROVED" as const };
+      updateSettlementStatus(settlement.id, "APPROVED", approvedReport);
+      const result = await getExecutor().executeSettlement(approvedReport);
+      if (result.success) {
+        updateSettlementStatus(
+          settlement.id,
+          "EXECUTED",
+          undefined,
+          result.txHash,
+          result.explorerUrl
+        );
+        return `Approved and executed ✅\nsettlementId=${settlement.id}\ntx=${result.explorerUrl ?? result.txHash}`;
+      }
+      updateSettlementStatus(settlement.id, "FAILED");
+      return `Approval execution failed ❌\nreason=${result.error ?? "unknown"}`;
+    },
+    onHistory: async () => formatHistory(getAllSettlements(5)),
+    onForkStatus: async () => {
+      const [baseBlock, uniBlock] = await Promise.all([
+        fetchRpcBlockNumber(BASE_VNET_RPC),
+        fetchRpcBlockNumber(UNICHAIN_VNET_RPC),
+      ]);
+      return [
+        "Fork status:",
+        `baseVnetBlock=${baseBlock.toString()}`,
+        `unichainVnetBlock=${uniBlock.toString()}`,
+      ].join("\n");
+    },
+    onPositions: async () => formatPositions(getActivePositionsWithMonitoring()),
+    onRebalance: async (args) => {
+      if (args.length < 1) return "Usage: /rebalance <positionId>";
+      const positionId = args[0];
+      const position = getPosition(positionId);
+      if (!position) return "Position not found.";
+      const latestReport = getLatestMonitoringReportByPosition(positionId);
+      if (!latestReport?.nextBestPool) {
+        return "No nextBestPool found from monitoring report for this position.";
+      }
+      const result = await getExecutor().executeRebalance({
+        positionId,
+        currentPool: position.poolAddress,
+        nextBestPool: latestReport.nextBestPool,
+        depositAmount: position.depositAmount,
+        chain: position.chain,
+      });
+      if (result.success) {
+        updatePositionPool(positionId, latestReport.nextBestPool);
+        return `Manual rebalance executed ✅\nposition=${positionId}\ntx=${result.explorerUrl ?? result.txHash}`;
+      }
+      return `Manual rebalance failed ❌\nposition=${positionId}\nreason=${result.error ?? "unknown"}`;
+    },
+  });
+}
 
 /**
  * POST /trigger
@@ -140,6 +321,7 @@ app.post("/webhook", async (req: Request, res: Response) => {
         };
 
         const result = await executor.executeRebalance(rebalanceRequest);
+        const alertChatIds = getEnabledTelegramChatIds();
         if (result.success) {
           updateMonitoringReportExecution(
             report.reportId,
@@ -147,6 +329,12 @@ app.post("/webhook", async (req: Request, res: Response) => {
             result.txHash
           );
           updatePositionPool(report.positionId, report.nextBestPool);
+          if (telegramBot && alertChatIds.length > 0) {
+            await telegramBot.sendBroadcast(
+              alertChatIds,
+              formatMonitoringAlert(report, "SUCCESS", result.explorerUrl)
+            );
+          }
         } else {
           updateMonitoringReportExecution(
             report.reportId,
@@ -154,6 +342,12 @@ app.post("/webhook", async (req: Request, res: Response) => {
             undefined,
             result.error
           );
+          if (telegramBot && alertChatIds.length > 0) {
+            await telegramBot.sendBroadcast(
+              alertChatIds,
+              formatMonitoringAlert(report, "FAILED", result.explorerUrl, result.error)
+            );
+          }
         }
       }
 
@@ -209,6 +403,24 @@ app.post("/webhook", async (req: Request, res: Response) => {
       settlementStatus,
       report
     );
+
+    if ((report.status === "WARNING" || report.status === "BLOCKED") && telegramBot) {
+      const alertChatIds = getEnabledTelegramChatIds();
+      if (alertChatIds.length > 0) {
+        const failedChecks = report.checks
+          .filter((c) => !c.passed)
+          .map((c) => `${c.name}(${c.actual}/${c.threshold})`)
+          .join(", ");
+        const text = [
+          `Risk alert ${report.status === "BLOCKED" ? "🚫" : "⚠️"}`,
+          `recipeId=${report.recipeId}`,
+          `status=${report.status}`,
+          `reason=${failedChecks || "n/a"}`,
+          `tenderly=${report.explorerUrl}`,
+        ].join("\n");
+        await telegramBot.sendBroadcast(alertChatIds, text);
+      }
+    }
     
     // If approved, execute the settlement
     if (report.status === "APPROVED") {
@@ -317,7 +529,7 @@ app.get("/settlements", (_req: Request, res: Response) => {
 app.get("/positions", (_req: Request, res: Response) => {
   console.log("\n[/positions] Fetching active positions");
   try {
-    const positions = getActivePositions();
+    const positions = getActivePositionsWithMonitoring();
     res.status(200).json(positions);
   } catch (error) {
     console.error("[/positions] Error:", error);
@@ -393,12 +605,14 @@ app.get("/health", (_req: Request, res: Response) => {
 // Graceful shutdown
 process.on("SIGINT", () => {
   console.log("\nShutting down...");
+  telegramBot?.stopPolling();
   closeDatabase();
   process.exit(0);
 });
 
 process.on("SIGTERM", () => {
   console.log("\nShutting down...");
+  telegramBot?.stopPolling();
   closeDatabase();
   process.exit(0);
 });
@@ -425,6 +639,12 @@ app.listen(PORT, () => {
     console.log(`Executor wallet: ${address}`);
   } else {
     console.log("WARNING: No PRIVATE_KEY configured - execution disabled");
+  }
+  if (telegramBot) {
+    telegramBot.startPolling();
+    console.log("Telegram bot polling started");
+  } else {
+    console.log("Telegram bot disabled (set TELEGRAM_BOT_TOKEN to enable)");
   }
   console.log("=".repeat(60));
 });

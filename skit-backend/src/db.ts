@@ -16,6 +16,8 @@ import type {
   MonitoringReport,
   MonitoringReportRow,
   RebalanceStatus,
+  TelegramAlertSetting,
+  PositionWithMonitoring,
 } from "./types.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -77,6 +79,12 @@ export function initDatabase(): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_monitoring_reports_status ON monitoring_reports(status);
     CREATE INDEX IF NOT EXISTS idx_monitoring_reports_position_id ON monitoring_reports(position_id);
     CREATE INDEX IF NOT EXISTS idx_monitoring_reports_timestamp ON monitoring_reports(timestamp);
+
+    CREATE TABLE IF NOT EXISTS telegram_alert_settings (
+      chat_id TEXT PRIMARY KEY,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      updated_at INTEGER NOT NULL
+    );
   `);
 
   console.log("[DB] Database initialized at", DB_PATH);
@@ -339,6 +347,117 @@ export function getMonitoringReports(limit: number = 100): MonitoringReport[] {
   `);
   const rows = stmt.all(limit) as MonitoringReportRow[];
   return rows.map(rowToMonitoringReport);
+}
+
+export function getLatestMonitoringReportByPosition(
+  positionId: string
+): MonitoringReport | null {
+  const db = getDatabase();
+  const stmt = db.prepare(`
+    SELECT * FROM monitoring_reports
+    WHERE position_id = ?
+    ORDER BY timestamp DESC
+    LIMIT 1
+  `);
+  const row = stmt.get(positionId) as MonitoringReportRow | undefined;
+  return row ? rowToMonitoringReport(row) : null;
+}
+
+export function getActivePositionsWithMonitoring(
+  limit: number = 100
+): PositionWithMonitoring[] {
+  const db = getDatabase();
+  const stmt = db.prepare(`
+    SELECT
+      p.position_id,
+      p.pool_address,
+      p.deposit_amount,
+      p.chain,
+      p.rpc_url,
+      p.status,
+      p.created_at,
+      p.updated_at,
+      mr.status AS latest_monitoring_status,
+      mr.current_liquidity AS latest_liquidity,
+      mr.timestamp AS last_scan_at
+    FROM positions p
+    LEFT JOIN monitoring_reports mr
+      ON mr.report_id = (
+        SELECT report_id FROM monitoring_reports
+        WHERE position_id = p.position_id
+        ORDER BY timestamp DESC
+        LIMIT 1
+      )
+    WHERE p.status = 'ACTIVE'
+    ORDER BY p.updated_at DESC
+    LIMIT ?
+  `);
+
+  const rows = stmt.all(limit) as Array<PositionRow & {
+    latest_monitoring_status?: string | null;
+    latest_liquidity?: string | null;
+    last_scan_at?: number | null;
+  }>;
+
+  return rows.map((row) => ({
+    positionId: row.position_id,
+    poolAddress: row.pool_address,
+    depositAmount: row.deposit_amount,
+    chain: row.chain,
+    rpcUrl: row.rpc_url ?? undefined,
+    status: row.status as PositionWithMonitoring["status"],
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    latestMonitoringStatus:
+      (row.latest_monitoring_status as PositionWithMonitoring["latestMonitoringStatus"]) ??
+      undefined,
+    latestLiquidity: row.latest_liquidity ?? undefined,
+    lastScanAt: row.last_scan_at ?? undefined,
+  }));
+}
+
+export function setTelegramAlerts(
+  chatId: string,
+  enabled: boolean
+): TelegramAlertSetting {
+  const db = getDatabase();
+  const now = Date.now();
+  const stmt = db.prepare(`
+    INSERT INTO telegram_alert_settings (chat_id, enabled, updated_at)
+    VALUES (?, ?, ?)
+    ON CONFLICT(chat_id) DO UPDATE SET
+      enabled = excluded.enabled,
+      updated_at = excluded.updated_at
+  `);
+  stmt.run(chatId, enabled ? 1 : 0, now);
+  return { chatId, enabled, updatedAt: now };
+}
+
+export function getTelegramAlertSetting(chatId: string): TelegramAlertSetting | null {
+  const db = getDatabase();
+  const stmt = db.prepare(`
+    SELECT chat_id, enabled, updated_at
+    FROM telegram_alert_settings
+    WHERE chat_id = ?
+  `);
+  const row = stmt.get(chatId) as
+    | { chat_id: string; enabled: number; updated_at: number }
+    | undefined;
+  if (!row) return null;
+  return {
+    chatId: row.chat_id,
+    enabled: row.enabled === 1,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function getEnabledTelegramChatIds(): string[] {
+  const db = getDatabase();
+  const stmt = db.prepare(`
+    SELECT chat_id FROM telegram_alert_settings WHERE enabled = 1
+  `);
+  const rows = stmt.all() as Array<{ chat_id: string }>;
+  return rows.map((r) => r.chat_id);
 }
 
 function rowToSettlement(row: SettlementRow): Settlement {
