@@ -17,6 +17,7 @@ import {
   encodeAbiParameters,
   keccak256,
   zeroAddress,
+  padHex,
 } from "viem";
 import {
   PoolManagerABI,
@@ -200,7 +201,12 @@ export function fetchPoolData(
     runtime.config.poolManagerAddress ??
     CONTRACT_ADDRESSES.unichainSepolia.poolManager;
 
-  const poolId = intent.targetPoolAddress as `0x${string}`;
+  const rawPoolId = intent.targetPoolAddress as `0x${string}`;
+
+  // Uniswap v4 mapping key is bytes32. An address is 20 bytes, so we left-pad
+  // it to 32 bytes — matching Ethereum ABI encoding of address → bytes32
+  // (i.e. bytes32(uint160(addr)): address occupies the right-most 20 bytes).
+  const poolId = padHex(rawPoolId, { dir: "left", size: 32 });
 
   runtime.log(`Fetching pool state for pool ID: ${poolId}`);
   runtime.log(`Using PoolManager at: ${poolManagerAddress}`);

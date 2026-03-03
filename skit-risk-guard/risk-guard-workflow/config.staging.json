@@ -16,8 +16,8 @@
     "unichain": 10,
     "unichainSepolia": 10
   },
-  "webhookUrl": "http://localhost:3001/webhook",
-  "executorUrl": "http://localhost:3001/webhook",
+  "webhookUrl": "https://seedier-reese-nomographic.ngrok-free.dev/webhook",
+  "executorUrl": "https://seedier-reese-nomographic.ngrok-free.dev/webhook",
   "tenderlyExplorerBase": "https://dashboard.tenderly.co/explorer/vnet/d64dbd1d-9664-445b-b168-b90bdf7af8db/transactions",
   "thresholds": {
     "maxPriceDeviationPercent": 1,

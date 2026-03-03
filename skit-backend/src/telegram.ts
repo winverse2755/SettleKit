@@ -2,6 +2,7 @@ import type {
   PositionWithMonitoring,
   MonitoringReport,
   Settlement,
+  RiskReport,
 } from "./types.js";
 
 interface TelegramUpdate {
@@ -18,7 +19,7 @@ interface TelegramApiResponse<T> {
 }
 
 export interface TelegramCommandHandlers {
-  onSimulate: (args: string[]) => Promise<string>;
+  onSimulate: (chatId: string, args: string[]) => Promise<string>;
   onStatus: (args: string[]) => Promise<string>;
   onAlerts: (chatId: string, args: string[]) => Promise<string>;
   onApprove: (args: string[]) => Promise<string>;
@@ -102,7 +103,7 @@ export class TelegramBotService {
     try {
       switch (command) {
         case "/simulate":
-          await this.sendMessage(chatIdStr, await this.handlers.onSimulate(args));
+          await this.sendMessage(chatIdStr, await this.handlers.onSimulate(chatIdStr, args));
           break;
         case "/status":
           await this.sendMessage(chatIdStr, await this.handlers.onStatus(args));
@@ -165,6 +166,37 @@ export function formatPositions(positions: PositionWithMonitoring[]): string {
     ].join("\n");
   });
   return `Active positions:\n\n${lines.join("\n\n")}`;
+}
+
+export function formatSettlementExecuted(
+  report: RiskReport,
+  txHash?: string,
+  explorerUrl?: string
+): string {
+  const slippageCheck = report.checks.find((c) => c.name === "slippage");
+  const liquidityCheck = report.checks.find((c) => c.name === "liquidity");
+  const bridgeCheck = report.checks.find((c) => c.name === "bridgeDelay");
+  return [
+    "Settlement executed ✅",
+    `recipeId=${report.recipeId}`,
+    `slippage=${slippageCheck?.actual ?? "n/a"}`,
+    `liquidity=${liquidityCheck?.actual ?? "n/a"}`,
+    `bridgeETA(ms)=${bridgeCheck?.actual ?? "n/a"}`,
+    `gas=${report.tenderlySim?.gasEstimate ?? "n/a"}`,
+    `tx=${explorerUrl ?? txHash ?? "n/a"}`,
+  ].join("\n");
+}
+
+export function formatSettlementFailed(
+  report: RiskReport,
+  error?: string
+): string {
+  return [
+    "Settlement execution failed ❌",
+    `recipeId=${report.recipeId}`,
+    `reason=${error ?? "unknown"}`,
+    `tenderly=${report.explorerUrl ?? "n/a"}`,
+  ].join("\n");
 }
 
 export function formatMonitoringAlert(

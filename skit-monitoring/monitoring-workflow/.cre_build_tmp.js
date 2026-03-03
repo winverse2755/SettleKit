@@ -203,7 +203,6 @@ var AbiEncodingArrayLengthMismatchError;
 var AbiEncodingBytesSizeMismatchError;
 var AbiEncodingLengthMismatchError;
 var AbiFunctionNotFoundError;
-var AbiFunctionOutputsNotFoundError;
 var AbiItemAmbiguityError;
 var InvalidAbiEncodingTypeError;
 var InvalidAbiDecodingTypeError;
@@ -287,19 +286,6 @@ var init_abi = __esm(() => {
 `), {
         docsPath,
         name: "AbiFunctionNotFoundError"
-      });
-    }
-  };
-  AbiFunctionOutputsNotFoundError = class AbiFunctionOutputsNotFoundError2 extends BaseError {
-    constructor(functionName, { docsPath }) {
-      super([
-        `Function "${functionName}" does not contain any \`outputs\` on ABI.`,
-        "Cannot decode function result without knowing what the parameter types are.",
-        "Make sure you are using the correct ABI and that the function exists on it."
-      ].join(`
-`), {
-        docsPath,
-        name: "AbiFunctionOutputsNotFoundError"
       });
     }
   };
@@ -479,7 +465,7 @@ function toHex(value2, opts = {}) {
   }
   if (typeof value2 === "boolean")
     return boolToHex(value2, opts);
-  return bytesToHex2(value2, opts);
+  return bytesToHex(value2, opts);
 }
 function boolToHex(value2, opts = {}) {
   const hex = `0x${Number(value2)}`;
@@ -489,7 +475,7 @@ function boolToHex(value2, opts = {}) {
   }
   return hex;
 }
-function bytesToHex2(value2, opts = {}) {
+function bytesToHex(value2, opts = {}) {
   let string = "";
   for (let i2 = 0;i2 < value2.length; i2++) {
     string += hexes[value2[i2]];
@@ -531,7 +517,7 @@ function numberToHex(value_, opts = {}) {
 }
 function stringToHex(value_, opts = {}) {
   const value2 = encoder.encode(value_);
-  return bytesToHex2(value2, opts);
+  return bytesToHex(value2, opts);
 }
 var hexes;
 var encoder;
@@ -1748,7 +1734,7 @@ var init_cursor2 = __esm(() => {
 function bytesToBigInt(bytes, opts = {}) {
   if (typeof opts.size !== "undefined")
     assertSize2(bytes, { size: opts.size });
-  const hex = bytesToHex2(bytes, opts);
+  const hex = bytesToHex(bytes, opts);
   return hexToBigInt(hex, opts);
 }
 function bytesToBool(bytes_, opts = {}) {
@@ -1764,7 +1750,7 @@ function bytesToBool(bytes_, opts = {}) {
 function bytesToNumber(bytes, opts = {}) {
   if (typeof opts.size !== "undefined")
     assertSize2(bytes, { size: opts.size });
-  const hex = bytesToHex2(bytes, opts);
+  const hex = bytesToHex(bytes, opts);
   return hexToNumber(hex, opts);
 }
 function bytesToString(bytes_, opts = {}) {
@@ -1787,7 +1773,7 @@ function decodeAbiParameters(params, data) {
     throw new AbiDecodingZeroDataError;
   if (size(data) && size(data) < 32)
     throw new AbiDecodingDataSizeTooSmallError({
-      data: typeof data === "string" ? data : bytesToHex2(data),
+      data: typeof data === "string" ? data : bytesToHex(data),
       params,
       size: size(data)
     });
@@ -1828,7 +1814,7 @@ function decodeParameter(cursor, param, { staticPosition }) {
 }
 function decodeAddress(cursor) {
   const value2 = cursor.readBytes(32);
-  return [checksumAddress(bytesToHex2(sliceBytes(value2, -20))), 32];
+  return [checksumAddress(bytesToHex(sliceBytes(value2, -20))), 32];
 }
 function decodeArray(cursor, param, { length, staticPosition }) {
   if (!length) {
@@ -1891,9 +1877,9 @@ function decodeBytes(cursor, param, { staticPosition }) {
     }
     const data = cursor.readBytes(length);
     cursor.setPosition(staticPosition + 32);
-    return [bytesToHex2(data), 32];
+    return [bytesToHex(data), 32];
   }
-  const value2 = bytesToHex2(cursor.readBytes(Number.parseInt(size2), 32));
+  const value2 = bytesToHex(cursor.readBytes(Number.parseInt(size2), 32));
   return [value2, 32];
 }
 function decodeNumber(cursor, param) {
@@ -1975,32 +1961,6 @@ var init_decodeAbiParameters = __esm(() => {
   init_toBytes();
   init_toHex();
   init_encodeAbiParameters();
-});
-function decodeFunctionResult(parameters) {
-  const { abi, args, functionName, data } = parameters;
-  let abiItem = abi[0];
-  if (functionName) {
-    const item = getAbiItem({ abi, args, name: functionName });
-    if (!item)
-      throw new AbiFunctionNotFoundError(functionName, { docsPath: docsPath2 });
-    abiItem = item;
-  }
-  if (abiItem.type !== "function")
-    throw new AbiFunctionNotFoundError(undefined, { docsPath: docsPath2 });
-  if (!abiItem.outputs)
-    throw new AbiFunctionOutputsNotFoundError(abiItem.name, { docsPath: docsPath2 });
-  const values = decodeAbiParameters(abiItem.outputs, data);
-  if (values && values.length > 1)
-    return values;
-  if (values && values.length === 1)
-    return values[0];
-  return;
-}
-var docsPath2 = "/docs/contract/decodeFunctionResult";
-var init_decodeFunctionResult = __esm(() => {
-  init_abi();
-  init_decodeAbiParameters();
-  init_getAbiItem();
 });
 function isMessage(arg, schema) {
   const isMessage2 = arg !== null && typeof arg == "object" && "$typeName" in arg && typeof arg.$typeName == "string";
@@ -5803,26 +5763,6 @@ var Mode;
   Mode2[Mode2["NODE"] = 2] = "NODE";
 })(Mode || (Mode = {}));
 var file_tools_generator_v1alpha_cre_metadata = /* @__PURE__ */ fileDesc("Cip0b29scy9nZW5lcmF0b3IvdjFhbHBoYS9jcmVfbWV0YWRhdGEucHJvdG8SF3Rvb2xzLmdlbmVyYXRvci52MWFscGhhIoQBCgtTdHJpbmdMYWJlbBJECghkZWZhdWx0cxgBIAMoCzIyLnRvb2xzLmdlbmVyYXRvci52MWFscGhhLlN0cmluZ0xhYmVsLkRlZmF1bHRzRW50cnkaLwoNRGVmYXVsdHNFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAk6AjgBIogBCgtVaW50NjRMYWJlbBJECghkZWZhdWx0cxgBIAMoCzIyLnRvb2xzLmdlbmVyYXRvci52MWFscGhhLlVpbnQ2NExhYmVsLkRlZmF1bHRzRW50cnkaMwoNRGVmYXVsdHNFbnRyeRILCgNrZXkYASABKAkSEQoFdmFsdWUYAiABKARCAjAAOgI4ASKEAQoLVWludDMyTGFiZWwSRAoIZGVmYXVsdHMYASADKAsyMi50b29scy5nZW5lcmF0b3IudjFhbHBoYS5VaW50MzJMYWJlbC5EZWZhdWx0c0VudHJ5Gi8KDURlZmF1bHRzRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgNOgI4ASKGAQoKSW50NjRMYWJlbBJDCghkZWZhdWx0cxgBIAMoCzIxLnRvb2xzLmdlbmVyYXRvci52MWFscGhhLkludDY0TGFiZWwuRGVmYXVsdHNFbnRyeRozCg1EZWZhdWx0c0VudHJ5EgsKA2tleRgBIAEoCRIRCgV2YWx1ZRgCIAEoA0ICMAA6AjgBIoIBCgpJbnQzMkxhYmVsEkMKCGRlZmF1bHRzGAEgAygLMjEudG9vbHMuZ2VuZXJhdG9yLnYxYWxwaGEuSW50MzJMYWJlbC5EZWZhdWx0c0VudHJ5Gi8KDURlZmF1bHRzRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgFOgI4ASLBAgoFTGFiZWwSPAoMc3RyaW5nX2xhYmVsGAEgASgLMiQudG9vbHMuZ2VuZXJhdG9yLnYxYWxwaGEuU3RyaW5nTGFiZWxIABI8Cgx1aW50NjRfbGFiZWwYAiABKAsyJC50b29scy5nZW5lcmF0b3IudjFhbHBoYS5VaW50NjRMYWJlbEgAEjoKC2ludDY0X2xhYmVsGAMgASgLMiMudG9vbHMuZ2VuZXJhdG9yLnYxYWxwaGEuSW50NjRMYWJlbEgAEjwKDHVpbnQzMl9sYWJlbBgEIAEoCzIkLnRvb2xzLmdlbmVyYXRvci52MWFscGhhLlVpbnQzMkxhYmVsSAASOgoLaW50MzJfbGFiZWwYBSABKAsyIy50b29scy5nZW5lcmF0b3IudjFhbHBoYS5JbnQzMkxhYmVsSABCBgoEa2luZCLkAQoSQ2FwYWJpbGl0eU1ldGFkYXRhEh8KBG1vZGUYASABKA4yES5zZGsudjFhbHBoYS5Nb2RlEhUKDWNhcGFiaWxpdHlfaWQYAiABKAkSRwoGbGFiZWxzGAMgAygLMjcudG9vbHMuZ2VuZXJhdG9yLnYxYWxwaGEuQ2FwYWJpbGl0eU1ldGFkYXRhLkxhYmVsc0VudHJ5Gk0KC0xhYmVsc0VudHJ5EgsKA2tleRgBIAEoCRItCgV2YWx1ZRgCIAEoCzIeLnRvb2xzLmdlbmVyYXRvci52MWFscGhhLkxhYmVsOgI4ASI2ChhDYXBhYmlsaXR5TWV0aG9kTWV0YWRhdGESGgoSbWFwX3RvX3VudHlwZWRfYXBpGAEgASgIOm4KCmNhcGFiaWxpdHkSHy5nb29nbGUucHJvdG9idWYuU2VydmljZU9wdGlvbnMY0IYDIAEoCzIrLnRvb2xzLmdlbmVyYXRvci52MWFscGhhLkNhcGFiaWxpdHlNZXRhZGF0YVIKY2FwYWJpbGl0eTprCgZtZXRob2QSHi5nb29nbGUucHJvdG9idWYuTWV0aG9kT3B0aW9ucxjRhgMgASgLMjEudG9vbHMuZ2VuZXJhdG9yLnYxYWxwaGEuQ2FwYWJpbGl0eU1ldGhvZE1ldGFkYXRhUgZtZXRob2RCrwEKG2NvbS50b29scy5nZW5lcmF0b3IudjFhbHBoYUIQQ3JlTWV0YWRhdGFQcm90b1ABogIDVEdYqgIXVG9vbHMuR2VuZXJhdG9yLlYxYWxwaGHKAhhUb29sc1xHZW5lcmF0b3JfXFYxYWxwaGHiAiRUb29sc1xHZW5lcmF0b3JfXFYxYWxwaGFcR1BCTWV0YWRhdGHqAhlUb29sczo6R2VuZXJhdG9yOjpWMWFscGhhYgZwcm90bzM", [file_google_protobuf_descriptor, file_sdk_v1alpha_sdk]);
-var file_capabilities_blockchain_evm_v1alpha_client = /* @__PURE__ */ fileDesc("CjBjYXBhYmlsaXRpZXMvYmxvY2tjaGFpbi9ldm0vdjFhbHBoYS9jbGllbnQucHJvdG8SI2NhcGFiaWxpdGllcy5ibG9ja2NoYWluLmV2bS52MWFscGhhIh0KC1RvcGljVmFsdWVzEg4KBnZhbHVlcxgBIAMoDCK4AQoXRmlsdGVyTG9nVHJpZ2dlclJlcXVlc3QSEQoJYWRkcmVzc2VzGAEgAygMEkAKBnRvcGljcxgCIAMoCzIwLmNhcGFiaWxpdGllcy5ibG9ja2NoYWluLmV2bS52MWFscGhhLlRvcGljVmFsdWVzEkgKCmNvbmZpZGVuY2UYAyABKA4yNC5jYXBhYmlsaXRpZXMuYmxvY2tjaGFpbi5ldm0udjFhbHBoYS5Db25maWRlbmNlTGV2ZWwiegoTQ2FsbENvbnRyYWN0UmVxdWVzdBI6CgRjYWxsGAEgASgLMiwuY2FwYWJpbGl0aWVzLmJsb2NrY2hhaW4uZXZtLnYxYWxwaGEuQ2FsbE1zZxInCgxibG9ja19udW1iZXIYAiABKAsyES52YWx1ZXMudjEuQmlnSW50IiEKEUNhbGxDb250cmFjdFJlcGx5EgwKBGRhdGEYASABKAwiWwoRRmlsdGVyTG9nc1JlcXVlc3QSRgoMZmlsdGVyX3F1ZXJ5GAEgASgLMjAuY2FwYWJpbGl0aWVzLmJsb2NrY2hhaW4uZXZtLnYxYWxwaGEuRmlsdGVyUXVlcnkiSQoPRmlsdGVyTG9nc1JlcGx5EjYKBGxvZ3MYASADKAsyKC5jYXBhYmlsaXRpZXMuYmxvY2tjaGFpbi5ldm0udjFhbHBoYS5Mb2cixwEKA0xvZxIPCgdhZGRyZXNzGAEgASgMEg4KBnRvcGljcxgCIAMoDBIPCgd0eF9oYXNoGAMgASgMEhIKCmJsb2NrX2hhc2gYBCABKAwSDAoEZGF0YRgFIAEoDBIRCglldmVudF9zaWcYBiABKAwSJwoMYmxvY2tfbnVtYmVyGAcgASgLMhEudmFsdWVzLnYxLkJpZ0ludBIQCgh0eF9pbmRleBgIIAEoDRINCgVpbmRleBgJIAEoDRIPCgdyZW1vdmVkGAogASgIIjEKB0NhbGxNc2cSDAoEZnJvbRgBIAEoDBIKCgJ0bxgCIAEoDBIMCgRkYXRhGAMgASgMIr0BCgtGaWx0ZXJRdWVyeRISCgpibG9ja19oYXNoGAEgASgMEiUKCmZyb21fYmxvY2sYAiABKAsyES52YWx1ZXMudjEuQmlnSW50EiMKCHRvX2Jsb2NrGAMgASgLMhEudmFsdWVzLnYxLkJpZ0ludBIRCglhZGRyZXNzZXMYBCADKAwSOwoGdG9waWNzGAUgAygLMisuY2FwYWJpbGl0aWVzLmJsb2NrY2hhaW4uZXZtLnYxYWxwaGEuVG9waWNzIhcKBlRvcGljcxINCgV0b3BpYxgBIAMoDCJMChBCYWxhbmNlQXRSZXF1ZXN0Eg8KB2FjY291bnQYASABKAwSJwoMYmxvY2tfbnVtYmVyGAIgASgLMhEudmFsdWVzLnYxLkJpZ0ludCI0Cg5CYWxhbmNlQXRSZXBseRIiCgdiYWxhbmNlGAEgASgLMhEudmFsdWVzLnYxLkJpZ0ludCJPChJFc3RpbWF0ZUdhc1JlcXVlc3QSOQoDbXNnGAEgASgLMiwuY2FwYWJpbGl0aWVzLmJsb2NrY2hhaW4uZXZtLnYxYWxwaGEuQ2FsbE1zZyIjChBFc3RpbWF0ZUdhc1JlcGx5Eg8KA2dhcxgBIAEoBEICMAAiKwobR2V0VHJhbnNhY3Rpb25CeUhhc2hSZXF1ZXN0EgwKBGhhc2gYASABKAwiYgoZR2V0VHJhbnNhY3Rpb25CeUhhc2hSZXBseRJFCgt0cmFuc2FjdGlvbhgBIAEoCzIwLmNhcGFiaWxpdGllcy5ibG9ja2NoYWluLmV2bS52MWFscGhhLlRyYW5zYWN0aW9uIqEBCgtUcmFuc2FjdGlvbhIRCgVub25jZRgBIAEoBEICMAASDwoDZ2FzGAIgASgEQgIwABIKCgJ0bxgDIAEoDBIMCgRkYXRhGAQgASgMEgwKBGhhc2gYBSABKAwSIAoFdmFsdWUYBiABKAsyES52YWx1ZXMudjEuQmlnSW50EiQKCWdhc19wcmljZRgHIAEoCzIRLnZhbHVlcy52MS5CaWdJbnQiLAocR2V0VHJhbnNhY3Rpb25SZWNlaXB0UmVxdWVzdBIMCgRoYXNoGAEgASgMIlsKGkdldFRyYW5zYWN0aW9uUmVjZWlwdFJlcGx5Ej0KB3JlY2VpcHQYASABKAsyLC5jYXBhYmlsaXRpZXMuYmxvY2tjaGFpbi5ldm0udjFhbHBoYS5SZWNlaXB0IpkCCgdSZWNlaXB0EhIKBnN0YXR1cxgBIAEoBEICMAASFAoIZ2FzX3VzZWQYAiABKARCAjAAEhQKCHR4X2luZGV4GAMgASgEQgIwABISCgpibG9ja19oYXNoGAQgASgMEjYKBGxvZ3MYBiADKAsyKC5jYXBhYmlsaXRpZXMuYmxvY2tjaGFpbi5ldm0udjFhbHBoYS5Mb2cSDwoHdHhfaGFzaBgHIAEoDBIuChNlZmZlY3RpdmVfZ2FzX3ByaWNlGAggASgLMhEudmFsdWVzLnYxLkJpZ0ludBInCgxibG9ja19udW1iZXIYCSABKAsyES52YWx1ZXMudjEuQmlnSW50EhgKEGNvbnRyYWN0X2FkZHJlc3MYCiABKAwiQAoVSGVhZGVyQnlOdW1iZXJSZXF1ZXN0EicKDGJsb2NrX251bWJlchgBIAEoCzIRLnZhbHVlcy52MS5CaWdJbnQiUgoTSGVhZGVyQnlOdW1iZXJSZXBseRI7CgZoZWFkZXIYASABKAsyKy5jYXBhYmlsaXRpZXMuYmxvY2tjaGFpbi5ldm0udjFhbHBoYS5IZWFkZXIiawoGSGVhZGVyEhUKCXRpbWVzdGFtcBgBIAEoBEICMAASJwoMYmxvY2tfbnVtYmVyGAIgASgLMhEudmFsdWVzLnYxLkJpZ0ludBIMCgRoYXNoGAMgASgMEhMKC3BhcmVudF9oYXNoGAQgASgMIqsBChJXcml0ZVJlcG9ydFJlcXVlc3QSEAoIcmVjZWl2ZXIYASABKAwSKwoGcmVwb3J0GAIgASgLMhsuc2RrLnYxYWxwaGEuUmVwb3J0UmVzcG9uc2USRwoKZ2FzX2NvbmZpZxgDIAEoCzIuLmNhcGFiaWxpdGllcy5ibG9ja2NoYWluLmV2bS52MWFscGhhLkdhc0NvbmZpZ0gAiAEBQg0KC19nYXNfY29uZmlnIiIKCUdhc0NvbmZpZxIVCglnYXNfbGltaXQYASABKARCAjAAIocDChBXcml0ZVJlcG9ydFJlcGx5EkAKCXR4X3N0YXR1cxgBIAEoDjItLmNhcGFiaWxpdGllcy5ibG9ja2NoYWluLmV2bS52MWFscGhhLlR4U3RhdHVzEnUKInJlY2VpdmVyX2NvbnRyYWN0X2V4ZWN1dGlvbl9zdGF0dXMYAiABKA4yRC5jYXBhYmlsaXRpZXMuYmxvY2tjaGFpbi5ldm0udjFhbHBoYS5SZWNlaXZlckNvbnRyYWN0RXhlY3V0aW9uU3RhdHVzSACIAQESFAoHdHhfaGFzaBgDIAEoDEgBiAEBEi8KD3RyYW5zYWN0aW9uX2ZlZRgEIAEoCzIRLnZhbHVlcy52MS5CaWdJbnRIAogBARIaCg1lcnJvcl9tZXNzYWdlGAUgASgJSAOIAQFCJQojX3JlY2VpdmVyX2NvbnRyYWN0X2V4ZWN1dGlvbl9zdGF0dXNCCgoIX3R4X2hhc2hCEgoQX3RyYW5zYWN0aW9uX2ZlZUIQCg5fZXJyb3JfbWVzc2FnZSppCg9Db25maWRlbmNlTGV2ZWwSGQoVQ09ORklERU5DRV9MRVZFTF9TQUZFEAASGwoXQ09ORklERU5DRV9MRVZFTF9MQVRFU1QQARIeChpDT05GSURFTkNFX0xFVkVMX0ZJTkFMSVpFRBACKoIBCh9SZWNlaXZlckNvbnRyYWN0RXhlY3V0aW9uU3RhdHVzEi4KKlJFQ0VJVkVSX0NPTlRSQUNUX0VYRUNVVElPTl9TVEFUVVNfU1VDQ0VTUxAAEi8KK1JFQ0VJVkVSX0NPTlRSQUNUX0VYRUNVVElPTl9TVEFUVVNfUkVWRVJURUQQASpOCghUeFN0YXR1cxITCg9UWF9TVEFUVVNfRkFUQUwQABIWChJUWF9TVEFUVVNfUkVWRVJURUQQARIVChFUWF9TVEFUVVNfU1VDQ0VTUxACMssRCgZDbGllbnQSgAEKDENhbGxDb250cmFjdBI4LmNhcGFiaWxpdGllcy5ibG9ja2NoYWluLmV2bS52MWFscGhhLkNhbGxDb250cmFjdFJlcXVlc3QaNi5jYXBhYmlsaXRpZXMuYmxvY2tjaGFpbi5ldm0udjFhbHBoYS5DYWxsQ29udHJhY3RSZXBseRJ6CgpGaWx0ZXJMb2dzEjYuY2FwYWJpbGl0aWVzLmJsb2NrY2hhaW4uZXZtLnYxYWxwaGEuRmlsdGVyTG9nc1JlcXVlc3QaNC5jYXBhYmlsaXRpZXMuYmxvY2tjaGFpbi5ldm0udjFhbHBoYS5GaWx0ZXJMb2dzUmVwbHkSdwoJQmFsYW5jZUF0EjUuY2FwYWJpbGl0aWVzLmJsb2NrY2hhaW4uZXZtLnYxYWxwaGEuQmFsYW5jZUF0UmVxdWVzdBozLmNhcGFiaWxpdGllcy5ibG9ja2NoYWluLmV2bS52MWFscGhhLkJhbGFuY2VBdFJlcGx5En0KC0VzdGltYXRlR2FzEjcuY2FwYWJpbGl0aWVzLmJsb2NrY2hhaW4uZXZtLnYxYWxwaGEuRXN0aW1hdGVHYXNSZXF1ZXN0GjUuY2FwYWJpbGl0aWVzLmJsb2NrY2hhaW4uZXZtLnYxYWxwaGEuRXN0aW1hdGVHYXNSZXBseRKYAQoUR2V0VHJhbnNhY3Rpb25CeUhhc2gSQC5jYXBhYmlsaXRpZXMuYmxvY2tjaGFpbi5ldm0udjFhbHBoYS5HZXRUcmFuc2FjdGlvbkJ5SGFzaFJlcXVlc3QaPi5jYXBhYmlsaXRpZXMuYmxvY2tjaGFpbi5ldm0udjFhbHBoYS5HZXRUcmFuc2FjdGlvbkJ5SGFzaFJlcGx5EpsBChVHZXRUcmFuc2FjdGlvblJlY2VpcHQSQS5jYXBhYmlsaXRpZXMuYmxvY2tjaGFpbi5ldm0udjFhbHBoYS5HZXRUcmFuc2FjdGlvblJlY2VpcHRSZXF1ZXN0Gj8uY2FwYWJpbGl0aWVzLmJsb2NrY2hhaW4uZXZtLnYxYWxwaGEuR2V0VHJhbnNhY3Rpb25SZWNlaXB0UmVwbHkShgEKDkhlYWRlckJ5TnVtYmVyEjouY2FwYWJpbGl0aWVzLmJsb2NrY2hhaW4uZXZtLnYxYWxwaGEuSGVhZGVyQnlOdW1iZXJSZXF1ZXN0GjguY2FwYWJpbGl0aWVzLmJsb2NrY2hhaW4uZXZtLnYxYWxwaGEuSGVhZGVyQnlOdW1iZXJSZXBseRJ2CgpMb2dUcmlnZ2VyEjwuY2FwYWJpbGl0aWVzLmJsb2NrY2hhaW4uZXZtLnYxYWxwaGEuRmlsdGVyTG9nVHJpZ2dlclJlcXVlc3QaKC5jYXBhYmlsaXRpZXMuYmxvY2tjaGFpbi5ldm0udjFhbHBoYS5Mb2cwARJ9CgtXcml0ZVJlcG9ydBI3LmNhcGFiaWxpdGllcy5ibG9ja2NoYWluLmV2bS52MWFscGhhLldyaXRlUmVwb3J0UmVxdWVzdBo1LmNhcGFiaWxpdGllcy5ibG9ja2NoYWluLmV2bS52MWFscGhhLldyaXRlUmVwb3J0UmVwbHkakAiCtRiLCAgBEglldm1AMS4wLjAa+wcKDUNoYWluU2VsZWN0b3IS6QcS5gcKJAoXYXBlY2hhaW4tdGVzdG5ldC1jdXJ0aXMQwcO0+I3EkrKJAQoXCgthcmMtdGVzdG5ldBDnxoye19fQjSoKHQoRYXZhbGFuY2hlLW1haW5uZXQQ1eeKwOHVmKRZCiMKFmF2YWxhbmNoZS10ZXN0bmV0LWZ1amkQm/n8kKLjqPjMAQooChtiaW5hbmNlX3NtYXJ0X2NoYWluLW1haW5uZXQQz/eU8djtlbidAQooChtiaW5hbmNlX3NtYXJ0X2NoYWluLXRlc3RuZXQQ+62+nICu5Iq4AQocChBldGhlcmV1bS1tYWlubmV0EJX28eTPsqbCRQonChtldGhlcmV1bS1tYWlubmV0LWFyYml0cnVtLTEQxOiNzY6boddECiQKF2V0aGVyZXVtLW1haW5uZXQtYmFzZS0xEIL/q6L+uZDT3QEKJwobZXRoZXJldW0tbWFpbm5ldC1vcHRpbWlzbS0xELiVj8P3/tDpMwopCh1ldGhlcmV1bS1tYWlubmV0LXdvcmxkY2hhaW4tMRCH77q3xbbCuBwKJQoZZXRoZXJldW0tbWFpbm5ldC16a3N5bmMtMRCU7pfZ7bSx1xUKJQoYZXRoZXJldW0tdGVzdG5ldC1zZXBvbGlhENm15M78ye6g3gEKLwojZXRoZXJldW0tdGVzdG5ldC1zZXBvbGlhLWFyYml0cnVtLTEQ6s7u/+q2hKMwCiwKH2V0aGVyZXVtLXRlc3RuZXQtc2Vwb2xpYS1iYXNlLTEQuMq57/aQrsiPAQosCiBldGhlcmV1bS10ZXN0bmV0LXNlcG9saWEtbGluZWEtMRDrqtT+gvnmr08KLwojZXRoZXJldW0tdGVzdG5ldC1zZXBvbGlhLW9wdGltaXNtLTEQn4bFob7Yw8BICjEKJWV0aGVyZXVtLXRlc3RuZXQtc2Vwb2xpYS13b3JsZGNoYWluLTEQut/gxcep88VJCi0KIWV0aGVyZXVtLXRlc3RuZXQtc2Vwb2xpYS16a3N5bmMtMRC3wfz98sSA3l8KHwoTaHlwZXJsaXF1aWQtdGVzdG5ldBCIzt3Il+DJvTsKIAoTaW5rLXRlc3RuZXQtc2Vwb2xpYRDo9Kel8+aWwIcBChkKDWpvdmF5LXRlc3RuZXQQ5M+KhN6y3o4NChoKDnBsYXNtYS10ZXN0bmV0ENWbv6XDtJmHNwobCg9wb2x5Z29uLW1haW5uZXQQsavk8JqShp04CiEKFHBvbHlnb24tdGVzdG5ldC1hbW95EM2P1t/xx5D64QEKJAoYcHJpdmF0ZS10ZXN0bmV0LWFuZGVzaXRlENSmmKXBj9z8X0LlAQonY29tLmNhcGFiaWxpdGllcy5ibG9ja2NoYWluLmV2bS52MWFscGhhQgtDbGllbnRQcm90b1ABogIDQ0JFqgIjQ2FwYWJpbGl0aWVzLkJsb2NrY2hhaW4uRXZtLlYxYWxwaGHKAiNDYXBhYmlsaXRpZXNcQmxvY2tjaGFpblxFdm1cVjFhbHBoYeICL0NhcGFiaWxpdGllc1xCbG9ja2NoYWluXEV2bVxWMWFscGhhXEdQQk1ldGFkYXRh6gImQ2FwYWJpbGl0aWVzOjpCbG9ja2NoYWluOjpFdm06OlYxYWxwaGFiBnByb3RvMw", [file_sdk_v1alpha_sdk, file_tools_generator_v1alpha_cre_metadata, file_values_v1_values]);
-var FilterLogTriggerRequestSchema = /* @__PURE__ */ messageDesc(file_capabilities_blockchain_evm_v1alpha_client, 1);
-var CallContractRequestSchema = /* @__PURE__ */ messageDesc(file_capabilities_blockchain_evm_v1alpha_client, 2);
-var CallContractReplySchema = /* @__PURE__ */ messageDesc(file_capabilities_blockchain_evm_v1alpha_client, 3);
-var FilterLogsRequestSchema = /* @__PURE__ */ messageDesc(file_capabilities_blockchain_evm_v1alpha_client, 4);
-var FilterLogsReplySchema = /* @__PURE__ */ messageDesc(file_capabilities_blockchain_evm_v1alpha_client, 5);
-var LogSchema = /* @__PURE__ */ messageDesc(file_capabilities_blockchain_evm_v1alpha_client, 6);
-var BalanceAtRequestSchema = /* @__PURE__ */ messageDesc(file_capabilities_blockchain_evm_v1alpha_client, 10);
-var BalanceAtReplySchema = /* @__PURE__ */ messageDesc(file_capabilities_blockchain_evm_v1alpha_client, 11);
-var EstimateGasRequestSchema = /* @__PURE__ */ messageDesc(file_capabilities_blockchain_evm_v1alpha_client, 12);
-var EstimateGasReplySchema = /* @__PURE__ */ messageDesc(file_capabilities_blockchain_evm_v1alpha_client, 13);
-var GetTransactionByHashRequestSchema = /* @__PURE__ */ messageDesc(file_capabilities_blockchain_evm_v1alpha_client, 14);
-var GetTransactionByHashReplySchema = /* @__PURE__ */ messageDesc(file_capabilities_blockchain_evm_v1alpha_client, 15);
-var GetTransactionReceiptRequestSchema = /* @__PURE__ */ messageDesc(file_capabilities_blockchain_evm_v1alpha_client, 17);
-var GetTransactionReceiptReplySchema = /* @__PURE__ */ messageDesc(file_capabilities_blockchain_evm_v1alpha_client, 18);
-var HeaderByNumberRequestSchema = /* @__PURE__ */ messageDesc(file_capabilities_blockchain_evm_v1alpha_client, 20);
-var HeaderByNumberReplySchema = /* @__PURE__ */ messageDesc(file_capabilities_blockchain_evm_v1alpha_client, 21);
-var WriteReportRequestSchema = /* @__PURE__ */ messageDesc(file_capabilities_blockchain_evm_v1alpha_client, 23);
-var GasConfigSchema = /* @__PURE__ */ messageDesc(file_capabilities_blockchain_evm_v1alpha_client, 24);
-var WriteReportReplySchema = /* @__PURE__ */ messageDesc(file_capabilities_blockchain_evm_v1alpha_client, 25);
 var ConfidenceLevel;
 (function(ConfidenceLevel2) {
   ConfidenceLevel2[ConfidenceLevel2["SAFE"] = 0] = "SAFE";
@@ -5850,300 +5790,6 @@ class Report {
     return this.report;
   }
 }
-var hexToBytes = (hexStr) => {
-  if (!hexStr.startsWith("0x")) {
-    throw new Error(`Invalid hex string: ${hexStr}`);
-  }
-  if (!/^0x[0-9a-fA-F]*$/.test(hexStr)) {
-    throw new Error(`Invalid hex string: ${hexStr}`);
-  }
-  if ((hexStr.length - 2) % 2 !== 0) {
-    throw new Error(`Hex string must have an even number of characters: ${hexStr}`);
-  }
-  const hex = hexStr.slice(2);
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let i = 0;i < hex.length; i += 2) {
-    bytes[i / 2] = Number.parseInt(hex.slice(i, i + 2), 16);
-  }
-  return bytes;
-};
-var bytesToHex = (bytes) => {
-  return `0x${Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("")}`;
-};
-var hexToBase64 = (hex) => {
-  const cleanHex = hex.startsWith("0x") ? hex.slice(2) : hex;
-  if (cleanHex.length === 0) {
-    return "";
-  }
-  if (cleanHex.length % 2 !== 0) {
-    throw new Error(`Hex string must have an even number of characters: ${hex}`);
-  }
-  if (!/^[0-9a-fA-F]*$/.test(cleanHex)) {
-    throw new Error(`Invalid hex string: ${hex}`);
-  }
-  return Buffer.from(cleanHex, "hex").toString("base64");
-};
-function createWriteCreReportRequest(input) {
-  return {
-    receiver: hexToBytes(input.receiver),
-    report: input.report,
-    gasConfig: input.gasConfig !== undefined ? fromJson(GasConfigSchema, input.gasConfig) : undefined,
-    $report: true
-  };
-}
-function x_generatedCodeOnly_unwrap_WriteCreReportRequest(input) {
-  return create(WriteReportRequestSchema, {
-    receiver: input.receiver,
-    report: input.report !== undefined ? input.report.x_generatedCodeOnly_unwrap() : undefined,
-    gasConfig: input.gasConfig
-  });
-}
-
-class ClientCapability {
-  ChainSelector;
-  static CAPABILITY_ID = "evm@1.0.0";
-  static CAPABILITY_NAME = "evm";
-  static CAPABILITY_VERSION = "1.0.0";
-  static SUPPORTED_CHAIN_SELECTORS = {
-    "apechain-testnet-curtis": 9900119385908781505n,
-    "arc-testnet": 3034092155422581607n,
-    "avalanche-mainnet": 6433500567565415381n,
-    "avalanche-testnet-fuji": 14767482510784806043n,
-    "binance_smart_chain-mainnet": 11344663589394136015n,
-    "binance_smart_chain-testnet": 13264668187771770619n,
-    "ethereum-mainnet": 5009297550715157269n,
-    "ethereum-mainnet-arbitrum-1": 4949039107694359620n,
-    "ethereum-mainnet-base-1": 15971525489660198786n,
-    "ethereum-mainnet-optimism-1": 3734403246176062136n,
-    "ethereum-mainnet-worldchain-1": 2049429975587534727n,
-    "ethereum-mainnet-zksync-1": 1562403441176082196n,
-    "ethereum-testnet-sepolia": 16015286601757825753n,
-    "ethereum-testnet-sepolia-arbitrum-1": 3478487238524512106n,
-    "ethereum-testnet-sepolia-base-1": 10344971235874465080n,
-    "ethereum-testnet-sepolia-linea-1": 5719461335882077547n,
-    "ethereum-testnet-sepolia-optimism-1": 5224473277236331295n,
-    "ethereum-testnet-sepolia-worldchain-1": 5299555114858065850n,
-    "ethereum-testnet-sepolia-zksync-1": 6898391096552792247n,
-    "hyperliquid-testnet": 4286062357653186312n,
-    "ink-testnet-sepolia": 9763904284804119144n,
-    "jovay-testnet": 945045181441419236n,
-    "plasma-testnet": 3967220077692964309n,
-    "polygon-mainnet": 4051577828743386545n,
-    "polygon-testnet-amoy": 16281711391670634445n,
-    "private-testnet-andesite": 6915682381028791124n
-  };
-  constructor(ChainSelector) {
-    this.ChainSelector = ChainSelector;
-  }
-  callContract(runtime, input) {
-    let payload;
-    if (input.$typeName) {
-      payload = input;
-    } else {
-      payload = fromJson(CallContractRequestSchema, input);
-    }
-    const capabilityId = `${ClientCapability.CAPABILITY_NAME}:ChainSelector:${this.ChainSelector}@${ClientCapability.CAPABILITY_VERSION}`;
-    const capabilityResponse = runtime.callCapability({
-      capabilityId,
-      method: "CallContract",
-      payload,
-      inputSchema: CallContractRequestSchema,
-      outputSchema: CallContractReplySchema
-    });
-    return {
-      result: () => {
-        const result = capabilityResponse.result();
-        return result;
-      }
-    };
-  }
-  filterLogs(runtime, input) {
-    let payload;
-    if (input.$typeName) {
-      payload = input;
-    } else {
-      payload = fromJson(FilterLogsRequestSchema, input);
-    }
-    const capabilityId = `${ClientCapability.CAPABILITY_NAME}:ChainSelector:${this.ChainSelector}@${ClientCapability.CAPABILITY_VERSION}`;
-    const capabilityResponse = runtime.callCapability({
-      capabilityId,
-      method: "FilterLogs",
-      payload,
-      inputSchema: FilterLogsRequestSchema,
-      outputSchema: FilterLogsReplySchema
-    });
-    return {
-      result: () => {
-        const result = capabilityResponse.result();
-        return result;
-      }
-    };
-  }
-  balanceAt(runtime, input) {
-    let payload;
-    if (input.$typeName) {
-      payload = input;
-    } else {
-      payload = fromJson(BalanceAtRequestSchema, input);
-    }
-    const capabilityId = `${ClientCapability.CAPABILITY_NAME}:ChainSelector:${this.ChainSelector}@${ClientCapability.CAPABILITY_VERSION}`;
-    const capabilityResponse = runtime.callCapability({
-      capabilityId,
-      method: "BalanceAt",
-      payload,
-      inputSchema: BalanceAtRequestSchema,
-      outputSchema: BalanceAtReplySchema
-    });
-    return {
-      result: () => {
-        const result = capabilityResponse.result();
-        return result;
-      }
-    };
-  }
-  estimateGas(runtime, input) {
-    let payload;
-    if (input.$typeName) {
-      payload = input;
-    } else {
-      payload = fromJson(EstimateGasRequestSchema, input);
-    }
-    const capabilityId = `${ClientCapability.CAPABILITY_NAME}:ChainSelector:${this.ChainSelector}@${ClientCapability.CAPABILITY_VERSION}`;
-    const capabilityResponse = runtime.callCapability({
-      capabilityId,
-      method: "EstimateGas",
-      payload,
-      inputSchema: EstimateGasRequestSchema,
-      outputSchema: EstimateGasReplySchema
-    });
-    return {
-      result: () => {
-        const result = capabilityResponse.result();
-        return result;
-      }
-    };
-  }
-  getTransactionByHash(runtime, input) {
-    let payload;
-    if (input.$typeName) {
-      payload = input;
-    } else {
-      payload = fromJson(GetTransactionByHashRequestSchema, input);
-    }
-    const capabilityId = `${ClientCapability.CAPABILITY_NAME}:ChainSelector:${this.ChainSelector}@${ClientCapability.CAPABILITY_VERSION}`;
-    const capabilityResponse = runtime.callCapability({
-      capabilityId,
-      method: "GetTransactionByHash",
-      payload,
-      inputSchema: GetTransactionByHashRequestSchema,
-      outputSchema: GetTransactionByHashReplySchema
-    });
-    return {
-      result: () => {
-        const result = capabilityResponse.result();
-        return result;
-      }
-    };
-  }
-  getTransactionReceipt(runtime, input) {
-    let payload;
-    if (input.$typeName) {
-      payload = input;
-    } else {
-      payload = fromJson(GetTransactionReceiptRequestSchema, input);
-    }
-    const capabilityId = `${ClientCapability.CAPABILITY_NAME}:ChainSelector:${this.ChainSelector}@${ClientCapability.CAPABILITY_VERSION}`;
-    const capabilityResponse = runtime.callCapability({
-      capabilityId,
-      method: "GetTransactionReceipt",
-      payload,
-      inputSchema: GetTransactionReceiptRequestSchema,
-      outputSchema: GetTransactionReceiptReplySchema
-    });
-    return {
-      result: () => {
-        const result = capabilityResponse.result();
-        return result;
-      }
-    };
-  }
-  headerByNumber(runtime, input) {
-    let payload;
-    if (input.$typeName) {
-      payload = input;
-    } else {
-      payload = fromJson(HeaderByNumberRequestSchema, input);
-    }
-    const capabilityId = `${ClientCapability.CAPABILITY_NAME}:ChainSelector:${this.ChainSelector}@${ClientCapability.CAPABILITY_VERSION}`;
-    const capabilityResponse = runtime.callCapability({
-      capabilityId,
-      method: "HeaderByNumber",
-      payload,
-      inputSchema: HeaderByNumberRequestSchema,
-      outputSchema: HeaderByNumberReplySchema
-    });
-    return {
-      result: () => {
-        const result = capabilityResponse.result();
-        return result;
-      }
-    };
-  }
-  logTrigger(config) {
-    const capabilityId = `${ClientCapability.CAPABILITY_NAME}:ChainSelector:${this.ChainSelector}@${ClientCapability.CAPABILITY_VERSION}`;
-    return new ClientLogTrigger(config, capabilityId, "LogTrigger", this.ChainSelector);
-  }
-  writeReport(runtime, input) {
-    let payload;
-    if (input.$report) {
-      payload = x_generatedCodeOnly_unwrap_WriteCreReportRequest(input);
-    } else {
-      payload = x_generatedCodeOnly_unwrap_WriteCreReportRequest(createWriteCreReportRequest(input));
-    }
-    const capabilityId = `${ClientCapability.CAPABILITY_NAME}:ChainSelector:${this.ChainSelector}@${ClientCapability.CAPABILITY_VERSION}`;
-    const capabilityResponse = runtime.callCapability({
-      capabilityId,
-      method: "WriteReport",
-      payload,
-      inputSchema: WriteReportRequestSchema,
-      outputSchema: WriteReportReplySchema
-    });
-    return {
-      result: () => {
-        const result = capabilityResponse.result();
-        return result;
-      }
-    };
-  }
-}
-
-class ClientLogTrigger {
-  _capabilityId;
-  _method;
-  ChainSelector;
-  config;
-  constructor(config, _capabilityId, _method, ChainSelector) {
-    this._capabilityId = _capabilityId;
-    this._method = _method;
-    this.ChainSelector = ChainSelector;
-    this.config = config.$typeName ? config : fromJson(FilterLogTriggerRequestSchema, config);
-  }
-  capabilityId() {
-    return this._capabilityId;
-  }
-  method() {
-    return this._method;
-  }
-  outputSchema() {
-    return LogSchema;
-  }
-  configAsAny() {
-    return anyPack(FilterLogTriggerRequestSchema, this.config);
-  }
-  adapt(rawOutput) {
-    return rawOutput;
-  }
-}
 var file_capabilities_networking_http_v1alpha_client = /* @__PURE__ */ fileDesc("CjFjYXBhYmlsaXRpZXMvbmV0d29ya2luZy9odHRwL3YxYWxwaGEvY2xpZW50LnByb3RvEiRjYXBhYmlsaXRpZXMubmV0d29ya2luZy5odHRwLnYxYWxwaGEiSgoNQ2FjaGVTZXR0aW5ncxINCgVzdG9yZRgBIAEoCBIqCgdtYXhfYWdlGAIgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uIh4KDEhlYWRlclZhbHVlcxIOCgZ2YWx1ZXMYASADKAki7wMKB1JlcXVlc3QSCwoDdXJsGAEgASgJEg4KBm1ldGhvZBgCIAEoCRJPCgdoZWFkZXJzGAMgAygLMjouY2FwYWJpbGl0aWVzLm5ldHdvcmtpbmcuaHR0cC52MWFscGhhLlJlcXVlc3QuSGVhZGVyc0VudHJ5QgIYARIMCgRib2R5GAQgASgMEioKB3RpbWVvdXQYBSABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb24SSwoOY2FjaGVfc2V0dGluZ3MYBiABKAsyMy5jYXBhYmlsaXRpZXMubmV0d29ya2luZy5odHRwLnYxYWxwaGEuQ2FjaGVTZXR0aW5ncxJWCg1tdWx0aV9oZWFkZXJzGAcgAygLMj8uY2FwYWJpbGl0aWVzLm5ldHdvcmtpbmcuaHR0cC52MWFscGhhLlJlcXVlc3QuTXVsdGlIZWFkZXJzRW50cnkaLgoMSGVhZGVyc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCToCOAEaZwoRTXVsdGlIZWFkZXJzRW50cnkSCwoDa2V5GAEgASgJEkEKBXZhbHVlGAIgASgLMjIuY2FwYWJpbGl0aWVzLm5ldHdvcmtpbmcuaHR0cC52MWFscGhhLkhlYWRlclZhbHVlczoCOAEi8QIKCFJlc3BvbnNlEhMKC3N0YXR1c19jb2RlGAEgASgNElAKB2hlYWRlcnMYAiADKAsyOy5jYXBhYmlsaXRpZXMubmV0d29ya2luZy5odHRwLnYxYWxwaGEuUmVzcG9uc2UuSGVhZGVyc0VudHJ5QgIYARIMCgRib2R5GAMgASgMElcKDW11bHRpX2hlYWRlcnMYBCADKAsyQC5jYXBhYmlsaXRpZXMubmV0d29ya2luZy5odHRwLnYxYWxwaGEuUmVzcG9uc2UuTXVsdGlIZWFkZXJzRW50cnkaLgoMSGVhZGVyc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCToCOAEaZwoRTXVsdGlIZWFkZXJzRW50cnkSCwoDa2V5GAEgASgJEkEKBXZhbHVlGAIgASgLMjIuY2FwYWJpbGl0aWVzLm5ldHdvcmtpbmcuaHR0cC52MWFscGhhLkhlYWRlclZhbHVlczoCOAEymAEKBkNsaWVudBJsCgtTZW5kUmVxdWVzdBItLmNhcGFiaWxpdGllcy5uZXR3b3JraW5nLmh0dHAudjFhbHBoYS5SZXF1ZXN0Gi4uY2FwYWJpbGl0aWVzLm5ldHdvcmtpbmcuaHR0cC52MWFscGhhLlJlc3BvbnNlGiCCtRgcCAISGGh0dHAtYWN0aW9uc0AxLjAuMC1hbHBoYULqAQooY29tLmNhcGFiaWxpdGllcy5uZXR3b3JraW5nLmh0dHAudjFhbHBoYUILQ2xpZW50UHJvdG9QAaICA0NOSKoCJENhcGFiaWxpdGllcy5OZXR3b3JraW5nLkh0dHAuVjFhbHBoYcoCJENhcGFiaWxpdGllc1xOZXR3b3JraW5nXEh0dHBcVjFhbHBoYeICMENhcGFiaWxpdGllc1xOZXR3b3JraW5nXEh0dHBcVjFhbHBoYVxHUEJNZXRhZGF0YeoCJ0NhcGFiaWxpdGllczo6TmV0d29ya2luZzo6SHR0cDo6VjFhbHBoYWIGcHJvdG8z", [file_google_protobuf_duration, file_tools_generator_v1alpha_cre_metadata]);
 var RequestSchema = /* @__PURE__ */ messageDesc(file_capabilities_networking_http_v1alpha_client, 2);
 var ResponseSchema = /* @__PURE__ */ messageDesc(file_capabilities_networking_http_v1alpha_client, 3);
@@ -6160,7 +5806,7 @@ class SendRequester {
   }
 }
 
-class ClientCapability2 {
+class ClientCapability {
   static CAPABILITY_ID = "http-actions@1.0.0-alpha";
   static CAPABILITY_NAME = "http-actions";
   static CAPABILITY_VERSION = "1.0.0-alpha";
@@ -6179,7 +5825,7 @@ class ClientCapability2 {
     } else {
       payload = fromJson(RequestSchema, input);
     }
-    const capabilityId = ClientCapability2.CAPABILITY_ID;
+    const capabilityId = ClientCapability.CAPABILITY_ID;
     const capabilityResponse = runtime.callCapability({
       capabilityId,
       method: "SendRequest",
@@ -6202,33 +5848,33 @@ class ClientCapability2 {
     return runtime.runInNodeMode(wrappedFn, consensusAggregation, unwrapOptions);
   }
 }
-var file_capabilities_networking_http_v1alpha_trigger = /* @__PURE__ */ fileDesc("CjJjYXBhYmlsaXRpZXMvbmV0d29ya2luZy9odHRwL3YxYWxwaGEvdHJpZ2dlci5wcm90bxIkY2FwYWJpbGl0aWVzLm5ldHdvcmtpbmcuaHR0cC52MWFscGhhIlYKBkNvbmZpZxJMCg9hdXRob3JpemVkX2tleXMYASADKAsyMy5jYXBhYmlsaXRpZXMubmV0d29ya2luZy5odHRwLnYxYWxwaGEuQXV0aG9yaXplZEtleSJaCgdQYXlsb2FkEg0KBWlucHV0GAEgASgMEkAKA2tleRgCIAEoCzIzLmNhcGFiaWxpdGllcy5uZXR3b3JraW5nLmh0dHAudjFhbHBoYS5BdXRob3JpemVkS2V5ImAKDUF1dGhvcml6ZWRLZXkSOwoEdHlwZRgBIAEoDjItLmNhcGFiaWxpdGllcy5uZXR3b3JraW5nLmh0dHAudjFhbHBoYS5LZXlUeXBlEhIKCnB1YmxpY19rZXkYAiABKAkqOwoHS2V5VHlwZRIYChRLRVlfVFlQRV9VTlNQRUNJRklFRBAAEhYKEktFWV9UWVBFX0VDRFNBX0VWTRABMpIBCgRIVFRQEmgKB1RyaWdnZXISLC5jYXBhYmlsaXRpZXMubmV0d29ya2luZy5odHRwLnYxYWxwaGEuQ29uZmlnGi0uY2FwYWJpbGl0aWVzLm5ldHdvcmtpbmcuaHR0cC52MWFscGhhLlBheWxvYWQwARoggrUYHAgBEhhodHRwLXRyaWdnZXJAMS4wLjAtYWxwaGFC6wEKKGNvbS5jYXBhYmlsaXRpZXMubmV0d29ya2luZy5odHRwLnYxYWxwaGFCDFRyaWdnZXJQcm90b1ABogIDQ05IqgIkQ2FwYWJpbGl0aWVzLk5ldHdvcmtpbmcuSHR0cC5WMWFscGhhygIkQ2FwYWJpbGl0aWVzXE5ldHdvcmtpbmdcSHR0cFxWMWFscGhh4gIwQ2FwYWJpbGl0aWVzXE5ldHdvcmtpbmdcSHR0cFxWMWFscGhhXEdQQk1ldGFkYXRh6gInQ2FwYWJpbGl0aWVzOjpOZXR3b3JraW5nOjpIdHRwOjpWMWFscGhhYgZwcm90bzM", [file_tools_generator_v1alpha_cre_metadata]);
-var ConfigSchema = /* @__PURE__ */ messageDesc(file_capabilities_networking_http_v1alpha_trigger, 0);
-var PayloadSchema = /* @__PURE__ */ messageDesc(file_capabilities_networking_http_v1alpha_trigger, 1);
 var KeyType;
 (function(KeyType2) {
   KeyType2[KeyType2["UNSPECIFIED"] = 0] = "UNSPECIFIED";
   KeyType2[KeyType2["ECDSA_EVM"] = 1] = "ECDSA_EVM";
 })(KeyType || (KeyType = {}));
+var file_capabilities_scheduler_cron_v1_trigger = /* @__PURE__ */ fileDesc("CixjYXBhYmlsaXRpZXMvc2NoZWR1bGVyL2Nyb24vdjEvdHJpZ2dlci5wcm90bxIeY2FwYWJpbGl0aWVzLnNjaGVkdWxlci5jcm9uLnYxIhoKBkNvbmZpZxIQCghzY2hlZHVsZRgBIAEoCSJHCgdQYXlsb2FkEjwKGHNjaGVkdWxlZF9leGVjdXRpb25fdGltZRgBIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiNQoNTGVnYWN5UGF5bG9hZBIgChhzY2hlZHVsZWRfZXhlY3V0aW9uX3RpbWUYASABKAk6AhgBMvUBCgRDcm9uElwKB1RyaWdnZXISJi5jYXBhYmlsaXRpZXMuc2NoZWR1bGVyLmNyb24udjEuQ29uZmlnGicuY2FwYWJpbGl0aWVzLnNjaGVkdWxlci5jcm9uLnYxLlBheWxvYWQwARJzCg1MZWdhY3lUcmlnZ2VyEiYuY2FwYWJpbGl0aWVzLnNjaGVkdWxlci5jcm9uLnYxLkNvbmZpZxotLmNhcGFiaWxpdGllcy5zY2hlZHVsZXIuY3Jvbi52MS5MZWdhY3lQYXlsb2FkIgmIAgGKtRgCCAEwARoagrUYFggBEhJjcm9uLXRyaWdnZXJAMS4wLjBCzQEKImNvbS5jYXBhYmlsaXRpZXMuc2NoZWR1bGVyLmNyb24udjFCDFRyaWdnZXJQcm90b1ABogIDQ1NDqgIeQ2FwYWJpbGl0aWVzLlNjaGVkdWxlci5Dcm9uLlYxygIeQ2FwYWJpbGl0aWVzXFNjaGVkdWxlclxDcm9uXFYx4gIqQ2FwYWJpbGl0aWVzXFNjaGVkdWxlclxDcm9uXFYxXEdQQk1ldGFkYXRh6gIhQ2FwYWJpbGl0aWVzOjpTY2hlZHVsZXI6OkNyb246OlYxYgZwcm90bzM", [file_google_protobuf_timestamp, file_tools_generator_v1alpha_cre_metadata]);
+var ConfigSchema2 = /* @__PURE__ */ messageDesc(file_capabilities_scheduler_cron_v1_trigger, 0);
+var PayloadSchema2 = /* @__PURE__ */ messageDesc(file_capabilities_scheduler_cron_v1_trigger, 1);
 
-class HTTPCapability {
-  static CAPABILITY_ID = "http-trigger@1.0.0-alpha";
-  static CAPABILITY_NAME = "http-trigger";
-  static CAPABILITY_VERSION = "1.0.0-alpha";
+class CronCapability {
+  static CAPABILITY_ID = "cron-trigger@1.0.0";
+  static CAPABILITY_NAME = "cron-trigger";
+  static CAPABILITY_VERSION = "1.0.0";
   trigger(config) {
-    const capabilityId = HTTPCapability.CAPABILITY_ID;
-    return new HTTPTrigger(config, capabilityId, "Trigger");
+    const capabilityId = CronCapability.CAPABILITY_ID;
+    return new CronTrigger(config, capabilityId, "Trigger");
   }
 }
 
-class HTTPTrigger {
+class CronTrigger {
   _capabilityId;
   _method;
   config;
   constructor(config, _capabilityId, _method) {
     this._capabilityId = _capabilityId;
     this._method = _method;
-    this.config = config.$typeName ? config : fromJson(ConfigSchema, config);
+    this.config = config.$typeName ? config : fromJson(ConfigSchema2, config);
   }
   capabilityId() {
     return this._capabilityId;
@@ -6237,10 +5883,10 @@ class HTTPTrigger {
     return this._method;
   }
   outputSchema() {
-    return PayloadSchema;
+    return PayloadSchema2;
   }
   configAsAny() {
-    return anyPack(ConfigSchema, this.config);
+    return anyPack(ConfigSchema2, this.config);
   }
   adapt(rawOutput) {
     return rawOutput;
@@ -7575,11 +7221,6 @@ var LATEST_BLOCK_NUMBER = {
   absVal: Buffer.from([2]).toString("base64"),
   sign: "-1"
 };
-var encodeCallMsg = (payload) => ({
-  from: hexToBase64(payload.from),
-  to: hexToBase64(payload.to),
-  data: hexToBase64(payload.data)
-});
 var decodeJson = (input) => {
   const decoder = new TextDecoder("utf-8");
   const textBody = decoder.decode(input);
@@ -7612,7 +7253,7 @@ function sendRequesterSendReport(report, fn) {
   const request = fn(rawReport);
   return this.sendRequest(request);
 }
-ClientCapability2.prototype.sendReport = sendReport;
+ClientCapability.prototype.sendReport = sendReport;
 SendRequester.prototype.sendReport = sendRequesterSendReport;
 var network = {
   chainId: "1",
@@ -11230,7 +10871,6 @@ var defaultLookup = new NetworkLookup({
   testnetBySelector,
   testnetBySelectorByFamily
 });
-var getNetwork = (options) => defaultLookup.find(options);
 function consensusIdenticalAggregation() {
   return simpleConsensus(AggregationType.IDENTICAL);
 }
@@ -16159,199 +15799,20 @@ var sendErrorResponse = (error) => {
 };
 var zeroAddress = "0x0000000000000000000000000000000000000000";
 init_decodeAbiParameters();
-init_decodeFunctionResult();
 init_encodeAbiParameters();
 init_encodeFunctionData();
 init_keccak256();
-init_pad();
-var AggregatorV3InterfaceABI = [
-  {
-    name: "decimals",
-    type: "function",
-    stateMutability: "view",
-    inputs: [],
-    outputs: [{ name: "", type: "uint8" }]
-  },
-  {
-    name: "description",
-    type: "function",
-    stateMutability: "view",
-    inputs: [],
-    outputs: [{ name: "", type: "string" }]
-  },
-  {
-    name: "version",
-    type: "function",
-    stateMutability: "view",
-    inputs: [],
-    outputs: [{ name: "", type: "uint256" }]
-  },
-  {
-    name: "getRoundData",
-    type: "function",
-    stateMutability: "view",
-    inputs: [{ name: "_roundId", type: "uint80" }],
-    outputs: [
-      { name: "roundId", type: "uint80" },
-      { name: "answer", type: "int256" },
-      { name: "startedAt", type: "uint256" },
-      { name: "updatedAt", type: "uint256" },
-      { name: "answeredInRound", type: "uint80" }
-    ]
-  },
-  {
-    name: "latestRoundData",
-    type: "function",
-    stateMutability: "view",
-    inputs: [],
-    outputs: [
-      { name: "roundId", type: "uint80" },
-      { name: "answer", type: "int256" },
-      { name: "startedAt", type: "uint256" },
-      { name: "updatedAt", type: "uint256" },
-      { name: "answeredInRound", type: "uint80" }
-    ]
-  }
-];
-var PoolManagerABI = [
+var POOL_MANAGER_ABI = [
   {
     name: "extsload",
     type: "function",
     stateMutability: "view",
     inputs: [{ name: "slot", type: "bytes32" }],
     outputs: [{ name: "value", type: "bytes32" }]
-  },
-  {
-    name: "extsload",
-    type: "function",
-    stateMutability: "view",
-    inputs: [
-      { name: "startSlot", type: "bytes32" },
-      { name: "nSlots", type: "uint256" }
-    ],
-    outputs: [{ name: "values", type: "bytes32[]" }]
-  },
-  {
-    name: "initialize",
-    type: "function",
-    stateMutability: "nonpayable",
-    inputs: [
-      {
-        name: "key",
-        type: "tuple",
-        components: [
-          { name: "currency0", type: "address" },
-          { name: "currency1", type: "address" },
-          { name: "fee", type: "uint24" },
-          { name: "tickSpacing", type: "int24" },
-          { name: "hooks", type: "address" }
-        ]
-      },
-      { name: "sqrtPriceX96", type: "uint160" }
-    ],
-    outputs: [{ name: "tick", type: "int24" }]
-  },
-  {
-    name: "unlock",
-    type: "function",
-    stateMutability: "nonpayable",
-    inputs: [{ name: "data", type: "bytes" }],
-    outputs: [{ name: "result", type: "bytes" }]
   }
 ];
-var CONTRACT_ADDRESSES = {
-  baseSepolia: {
-    chainlinkFeeds: {
-      ETH_USD: "0x4aDC67696bA383F43DD60A9e78F2C97Fbbfc7cb1",
-      USDC_USD: "0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165"
-    }
-  },
-  unichainSepolia: {
-    poolManager: "0x00b036b58a818b1bc34d502d3fe730db729e62ac"
-  }
-};
-var POOL_MANAGER_STORAGE = {
-  POOLS_SLOT: 6n,
-  SLOT0_LAYOUT: {
-    SQRT_PRICE_BITS: 160n,
-    TICK_BITS: 24n,
-    PROTOCOL_FEE_BITS: 24n,
-    LP_FEE_BITS: 24n
-  },
-  LIQUIDITY_OFFSET: 1n
-};
-var CCTP_DOMAINS = {
-  ethereum: 0,
-  base: 6,
-  unichain: 10,
-  ethereumSepolia: 0,
-  baseSepolia: 6,
-  unichainSepolia: 10
-};
-function fetchOracleData(runtime2) {
-  const network248 = getNetwork({
-    chainFamily: "evm",
-    chainSelectorName: "ethereum-testnet-sepolia-base-1",
-    isTestnet: true
-  });
-  if (!network248) {
-    throw new Error("Base Sepolia network not found");
-  }
-  const evmClient = new ClientCapability(network248.chainSelector.selector);
-  const ethUsdFeed = runtime2.config.chainlinkFeeds?.baseSepolia?.ETH_USD ?? CONTRACT_ADDRESSES.baseSepolia.chainlinkFeeds.ETH_USD;
-  const usdcUsdFeed = runtime2.config.chainlinkFeeds?.baseSepolia?.USDC_USD ?? CONTRACT_ADDRESSES.baseSepolia.chainlinkFeeds.USDC_USD;
-  runtime2.log(`Fetching ETH/USD from ${ethUsdFeed}`);
-  runtime2.log(`Fetching USDC/USD from ${usdcUsdFeed}`);
-  const callData = encodeFunctionData({
-    abi: AggregatorV3InterfaceABI,
-    functionName: "latestRoundData"
-  });
-  const ethUsdResponse = evmClient.callContract(runtime2, {
-    call: encodeCallMsg({
-      from: zeroAddress,
-      to: ethUsdFeed,
-      data: callData
-    }),
-    blockNumber: LAST_FINALIZED_BLOCK_NUMBER
-  }).result();
-  const usdcUsdResponse = evmClient.callContract(runtime2, {
-    call: encodeCallMsg({
-      from: zeroAddress,
-      to: usdcUsdFeed,
-      data: callData
-    }),
-    blockNumber: LAST_FINALIZED_BLOCK_NUMBER
-  }).result();
-  const ethUsdResult = decodeFunctionResult({
-    abi: AggregatorV3InterfaceABI,
-    functionName: "latestRoundData",
-    data: bytesToHex(ethUsdResponse.data)
-  });
-  const usdcUsdResult = decodeFunctionResult({
-    abi: AggregatorV3InterfaceABI,
-    functionName: "latestRoundData",
-    data: bytesToHex(usdcUsdResponse.data)
-  });
-  const [ethRoundId, ethAnswer, , ethUpdatedAt] = ethUsdResult;
-  const [, usdcAnswer, , usdcUpdatedAt] = usdcUsdResult;
-  const timestamp = Math.max(Number(ethUpdatedAt), Number(usdcUpdatedAt));
-  runtime2.log(`ETH/USD price: ${ethAnswer.toString()} (8 decimals)`);
-  runtime2.log(`USDC/USD price: ${usdcAnswer.toString()} (8 decimals)`);
-  return {
-    ethUsdPrice: ethAnswer,
-    usdcUsdPrice: usdcAnswer,
-    timestamp,
-    roundId: ethRoundId
-  };
-}
-var MOCK_POOL_DATA = {
-  sqrtPriceX96: 79228162514264337593543950336n,
-  tick: 0,
-  liquidity: 500000n * 10n ** 18n,
-  liquidityDepth: "moderate",
-  lpFee: 100,
-  protocolFee: 0
-};
+var POOLS_SLOT = 6n;
+var LIQUIDITY_OFFSET = 1n;
 function toBase64(str) {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
   let result = "";
@@ -16400,500 +15861,93 @@ function batchPoolEthCall(sendRequester, rpcUrl, poolManagerAddress, slot0Callda
       success: false,
       slot0Data: "0x",
       liquidityData: "0x",
-      error: "HTTP request to Tenderly RPC failed"
+      error: "HTTP request to RPC failed"
     };
   }
   try {
     const parsed = json(response);
-    if (!Array.isArray(parsed) || parsed.length < 2) {
+    const slot0 = parsed.find((r) => r.id === 1);
+    const liquidity = parsed.find((r) => r.id === 2);
+    if (!slot0?.result || !liquidity?.result) {
       return {
         success: false,
         slot0Data: "0x",
         liquidityData: "0x",
-        error: "Unexpected JSON-RPC batch response format"
+        error: slot0?.error?.message ?? liquidity?.error?.message ?? "Missing RPC result"
       };
-    }
-    const slot0Item = parsed.find((r) => r.id === 1);
-    const liquidityItem = parsed.find((r) => r.id === 2);
-    if (slot0Item?.error || liquidityItem?.error) {
-      const msg = slot0Item?.error?.message ?? liquidityItem?.error?.message ?? "unknown";
-      return { success: false, slot0Data: "0x", liquidityData: "0x", error: msg };
     }
     return {
       success: true,
-      slot0Data: slot0Item?.result ?? "0x",
-      liquidityData: liquidityItem?.result ?? "0x"
+      slot0Data: slot0.result,
+      liquidityData: liquidity.result
     };
-  } catch (e) {
+  } catch (error) {
     return {
       success: false,
       slot0Data: "0x",
       liquidityData: "0x",
-      error: `Failed to parse RPC response: ${e}`
+      error: `Failed to parse RPC response: ${error}`
     };
   }
 }
-function fetchPoolData(runtime2, intent) {
-  const rpcUrl = intent.targetRpc;
-  if (!rpcUrl) {
-    runtime2.log("Warning: No targetRpc in intent — skipping on-chain pool read, using mock pool data");
-    return { ...MOCK_POOL_DATA };
-  }
-  const poolManagerAddress = runtime2.config.poolManagerAddress ?? CONTRACT_ADDRESSES.unichainSepolia.poolManager;
-  const rawPoolId = intent.targetPoolAddress;
-  const poolId = padHex(rawPoolId, { dir: "left", size: 32 });
-  runtime2.log(`Fetching pool state for pool ID: ${poolId}`);
-  runtime2.log(`Using PoolManager at: ${poolManagerAddress}`);
-  runtime2.log(`RPC endpoint: ${rpcUrl}`);
-  const poolStateSlot = keccak256(encodeAbiParameters([{ type: "bytes32" }, { type: "uint256" }], [poolId, POOL_MANAGER_STORAGE.POOLS_SLOT]));
-  const liquiditySlot = "0x" + (BigInt(poolStateSlot) + POOL_MANAGER_STORAGE.LIQUIDITY_OFFSET).toString(16).padStart(64, "0");
+function fetchPoolHealth(runtime2, poolId, rpcUrl) {
+  const poolStateSlot = keccak256(encodeAbiParameters([{ type: "bytes32" }, { type: "uint256" }], [poolId, POOLS_SLOT]));
+  const liquiditySlot = "0x" + (BigInt(poolStateSlot) + LIQUIDITY_OFFSET).toString(16).padStart(64, "0");
   const slot0Calldata = encodeFunctionData({
-    abi: PoolManagerABI,
+    abi: POOL_MANAGER_ABI,
     functionName: "extsload",
     args: [poolStateSlot]
   });
   const liquidityCalldata = encodeFunctionData({
-    abi: PoolManagerABI,
+    abi: POOL_MANAGER_ABI,
     functionName: "extsload",
     args: [liquiditySlot]
   });
-  const httpClient = new ClientCapability2;
-  const result = httpClient.sendRequest(runtime2, batchPoolEthCall, consensusIdenticalAggregation())(rpcUrl, poolManagerAddress, slot0Calldata, liquidityCalldata).result();
-  if (!result.success) {
-    runtime2.log(`Warning: Pool RPC call failed (${result.error}) — using mock pool data`);
-    return { ...MOCK_POOL_DATA };
-  }
-  let slot0Value;
-  let slot1Value;
-  try {
-    [slot0Value] = decodeAbiParameters([{ type: "bytes32" }], result.slot0Data);
-    [slot1Value] = decodeAbiParameters([{ type: "bytes32" }], result.liquidityData);
-  } catch (e) {
-    runtime2.log(`Warning: Failed to decode pool storage slots (${e}) — using mock pool data`);
-    return { ...MOCK_POOL_DATA };
-  }
-  const slot0BigInt = BigInt(slot0Value);
-  if (slot0BigInt === 0n) {
-    runtime2.log("Warning: Pool not initialized on-chain (sqrtPriceX96 = 0) — using mock pool data");
-    return { ...MOCK_POOL_DATA };
-  }
-  const sqrtPriceX96 = slot0BigInt & (1n << 160n) - 1n;
-  const tickRaw = Number(slot0BigInt >> 160n & (1n << 24n) - 1n);
-  const tick = tickRaw >= 8388608 ? tickRaw - 16777216 : tickRaw;
-  const protocolFee = Number(slot0BigInt >> 184n & (1n << 24n) - 1n);
-  const lpFee = Number(slot0BigInt >> 208n & (1n << 24n) - 1n);
-  const liquidity = BigInt(slot1Value) & (1n << 128n) - 1n;
-  const liquidityDepth = assessLiquidityDepth(liquidity);
-  runtime2.log(`Pool sqrtPriceX96: ${sqrtPriceX96.toString()}`);
-  runtime2.log(`Pool tick: ${tick}`);
-  runtime2.log(`Pool liquidity: ${liquidity.toString()}`);
-  runtime2.log(`Pool lpFee: ${lpFee} (${lpFee / 1e4}%)`);
-  runtime2.log(`Liquidity depth: ${liquidityDepth}`);
-  return {
-    sqrtPriceX96,
-    tick,
-    liquidity,
-    liquidityDepth,
-    lpFee,
-    protocolFee
-  };
-}
-function assessLiquidityDepth(liquidity) {
-  const DEEP_THRESHOLD = 10n ** 18n * 1000000n;
-  const MODERATE_THRESHOLD = 10n ** 18n * 100000n;
-  if (liquidity >= DEEP_THRESHOLD)
-    return "deep";
-  if (liquidity >= MODERATE_THRESHOLD)
-    return "moderate";
-  return "shallow";
-}
-var DEFAULT_CCTP_API_URL = "https://iris-api-sandbox.circle.com";
-var ESTIMATED_CONFIRMATION_TIMES = {
-  [CCTP_DOMAINS.ethereumSepolia]: 900000,
-  [CCTP_DOMAINS.baseSepolia]: 600000,
-  [CCTP_DOMAINS.unichainSepolia]: 900000
-};
-function getChainDomain(chainName) {
-  const chainMap = {
-    ethereum: CCTP_DOMAINS.ethereum,
-    ethereumSepolia: CCTP_DOMAINS.ethereumSepolia,
-    base: CCTP_DOMAINS.base,
-    baseSepolia: CCTP_DOMAINS.baseSepolia,
-    unichain: CCTP_DOMAINS.unichain,
-    unichainSepolia: CCTP_DOMAINS.unichainSepolia
-  };
-  return chainMap[chainName];
-}
-function fetchCCTPStatus(sendRequester, apiUrl, sourceDomain) {
-  const healthUrl = `${apiUrl}/v2/health`;
-  const response = sendRequester.sendRequest({
-    url: healthUrl,
-    method: "GET",
-    timeout: "8s"
-  }).result();
-  if (!ok(response)) {
+  const httpClient = new ClientCapability;
+  const rpcResult = httpClient.sendRequest(runtime2, batchPoolEthCall, consensusIdenticalAggregation())(rpcUrl, runtime2.config.poolManagerAddress, slot0Calldata, liquidityCalldata).result();
+  if (!rpcResult.success) {
+    runtime2.log(`[Pool health] Failed to fetch pool ${poolId}: ${rpcResult.error}`);
     return {
-      isHealthy: false,
-      attestationStatus: "unknown",
-      estimatedConfirmationMs: getDefaultConfirmationTime(sourceDomain)
+      poolId,
+      initialized: false,
+      sqrtPriceX96: 0n,
+      tick: 0,
+      liquidity: 0n
     };
   }
   try {
-    const data = json(response);
-    const isHealthy = data.status === "healthy" || data.status === "ok";
+    const [slot0Value] = decodeAbiParameters([{ type: "bytes32" }], rpcResult.slot0Data);
+    const [liquidityValue] = decodeAbiParameters([{ type: "bytes32" }], rpcResult.liquidityData);
+    const slot0BigInt = BigInt(slot0Value);
+    const sqrtPriceX96 = slot0BigInt & (1n << 160n) - 1n;
+    const tickRaw = Number(slot0BigInt >> 160n & (1n << 24n) - 1n);
+    const tick = tickRaw >= 8388608 ? tickRaw - 16777216 : tickRaw;
+    const liquidity = BigInt(liquidityValue) & (1n << 128n) - 1n;
     return {
-      isHealthy,
-      attestationStatus: isHealthy ? "pending" : "unknown",
-      estimatedConfirmationMs: getDefaultConfirmationTime(sourceDomain)
+      poolId,
+      initialized: sqrtPriceX96 > 0n,
+      sqrtPriceX96,
+      tick,
+      liquidity
     };
-  } catch {
-    return {
-      isHealthy: false,
-      attestationStatus: "unknown",
-      estimatedConfirmationMs: getDefaultConfirmationTime(sourceDomain)
-    };
-  }
-}
-function getDefaultConfirmationTime(domain) {
-  return ESTIMATED_CONFIRMATION_TIMES[domain] ?? 900000;
-}
-function fetchBridgeData(runtime2, intent) {
-  const httpClient = new ClientCapability2;
-  const apiUrl = runtime2.config.cctpApiUrl ?? DEFAULT_CCTP_API_URL;
-  const sourceDomain = getChainDomain(intent.sourceChain);
-  const destinationDomain = getChainDomain(intent.targetChain);
-  runtime2.log(`CCTP source domain: ${sourceDomain} (${intent.sourceChain})`);
-  runtime2.log(`CCTP destination domain: ${destinationDomain} (${intent.targetChain})`);
-  runtime2.log(`Using CCTP API: ${apiUrl}`);
-  if (sourceDomain === undefined || destinationDomain === undefined) {
-    runtime2.log("Warning: Unknown CCTP domain, using estimates");
-    return {
-      attestationStatus: "unknown",
-      estimatedConfirmationMs: 900000,
-      sourceDomain,
-      destinationDomain
-    };
-  }
-  const status = httpClient.sendRequest(runtime2, fetchCCTPStatus, consensusIdenticalAggregation())(apiUrl, sourceDomain).result();
-  runtime2.log(`CCTP service healthy: ${status.isHealthy}`);
-  runtime2.log(`Attestation status: ${status.attestationStatus}`);
-  runtime2.log(`Estimated confirmation: ${status.estimatedConfirmationMs}ms`);
-  return {
-    attestationStatus: status.attestationStatus,
-    estimatedConfirmationMs: status.estimatedConfirmationMs,
-    queuePosition: status.queuePosition,
-    sourceDomain,
-    destinationDomain
-  };
-}
-var DEFAULT_THRESHOLDS = {
-  maxPriceDeviationPercent: 1,
-  criticalSlippageMultiplier: 2,
-  minLiquidityDepth: "moderate",
-  maxPriceStalenessSeconds: 3600
-};
-var LIQUIDITY_DEPTH_ORDER = {
-  shallow: 0,
-  moderate: 1,
-  deep: 2
-};
-function meetsLiquidityRequirement(actual, minimum) {
-  return LIQUIDITY_DEPTH_ORDER[actual] >= LIQUIDITY_DEPTH_ORDER[minimum];
-}
-function determineSeverity(actual, threshold, criticalMultiplier = 2) {
-  if (actual <= threshold) {
-    return { passed: true, severity: "info" };
-  }
-  if (actual <= threshold * criticalMultiplier) {
-    return { passed: false, severity: "warning" };
-  }
-  return { passed: false, severity: "critical" };
-}
-function calculateMinLiquidity(amount) {
-  const amountBigInt = BigInt(amount);
-  return amountBigInt * 10n;
-}
-function sqrtPriceX96ToPrice(sqrtPriceX96) {
-  const Q96 = 2n ** 96n;
-  const sqrtPrice = Number(sqrtPriceX96) / Number(Q96);
-  return sqrtPrice * sqrtPrice;
-}
-function calculatePriceDeviation(dexPrice, oraclePrice) {
-  if (oraclePrice === 0)
-    return 100;
-  return Math.abs(dexPrice - oraclePrice) / oraclePrice * 100;
-}
-function estimateSlippage(liquidity, amountIn, sqrtPriceX96) {
-  const amount = BigInt(amountIn);
-  if (liquidity === 0n) {
-    return 1;
-  }
-  const Q96 = 2n ** 96n;
-  const effectiveLiquidity = liquidity * sqrtPriceX96 / Q96;
-  if (effectiveLiquidity === 0n) {
-    return 1;
-  }
-  const slippage = Number(amount) / (2 * Number(effectiveLiquidity));
-  return Math.min(slippage, 1);
-}
-function isPriceStale(oracleTimestamp, maxStalenessSeconds) {
-  const now = Math.floor(Date.now() / 1000);
-  return now - oracleTimestamp > maxStalenessSeconds;
-}
-function extractTenderlyVnetId(rpcUrl) {
-  try {
-    const stripped = rpcUrl.replace(/\/$/, "");
-    const lastSlash = stripped.lastIndexOf("/");
-    if (lastSlash === -1)
-      return;
-    const segment = stripped.slice(lastSlash + 1);
-    return segment.length > 0 ? segment : undefined;
-  } catch {
-    return;
-  }
-}
-function buildTenderlyExplorerUrl(baseUrl, vnetId, txHash) {
-  const base = `${baseUrl}/${vnetId}/transactions`;
-  return txHash ? `${base}/${txHash}` : base;
-}
-
-class FatalStateError extends Error {
-  constructor(message) {
-    super(message);
-    this.name = "FatalStateError";
-  }
-}
-function isTestnetChain(chainName) {
-  const lower = chainName.toLowerCase();
-  return lower.includes("sepolia") || lower.includes("testnet") || lower.includes("goerli") || lower.includes("mumbai") || lower.includes("fuji");
-}
-function evaluateRisk(intent, oracle, pool, bridge, config) {
-  const thresholds = config.thresholds ?? DEFAULT_THRESHOLDS;
-  const checks = [];
-  checks.push(evaluateSlippage(intent, pool, thresholds));
-  checks.push(evaluateLiquidity(intent, pool, thresholds));
-  checks.push(evaluateBridgeDelay(intent, bridge));
-  if (isTestnetChain(intent.targetChain)) {
-    checks.push({
-      name: "priceDeviation",
-      passed: true,
-      actual: "N/A",
-      threshold: thresholds.maxPriceDeviationPercent,
-      severity: "info",
-      description: `Price deviation check skipped — testnet chain (${intent.targetChain}) has no reliable market price`
-    });
-  } else {
-    checks.push(evaluatePriceDeviation(oracle, pool, thresholds));
-  }
-  checks.push(evaluatePriceStaleness(oracle, thresholds));
-  if (!pool || pool.liquidity === 0n) {
-    throw new FatalStateError("Pool state unavailable");
-  }
-  return checks;
-}
-function evaluateSlippage(intent, pool, thresholds) {
-  const simulatedSlippage = estimateSlippage(pool.liquidity, intent.amount, pool.sqrtPriceX96);
-  const maxSlippage = intent.maxSlippageTolerance;
-  const { passed, severity } = determineSeverity(simulatedSlippage, maxSlippage, thresholds.criticalSlippageMultiplier);
-  return {
-    name: "slippage",
-    passed,
-    actual: Number((simulatedSlippage * 100).toFixed(4)),
-    threshold: Number((maxSlippage * 100).toFixed(4)),
-    severity,
-    description: `Simulated slippage ${(simulatedSlippage * 100).toFixed(2)}% vs max ${(maxSlippage * 100).toFixed(2)}%`
-  };
-}
-function evaluateLiquidity(intent, pool, thresholds) {
-  const minRequired = calculateMinLiquidity(intent.amount);
-  const hasEnoughLiquidity = pool.liquidity >= minRequired;
-  const meetsDepthReq = meetsLiquidityRequirement(pool.liquidityDepth, thresholds.minLiquidityDepth);
-  const passed = hasEnoughLiquidity && meetsDepthReq;
-  let severity = "info";
-  if (!passed) {
-    severity = pool.liquidityDepth === "shallow" ? "critical" : "warning";
-  }
-  return {
-    name: "liquidity",
-    passed,
-    actual: pool.liquidityDepth,
-    threshold: thresholds.minLiquidityDepth,
-    severity,
-    description: `Pool liquidity ${pool.liquidityDepth}, minimum required ${thresholds.minLiquidityDepth}`
-  };
-}
-function evaluateBridgeDelay(intent, bridge) {
-  const estimatedMs = bridge.estimatedConfirmationMs;
-  const maxDelayMs = intent.maxBridgeDelay;
-  const passed = estimatedMs <= maxDelayMs;
-  const severity = passed ? "info" : "warning";
-  return {
-    name: "bridgeDelay",
-    passed,
-    actual: estimatedMs,
-    threshold: maxDelayMs,
-    severity,
-    description: `Estimated bridge time ${Math.round(estimatedMs / 1000)}s vs max ${Math.round(maxDelayMs / 1000)}s`
-  };
-}
-function evaluatePriceDeviation(oracle, pool, thresholds) {
-  const dexPrice = sqrtPriceX96ToPrice(pool.sqrtPriceX96);
-  const oraclePrice = Number(oracle.ethUsdPrice) / 1e8;
-  const deviation = calculatePriceDeviation(dexPrice, oraclePrice);
-  const maxDeviation = thresholds.maxPriceDeviationPercent;
-  const passed = deviation <= maxDeviation;
-  let severity = "info";
-  if (!passed) {
-    severity = deviation > 5 ? "critical" : "warning";
-  }
-  return {
-    name: "priceDeviation",
-    passed,
-    actual: Number(deviation.toFixed(4)),
-    threshold: maxDeviation,
-    severity,
-    description: `Oracle/DEX price deviation ${deviation.toFixed(2)}% vs max ${maxDeviation}%`
-  };
-}
-function evaluatePriceStaleness(oracle, thresholds) {
-  const isStale = isPriceStale(oracle.timestamp, thresholds.maxPriceStalenessSeconds);
-  const now = Math.floor(Date.now() / 1000);
-  const age = now - oracle.timestamp;
-  return {
-    name: "priceStaleness",
-    passed: !isStale,
-    actual: age,
-    threshold: thresholds.maxPriceStalenessSeconds,
-    severity: isStale ? "warning" : "info",
-    description: `Oracle price age ${age}s vs max ${thresholds.maxPriceStalenessSeconds}s`
-  };
-}
-function determineStatus(checks) {
-  const criticalFails = checks.filter((c) => !c.passed && c.severity === "critical");
-  const warningFails = checks.filter((c) => !c.passed && c.severity === "warning");
-  if (criticalFails.length > 0)
-    return "BLOCKED";
-  if (warningFails.length > 0)
-    return "WARNING";
-  return "APPROVED";
-}
-function buildReport(status, checks, oracle, pool, intent, config, executionId) {
-  const oracleData = {
-    ethUsdPrice: oracle.ethUsdPrice.toString(),
-    usdcUsdPrice: oracle.usdcUsdPrice.toString(),
-    timestamp: oracle.timestamp
-  };
-  const vnetId = extractTenderlyVnetId(intent.targetRpc);
-  const tenderlySim = {
-    success: pool.sqrtPriceX96 > 0n,
-    gasEstimate: "250000",
-    expectedOutput: calculateExpectedOutput(intent, pool),
-    ...vnetId !== undefined ? { vnetId } : {}
-  };
-  const explorerBase = config.tenderlyExplorerBase ?? "https://dashboard.tenderly.co/explorer/vnet/d64dbd1d-9664-445b-b168-b90bdf7af8db/transactions";
-  const explorerUrl = vnetId ? buildTenderlyExplorerUrl(explorerBase, vnetId) : explorerBase;
-  const recipeId = generateRecipeId(intent, executionId);
-  const notes = [];
-  const failedChecks = checks.filter((c) => !c.passed);
-  if (failedChecks.length > 0) {
-    notes.push(`Failed checks: ${failedChecks.map((c) => c.name).join(", ")}`);
-  }
-  return {
-    status,
-    checks,
-    oracleData,
-    tenderlySim,
-    explorerUrl,
-    recipeId,
-    timestamp: Date.now(),
-    intent,
-    metadata: {
-      executionId,
-      ...notes.length > 0 ? { notes } : {}
-    }
-  };
-}
-function calculateExpectedOutput(intent, pool) {
-  const price = sqrtPriceX96ToPrice(pool.sqrtPriceX96);
-  const amountIn = BigInt(intent.amount);
-  const expectedOutput = Number(amountIn) * price;
-  return Math.floor(expectedOutput).toString();
-}
-function generateRecipeId(intent, executionId) {
-  const base = `${intent.sourceChain}-${intent.targetChain}-${intent.amount}`;
-  const timestamp = Date.now().toString(36);
-  const suffix = executionId?.slice(-8) ?? Math.random().toString(36).slice(2, 10);
-  return `recipe-${base}-${timestamp}-${suffix}`;
-}
-function getSummary(status, checks) {
-  const passedCount = checks.filter((c) => c.passed).length;
-  const totalCount = checks.length;
-  switch (status) {
-    case "APPROVED":
-      return `Settlement approved. All ${totalCount} checks passed.`;
-    case "WARNING":
-      const warningChecks = checks.filter((c) => !c.passed && c.severity === "warning").map((c) => c.name);
-      return `Settlement requires review. ${passedCount}/${totalCount} checks passed. Warnings: ${warningChecks.join(", ")}`;
-    case "BLOCKED":
-      const criticalChecks = checks.filter((c) => !c.passed && c.severity === "critical").map((c) => c.name);
-      return `Settlement blocked. ${passedCount}/${totalCount} checks passed. Critical failures: ${criticalChecks.join(", ")}`;
-  }
-}
-function emitWebhook(runtime2, report2) {
-  const webhookUrl = runtime2.config.webhookUrl;
-  if (!webhookUrl) {
-    runtime2.log("No webhook URL configured, skipping webhook emission");
-    return { success: false, error: "No webhook URL configured" };
-  }
-  runtime2.log(`Emitting risk report to webhook: ${webhookUrl}`);
-  runtime2.log(`Report status: ${report2.status}`);
-  const httpClient = new ClientCapability2;
-  const payload = {
-    event: "RISK_REPORT",
-    report: report2,
-    sentAt: Date.now()
-  };
-  try {
-    const result = httpClient.sendRequest(runtime2, (sendRequester, url, body) => sendWebhookRequest(sendRequester, url, body), consensusIdenticalAggregation())(webhookUrl, JSON.stringify(payload)).result();
-    if (result.success) {
-      runtime2.log(`Webhook emission successful`);
-    } else {
-      runtime2.log(`Webhook emission failed: ${result.error}`);
-    }
-    return result;
   } catch (error) {
-    const errorMsg = `Webhook emission error: ${error}`;
-    runtime2.log(errorMsg);
-    return { success: false, error: errorMsg };
+    runtime2.log(`[Pool health] Decode failed for ${poolId}: ${error}`);
+    return {
+      poolId,
+      initialized: false,
+      sqrtPriceX96: 0n,
+      tick: 0,
+      liquidity: 0n
+    };
   }
 }
-function signalExecutor(runtime2, report2) {
-  const executorUrl = runtime2.config.executorUrl;
-  if (!executorUrl) {
-    runtime2.log("No executor URL configured, skipping executor signal");
-    return { success: false, error: "No executor URL configured" };
-  }
-  runtime2.log(`Signaling executor to proceed: ${executorUrl}`);
-  runtime2.log(`Recipe ID: ${report2.recipeId}`);
-  const httpClient = new ClientCapability2;
-  const signal = {
-    action: "EXECUTE",
-    report: report2,
-    signalAt: Date.now()
-  };
-  try {
-    const result = httpClient.sendRequest(runtime2, (sendRequester, url, body) => sendWebhookRequest(sendRequester, url, body), consensusIdenticalAggregation())(executorUrl, JSON.stringify(signal)).result();
-    if (result.success) {
-      runtime2.log(`Executor signal successful`);
-    } else {
-      runtime2.log(`Executor signal failed: ${result.error}`);
-    }
-    return result;
-  } catch (error) {
-    const errorMsg = `Executor signal error: ${error}`;
-    runtime2.log(errorMsg);
-    return { success: false, error: errorMsg };
-  }
+function selectNextBestPool(currentPoolId, pools) {
+  const candidates = pools.filter((pool) => pool.poolId !== currentPoolId).sort((a, b) => {
+    if (a.liquidity === b.liquidity)
+      return 0;
+    return a.liquidity > b.liquidity ? -1 : 1;
+  });
+  return candidates[0];
 }
 function toBase642(str) {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -16910,14 +15964,11 @@ function toBase642(str) {
   return result;
 }
 function sendWebhookRequest(sendRequester, url, body) {
-  const bodyBase64 = toBase642(body);
   const response = sendRequester.sendRequest({
     url,
     method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: bodyBase64,
+    headers: { "Content-Type": "application/json" },
+    body: toBase642(body),
     timeout: "10s"
   }).result();
   if (ok(response)) {
@@ -16932,212 +15983,160 @@ function sendWebhookRequest(sendRequester, url, body) {
     error: `HTTP ${response.statusCode}`
   };
 }
-function emitReport(runtime2, report2) {
-  runtime2.log(`Emitting report with status: ${report2.status}`);
-  if (report2.status === "APPROVED") {
-    return signalExecutor(runtime2, report2);
-  } else {
-    return emitWebhook(runtime2, report2);
-  }
+function emitMonitoringReport(runtime2, report2) {
+  const payload = {
+    event: "MONITORING_REPORT",
+    report: report2,
+    sentAt: Date.now()
+  };
+  const httpClient = new ClientCapability;
+  return httpClient.sendRequest(runtime2, sendWebhookRequest, consensusIdenticalAggregation())(runtime2.config.webhookUrl, JSON.stringify(payload)).result();
 }
-function getEmissionTargets(config) {
-  const targets = [];
-  if (config.webhookUrl) {
-    targets.push(`webhook: ${config.webhookUrl}`);
+function toBase643(str) {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  let result = "";
+  for (let i2 = 0;i2 < str.length; i2 += 3) {
+    const a = str.charCodeAt(i2);
+    const b = str.charCodeAt(i2 + 1);
+    const c = str.charCodeAt(i2 + 2);
+    result += chars[a >> 2];
+    result += chars[(a & 3) << 4 | b >> 4];
+    result += isNaN(b) ? "=" : chars[(b & 15) << 2 | c >> 6];
+    result += isNaN(c) ? "=" : chars[c & 63];
   }
-  if (config.executorUrl) {
-    targets.push(`executor: ${config.executorUrl}`);
-  }
-  return targets.length > 0 ? targets.join(", ") : "No emission targets configured";
+  return result;
 }
-var onHttpTrigger = (runtime2, payload) => {
-  const executionId = `risk-${Date.now()}`;
-  const fetchErrors = [];
-  runtime2.log("=".repeat(60));
-  runtime2.log("CRE Risk Guard Workflow - Starting risk assessment");
-  runtime2.log(`Execution ID: ${executionId}`);
-  runtime2.log(`Emission targets: ${getEmissionTargets(runtime2.config)}`);
-  runtime2.log("=".repeat(60));
-  runtime2.log(`
-[Step 1] Parsing settlement intent...`);
-  if (!payload.input || payload.input.length === 0) {
-    runtime2.log("ERROR: HTTP trigger payload is empty");
-    return createErrorReport("Empty request payload", executionId);
-  }
-  let intent;
-  try {
-    intent = decodeJson(payload.input);
-    runtime2.log(`Settlement intent received:`);
-    runtime2.log(`  Token: ${intent.token}`);
-    runtime2.log(`  Amount: ${intent.amount}`);
-    runtime2.log(`  Route: ${intent.sourceChain} -> ${intent.targetChain}`);
-    runtime2.log(`  Max slippage: ${(intent.maxSlippageTolerance * 100).toFixed(2)}%`);
-    runtime2.log(`  Max bridge delay: ${intent.maxBridgeDelay}ms`);
-  } catch (error) {
-    runtime2.log("ERROR: Failed to parse settlement intent");
-    return createErrorReport("Invalid JSON payload", executionId);
-  }
-  if (!intent.sourceChain || !intent.targetChain || !intent.amount) {
-    runtime2.log("ERROR: Missing required fields");
-    return createErrorReport("Missing required fields: sourceChain, targetChain, amount", executionId);
-  }
-  runtime2.log(`
-[Step 2] Fetching oracle data from Chainlink Data Feeds...`);
-  let oracleData;
-  try {
-    oracleData = fetchOracleData(runtime2);
-    runtime2.log(`  ETH/USD: $${Number(oracleData.ethUsdPrice) / 1e8}`);
-    runtime2.log(`  USDC/USD: $${Number(oracleData.usdcUsdPrice) / 1e8}`);
-    runtime2.log(`  Timestamp: ${oracleData.timestamp}`);
-  } catch (error) {
-    const errorMsg = `Oracle fetch failed: ${error}`;
-    runtime2.log(`  ERROR: ${errorMsg}`);
-    fetchErrors.push(errorMsg);
-    oracleData = {
-      ethUsdPrice: 0n,
-      usdcUsdPrice: 0n,
-      timestamp: 0
+function sendGetPositionsRequest(sendRequester, url) {
+  const response = sendRequester.sendRequest({
+    url,
+    method: "GET",
+    headers: { Accept: "application/json" },
+    body: toBase643(""),
+    timeout: "10s"
+  }).result();
+  if (!ok(response)) {
+    return {
+      success: false,
+      positions: [],
+      error: `HTTP ${response.statusCode}`
     };
   }
-  runtime2.log(`
-[Step 3] Fetching pool health data via Tenderly RPC (HTTP eth_call)...`);
-  let poolData;
   try {
-    poolData = fetchPoolData(runtime2, intent);
-    runtime2.log(`  Liquidity: ${poolData.liquidity.toString()}`);
-    runtime2.log(`  Liquidity depth: ${poolData.liquidityDepth}`);
-    runtime2.log(`  Current tick: ${poolData.tick}`);
-    runtime2.log(`  LP fee: ${poolData.lpFee / 1e4}%`);
+    const parsed = json(response);
+    if (!Array.isArray(parsed)) {
+      return {
+        success: false,
+        positions: [],
+        error: "Positions response must be an array"
+      };
+    }
+    return { success: true, positions: parsed };
   } catch (error) {
-    const errorMsg = `Pool fetch failed: ${error}`;
-    runtime2.log(`  ERROR: ${errorMsg}`);
-    fetchErrors.push(errorMsg);
-    poolData = {
+    return {
+      success: false,
+      positions: [],
+      error: `Failed to parse positions response: ${error}`
+    };
+  }
+}
+function fetchActivePositions(runtime2) {
+  const url = `${runtime2.config.backendUrl}/positions`;
+  const httpClient = new ClientCapability;
+  const result = httpClient.sendRequest(runtime2, sendGetPositionsRequest, consensusIdenticalAggregation())(url).result();
+  if (!result.success) {
+    runtime2.log(`[Positions] Failed to fetch active positions: ${result.error}`);
+    return [];
+  }
+  return result.positions;
+}
+var onCronTrigger = (runtime2) => {
+  runtime2.log("=".repeat(60));
+  runtime2.log("Monitoring workflow triggered");
+  runtime2.log(`Schedule: ${runtime2.config.schedule}`);
+  runtime2.log("=".repeat(60));
+  const positions = fetchActivePositions(runtime2);
+  runtime2.log(`Loaded active positions: ${positions.length}`);
+  let reportsEmitted = 0;
+  let healthy = 0;
+  let moveRecommended = 0;
+  for (const position of positions) {
+    runtime2.log("");
+    runtime2.log(`[Position] ${position.positionId}`);
+    const poolSnapshots = runtime2.config.poolRegistry.map((poolId) => fetchPoolHealth(runtime2, poolId, position.rpcUrl ?? runtime2.config.targetRpc));
+    const currentPool = poolSnapshots.find((pool) => pool.poolId === position.poolAddress) ?? {
+      poolId: position.poolAddress,
+      initialized: false,
       sqrtPriceX96: 0n,
       tick: 0,
-      liquidity: 0n,
-      liquidityDepth: "shallow",
-      lpFee: 0
+      liquidity: 0n
     };
-  }
-  runtime2.log(`
-[Step 4] Fetching bridge status from CCTP API...`);
-  let bridgeData;
-  try {
-    bridgeData = fetchBridgeData(runtime2, intent);
-    runtime2.log(`  Attestation status: ${bridgeData.attestationStatus}`);
-    runtime2.log(`  Estimated confirmation: ${bridgeData.estimatedConfirmationMs}ms`);
-    if (bridgeData.queuePosition !== undefined) {
-      runtime2.log(`  Queue position: ${bridgeData.queuePosition}`);
-    }
-  } catch (error) {
-    const errorMsg = `Bridge fetch failed: ${error}`;
-    runtime2.log(`  ERROR: ${errorMsg}`);
-    fetchErrors.push(errorMsg);
-    bridgeData = {
-      attestationStatus: "unknown",
-      estimatedConfirmationMs: 900000
-    };
-  }
-  if (fetchErrors.length > 0) {
-    runtime2.log(`
-Fetch completed with ${fetchErrors.length} error(s)`);
-  } else {
-    runtime2.log(`
-All data fetches completed successfully`);
-  }
-  runtime2.log(`
-[Step 5] Evaluating risk thresholds...`);
-  const checks = evaluateRisk(intent, oracleData, poolData, bridgeData, runtime2.config);
-  const status = determineStatus(checks);
-  const summary = getSummary(status, checks);
-  runtime2.log(`
-Risk evaluation results:`);
-  for (const check of checks) {
-    const icon = check.passed ? "✓" : "✗";
-    runtime2.log(`  ${icon} ${check.name}: ${check.description}`);
-    runtime2.log(`    Actual: ${check.actual}, Threshold: ${check.threshold}, Severity: ${check.severity}`);
-  }
-  runtime2.log(`
-Status: ${status}`);
-  runtime2.log(`Summary: ${summary}`);
-  runtime2.log(`
-[Step 6] Building and emitting risk report...`);
-  const report2 = buildReport(status, checks, oracleData, poolData, intent, runtime2.config, executionId);
-  if (fetchErrors.length > 0) {
-    report2.metadata = {
-      ...report2.metadata,
-      notes: [...report2.metadata?.notes ?? [], ...fetchErrors]
-    };
-  }
-  runtime2.log(`  Recipe ID: ${report2.recipeId}`);
-  runtime2.log(`  Explorer URL: ${report2.explorerUrl}`);
-  runtime2.log(`  Tenderly sim success: ${report2.tenderlySim.success}`);
-  const emitResult = emitReport(runtime2, report2);
-  if (emitResult.success) {
-    runtime2.log(`  Report emitted successfully`);
-  } else {
-    runtime2.log(`  Report emission failed: ${emitResult.error}`);
-  }
-  runtime2.log(`
-` + "=".repeat(60));
-  runtime2.log(`Risk assessment complete - Status: ${status}`);
-  runtime2.log("=".repeat(60));
-  return report2;
-};
-function createErrorReport(error, executionId) {
-  return {
-    status: "BLOCKED",
-    checks: [
-      {
-        name: "validation",
-        passed: false,
-        actual: error,
-        threshold: "valid input",
-        severity: "critical",
-        description: `Validation failed: ${error}`
+    runtime2.log(`Current pool liquidity: ${currentPool.liquidity.toString()} (threshold: ${runtime2.config.liquidityThreshold})`);
+    let decision;
+    if (currentPool.liquidity >= BigInt(runtime2.config.liquidityThreshold)) {
+      decision = {
+        status: "HEALTHY",
+        reason: "Current pool liquidity is above threshold"
+      };
+      healthy += 1;
+    } else {
+      const nextBestPool = selectNextBestPool(position.poolAddress, poolSnapshots);
+      if (nextBestPool) {
+        decision = {
+          status: "MOVE_RECOMMENDED",
+          reason: "Current pool liquidity below threshold; better pool found",
+          nextBestPool: nextBestPool.poolId,
+          nextBestLiquidity: nextBestPool.liquidity.toString()
+        };
+        moveRecommended += 1;
+      } else {
+        decision = {
+          status: "HEALTHY",
+          reason: "Current pool liquidity below threshold, but no alternative pool available"
+        };
+        healthy += 1;
       }
-    ],
-    oracleData: {
-      ethUsdPrice: "0",
-      usdcUsdPrice: "0",
-      timestamp: 0
-    },
-    tenderlySim: {
-      success: false,
-      gasEstimate: "0",
-      expectedOutput: "0"
-    },
-    explorerUrl: "",
-    recipeId: `error-${executionId}`,
+    }
+    const report2 = buildMonitoringReport(runtime2, position, currentPool, decision);
+    const emitResult = emitMonitoringReport(runtime2, report2);
+    if (emitResult.success) {
+      reportsEmitted += 1;
+      runtime2.log(`[Report emitted] position=${position.positionId} status=${report2.status}`);
+    } else {
+      runtime2.log(`[Report emission failed] position=${position.positionId} error=${emitResult.error}`);
+    }
+  }
+  runtime2.log("=".repeat(60));
+  runtime2.log(`Monitoring complete: emitted=${reportsEmitted}, healthy=${healthy}, moveRecommended=${moveRecommended}`);
+  runtime2.log("=".repeat(60));
+  return {
+    reportsEmitted,
+    healthy,
+    moveRecommended
+  };
+};
+function buildMonitoringReport(runtime2, position, currentPool, decision) {
+  return {
+    reportId: `monitor-${position.positionId}-${Date.now()}`,
+    positionId: position.positionId,
+    poolAddress: position.poolAddress,
+    depositAmount: position.depositAmount,
+    currentLiquidity: currentPool.liquidity.toString(),
+    status: decision.status,
+    nextBestPool: decision.nextBestPool,
+    nextBestLiquidity: decision.nextBestLiquidity,
+    reason: decision.reason,
+    chain: position.chain,
     timestamp: Date.now(),
-    intent: {
-      sourceChain: "",
-      targetChain: "",
-      token: "",
-      amount: "0",
-      targetPoolAddress: "",
-      maxSlippageTolerance: 0,
-      maxBridgeDelay: 0,
-      sourceRpc: "",
-      targetRpc: ""
-    },
     metadata: {
-      executionId,
-      notes: [error]
+      workflow: "monitoring-workflow",
+      webhookUrl: runtime2.config.webhookUrl
     }
   };
 }
 var initWorkflow = (config) => {
-  const http = new HTTPCapability;
-  const authorizedKeys = (config.authorizedKeys ?? []).map((key) => ({
-    type: "KEY_TYPE_ECDSA_EVM",
-    publicKey: key
-  }));
+  const cron = new CronCapability;
   return [
-    handler(http.trigger({
-      authorizedKeys
-    }), onHttpTrigger)
+    handler(cron.trigger({ schedule: config.schedule }), onCronTrigger)
   ];
 };
 async function main() {
