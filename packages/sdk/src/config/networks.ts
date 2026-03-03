@@ -6,11 +6,11 @@ export const baseSepolia: Chain = defineChain({
   network: "base-sepolia",
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: {
-    default: { http: ["https://sepolia.base.org"] },
-    public: { http: ["https://sepolia.base.org"] },
+    default: { http: ["https://virtual.base-sepolia.eu.rpc.tenderly.co/eda241e6-2aa8-4abe-9db9-784bd0ceb88d"] },
+    public: { http: ["https://virtual.base-sepolia.eu.rpc.tenderly.co/eda241e6-2aa8-4abe-9db9-784bd0ceb88d"] },
   },
   blockExplorers: {
-    default: { name: "BaseScan", url: "https://sepolia.basescan.org" },
+    default: { name: "BaseTest", url: "https://dashboard.tenderly.co/explorer/vnet/d64dbd1d-9664-445b-b168-b90bdf7af8db/transactions" },
   },
   testnet: true,
 });
@@ -36,11 +36,11 @@ export const unichainSepolia: Chain = defineChain({
   network: "unichain-sepolia",
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: {
-    default: { http: ["https://sepolia.unichain.org"] },
-    public: { http: ["https://sepolia.unichain.org"] },
+    default: { http: ["https://virtual.astrochain-sepolia.eu.rpc.tenderly.co/bd73fda9-3ee0-46de-9dec-8204367d2668"] },
+    public: { http: ["https://virtual.astrochain-sepolia.eu.rpc.tenderly.co/bd73fda9-3ee0-46de-9dec-8204367d2668"] },
   },
   blockExplorers: {
-    default: { name: "Uniscan", url: "https://sepolia.uniscan.xyz" },
+    default: { name: "UniSepoliaTest", url: "https://dashboard.tenderly.co/explorer/vnet/cf254021-0a4e-427f-b35e-907c08cfc532/transactions" },
   },
   testnet: true,
 });

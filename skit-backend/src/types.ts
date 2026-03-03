@@ -1,0 +1,210 @@
+/**
+ * Types for the SettleKit backend server
+ * Mirrors types from skit-risk-guard/risk-guard-workflow/types.ts
+ */
+
+export interface SettlementIntent {
+  sourceChain: string;
+  targetChain: string;
+  token: string;
+  amount: string;
+  targetPoolAddress: string;
+  maxSlippageTolerance: number;
+  maxBridgeDelay: number;
+  sourceRpc: string;
+  targetRpc: string;
+}
+
+export type CheckSeverity = "info" | "warning" | "critical";
+export type RiskStatus =
+  | "APPROVED"
+  | "WARNING"
+  | "BLOCKED"
+  | "HEALTHY"
+  | "MOVE_RECOMMENDED";
+export type SettlementStatus = "PENDING" | "APPROVED" | "WARNING" | "BLOCKED" | "EXECUTED" | "FAILED";
+export type PositionStatus = "ACTIVE" | "CLOSED";
+export type MonitoringStatus = "HEALTHY" | "MOVE_RECOMMENDED";
+export type RebalanceStatus = "PENDING" | "EXECUTED" | "FAILED";
+
+export interface RiskCheck {
+  name: string;
+  passed: boolean;
+  actual: string | number;
+  threshold: string | number;
+  severity: CheckSeverity;
+  description?: string;
+}
+
+export interface TenderlySim {
+  success: boolean;
+  gasEstimate: string;
+  expectedOutput: string;
+  vnetId?: string;
+  txHash?: string;
+}
+
+export interface OracleDataReport {
+  ethUsdPrice: string;
+  usdcUsdPrice: string;
+  timestamp: number;
+}
+
+export interface RiskReport {
+  status: RiskStatus;
+  checks: RiskCheck[];
+  oracleData: OracleDataReport;
+  tenderlySim: TenderlySim;
+  explorerUrl: string;
+  recipeId: string;
+  timestamp: number;
+  intent: SettlementIntent;
+  metadata?: {
+    executionId?: string;
+    notes?: string[];
+  };
+}
+
+export interface WebhookPayload {
+  event: "RISK_REPORT";
+  report: RiskReport;
+  sentAt: number;
+}
+
+export interface MonitoringReportPayload {
+  event: "MONITORING_REPORT";
+  report: MonitoringReport;
+  sentAt: number;
+}
+
+export interface ExecutorSignal {
+  action: "EXECUTE";
+  report: RiskReport;
+  signalAt: number;
+}
+
+export interface RebalanceRequest {
+  positionId: string;
+  currentPool: string;
+  nextBestPool: string;
+  depositAmount: string;
+  chain?: string;
+  reason?: string;
+  rpcUrl?: string;
+}
+
+export interface Settlement {
+  id: string;
+  intent: SettlementIntent;
+  status: SettlementStatus;
+  riskReport?: RiskReport;
+  txHash?: string;
+  explorerUrl?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface Position {
+  positionId: string;
+  poolAddress: string;
+  depositAmount: string;
+  chain: string;
+  rpcUrl?: string;
+  status: PositionStatus;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface PositionRow {
+  position_id: string;
+  pool_address: string;
+  deposit_amount: string;
+  chain: string;
+  rpc_url: string | null;
+  status: string;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface MonitoringReport {
+  reportId: string;
+  positionId: string;
+  poolAddress: string;
+  depositAmount: string;
+  currentLiquidity: string;
+  status: MonitoringStatus;
+  nextBestPool?: string;
+  nextBestLiquidity?: string;
+  reason: string;
+  chain: string;
+  timestamp: number;
+  executionStatus?: RebalanceStatus;
+  executionTxHash?: string;
+  executionError?: string;
+}
+
+export interface MonitoringReportRow {
+  report_id: string;
+  position_id: string;
+  pool_address: string;
+  deposit_amount: string;
+  current_liquidity: string;
+  status: string;
+  next_best_pool: string | null;
+  next_best_liquidity: string | null;
+  reason: string;
+  chain: string;
+  timestamp: number;
+  execution_status: string | null;
+  execution_tx_hash: string | null;
+  execution_error: string | null;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface TelegramAlertSetting {
+  chatId: string;
+  enabled: boolean;
+  updatedAt: number;
+}
+
+export interface PositionWithMonitoring extends Position {
+  latestMonitoringStatus?: MonitoringStatus;
+  latestLiquidity?: string;
+  lastScanAt?: number;
+}
+
+export interface SettlementRow {
+  id: string;
+  intent: string;
+  status: string;
+  risk_report: string | null;
+  tx_hash: string | null;
+  explorer_url: string | null;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface TriggerResponse {
+  settlementId: string;
+  status: SettlementStatus;
+}
+
+export interface WebhookResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
+export interface SettlementResponse {
+  id: string;
+  status: SettlementStatus;
+  intent: SettlementIntent;
+  riskReport?: RiskReport;
+  execution?: {
+    txHash: string;
+    explorerUrl: string;
+  };
+  createdAt: number;
+  updatedAt: number;
+}

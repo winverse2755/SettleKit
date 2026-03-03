@@ -7,7 +7,7 @@ import { createViemAdapterFromPrivateKey } from '@circle-fin/adapter-viem-v2';
 import { createWalletClient, http, parseUnits } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
-// ---------- helpers ----------
+// helpers
 function asHex(value: string): `0x${string}` {
     if (!value.startsWith('0x')) {
         throw new Error(`Invalid hex string: ${value}`);
@@ -15,7 +15,7 @@ function asHex(value: string): `0x${string}` {
     return value as `0x${string}`;
 }
 
-// ---------- minimal ERC20 ABI ----------
+//  minimal ERC20 ABI
 const ERC20_TRANSFER_ABI = [
     {
         name: 'transfer',
@@ -29,27 +29,27 @@ const ERC20_TRANSFER_ABI = [
     }
 ] as const;
 
-// ---------- ENV ----------
+// ENV 
 const {
     PRIVATE_KEY,
-    ARC_RPC,
-    USDC_ARC
+    UNICHAIN_RPC,
+    USDC_UNICHAIN
 } = process.env as Record<string, string>;
 
-const arcTestnet = {
-    id: 5042002,
-    name: 'Arc Testnet',
-    network: 'arc-testnet',
+const unichainSepolia = {
+    id: 1301,
+    name: 'Unichain Sepolia',
+    network: 'unichain-sepolia',
     nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
     rpcUrls: {
-        default: { http: [ARC_RPC] }
+        default: { http: [UNICHAIN_RPC] }
     }
 } as const;
 
-// ===================================================
+// UnichainTransferLeg
 
 export class ArcTransferLeg extends Leg {
-    name = 'Arc USDC Transfer (BridgeKit)';
+    name = 'Unichain USDC Transfer (BridgeKit)';
 
     private amount: string;
     private recipient: string;
@@ -65,7 +65,7 @@ export class ArcTransferLeg extends Leg {
     }
 
     provides() {
-        return { chain: 'arc', asset: 'USDC', owner: 'user' };
+        return { chain: 'unichain', asset: 'USDC', owner: 'user' };
     }
 
     async estimate(): Promise<LegEstimate> {
@@ -73,7 +73,7 @@ export class ArcTransferLeg extends Leg {
             gasEstimate: 250000n,
             estimatedTimeMs: 20000,
             failureProbability: 0.02,
-            notes: 'BridgeKit CCTP transfer Base → Arc'
+            notes: 'BridgeKit CCTP transfer Base → Unichain'
         };
     }
 
@@ -84,10 +84,10 @@ export class ArcTransferLeg extends Leg {
             privateKey: asHex(PRIVATE_KEY)
         });
 
-        // -------- 1) Bridge Base → Arc (mint to sender wallet) --------
+        // -------- 1) Bridge (mint to sender wallet) --------
         const result = await kit.bridge({
-            from: { adapter, chain: 'Base_Sepolia' },
-            to: { adapter, chain: 'Arc_Testnet' },
+            from: { adapter, chain: 'Base_Sepolia' },       // specify from
+            to: { adapter, chain: 'Unichain_Sepolia' },     // specify to
             amount: this.amount
         });
 
@@ -95,15 +95,15 @@ export class ArcTransferLeg extends Leg {
             console.log(`[BridgeKit] ${step.name}`, step.txHash);
         }
 
-        // -------- 2) Transfer USDC to recipient on Arc --------
-        const arcWallet = createWalletClient({
+        // -------- 2) Transfer USDC to recipient on Unichain --------
+        const unichainWallet = createWalletClient({
             account: privateKeyToAccount(asHex(PRIVATE_KEY)),
-            chain: arcTestnet,
-            transport: http(ARC_RPC)
+            chain: unichainSepolia,
+            transport: http(UNICHAIN_RPC)
         });
 
-        await arcWallet.writeContract({
-            address: USDC_ARC as `0x${string}`,
+        await unichainWallet.writeContract({
+            address: USDC_UNICHAIN as `0x${string}`,
             abi: ERC20_TRANSFER_ABI,
             functionName: 'transfer',
             args: [
@@ -116,7 +116,7 @@ export class ArcTransferLeg extends Leg {
 
         return {
             txHash: mintStep?.txHash ?? '',
-            chain: 'arc',
+            chain: 'unichain',
             success: result.state === 'success'
         };
     }

@@ -14,6 +14,7 @@ import {
     maxUint256,
     encodeAbiParameters,
     parseAbiParameters,
+    parseAbiItem,
 } from 'viem';
 import { unichainSepolia, CHAINS, type ChainKey } from '../config/networks';
 import { getPoolState, type PoolState } from '../utils/pool-utils';
@@ -40,7 +41,6 @@ function getAmountsForLiquidityHelper(
 }
 
 // Uniswap v4 PositionManager ABI (relevant functions for liquidity management)
-// Note: mint() is an internal function - use modifyLiquidities() as the external entry point
 const POSITION_MANAGER_ABI = [
     {
         name: 'modifyLiquidities',
@@ -108,6 +108,8 @@ const ERC20_ABI = [
  * @see https://github.com/Uniswap/v4-periphery/blob/main/src/libraries/Actions.sol
  */
 const Actions = {
+    /** Increase liquidity on an existing position (no new NFT) */
+    INCREASE_LIQUIDITY: 0x00,
     /** Mint a new liquidity position */
     MINT_POSITION: 0x02,
     /** Settle a pair of currencies (provide tokens to pay for position) */
@@ -121,6 +123,7 @@ const Actions = {
  */
 const POOL_KEY_STRUCT = '(address currency0, address currency1, uint24 fee, int24 tickSpacing, address hooks)';
 const MINT_POSITION_PARAMS = `${POOL_KEY_STRUCT}, int24 tickLower, int24 tickUpper, uint256 liquidity, uint128 amount0Max, uint128 amount1Max, address owner, bytes hookData`;
+const INCREASE_LIQUIDITY_PARAMS = 'uint256 tokenId, uint256 liquidity, uint128 amount0Max, uint128 amount1Max, bytes hookData';
 const SETTLE_PAIR_PARAMS = 'address currency0, address currency1';
 const SWEEP_PARAMS = 'address currency, address recipient';
 
@@ -200,6 +203,30 @@ function encodeMintPositionParams(
             owner,
             hookData,
         ]
+    );
+}
+
+/**
+ * Encode parameters for INCREASE_LIQUIDITY action.
+ * Used when a position with the same pool key + tick range already exists.
+ *
+ * @param tokenId - ERC-721 tokenId of the existing position
+ * @param liquidity - Additional liquidity delta to add
+ * @param amount0Max - Maximum amount of token0 to spend
+ * @param amount1Max - Maximum amount of token1 to spend
+ * @param hookData - Optional hook data (default: '0x')
+ * @returns ABI-encoded parameters for INCREASE_LIQUIDITY action
+ */
+function encodeIncreaseLiquidityParams(
+    tokenId: bigint,
+    liquidity: bigint,
+    amount0Max: bigint,
+    amount1Max: bigint,
+    hookData: `0x${string}` = '0x'
+): `0x${string}` {
+    return encodeAbiParameters(
+        parseAbiParameters(INCREASE_LIQUIDITY_PARAMS),
+        [tokenId, liquidity, amount0Max, amount1Max, hookData]
     );
 }
 
@@ -587,29 +614,64 @@ export class UniswapLiquidityExecutor {
             console.log(`[Executor] Expected amount1 deposit: ${expectedAmounts.amount1}`);
             console.log(`[Executor] ====================================================`);
 
-            // Encode MINT_POSITION action parameters with calculated liquidity
-            const mintParams = encodeMintPositionParams(
-                params.poolKey,
-                params.tickLower,
-                params.tickUpper,
-                liquidity,    // Properly calculated liquidity value
-                amount0Max,   // Maximum token0 to spend
-                amount1Max,   // Maximum token1 to spend
-                recipient,
-                '0x' // hookData
-            );
-
-            // Encode SETTLE_PAIR action parameters
+            // Encode SETTLE_PAIR action parameters (shared by both paths)
             const settleParams = encodeSettlePairParams(
                 params.poolKey.currency0,
                 params.poolKey.currency1
             );
 
-            // Encode actions: MINT_POSITION followed by SETTLE_PAIR
-            const actions = encodeActions([Actions.MINT_POSITION, Actions.SETTLE_PAIR]);
+            // Build MINT_POSITION unlock data and simulate first to detect ALREADY_MINTED.
+            // If the position already exists, fall back to INCREASE_LIQUIDITY (0x00).
+            const mintParams = encodeMintPositionParams(
+                params.poolKey,
+                params.tickLower,
+                params.tickUpper,
+                liquidity,
+                amount0Max,
+                amount1Max,
+                recipient,
+                '0x'
+            );
+            const mintActions = encodeActions([Actions.MINT_POSITION, Actions.SETTLE_PAIR]);
+            const mintUnlockData = encodeUnlockData(mintActions, [mintParams, settleParams]);
 
-            // Combine actions and parameters into unlockData
-            const unlockData = encodeUnlockData(actions, [mintParams, settleParams]);
+            let unlockData: `0x${string}`;
+
+            try {
+                await this.publicClient.simulateContract({
+                    address: positionManager,
+                    abi: POSITION_MANAGER_ABI,
+                    functionName: 'modifyLiquidities',
+                    args: [mintUnlockData, deadline],
+                    account: this.account,
+                    chain: CHAINS[this.chainKey],
+                });
+                console.log('[Executor] Simulation passed — minting new position');
+                unlockData = mintUnlockData;
+            } catch (simError) {
+                const errMsg = simError instanceof Error ? simError.message : String(simError);
+                if (errMsg.includes('ALREADY_MINTED')) {
+                    console.log('[Executor] ALREADY_MINTED — switching to INCREASE_LIQUIDITY');
+                    const tokenId = await this.findExistingPositionTokenId(this.account.address);
+                    if (!tokenId) {
+                        return {
+                            success: false,
+                            error: 'ALREADY_MINTED but no existing position found for this account',
+                        };
+                    }
+                    const increaseParams = encodeIncreaseLiquidityParams(
+                        tokenId,
+                        liquidity,
+                        amount0Max,
+                        amount1Max,
+                        '0x'
+                    );
+                    const increaseActions = encodeActions([Actions.INCREASE_LIQUIDITY, Actions.SETTLE_PAIR]);
+                    unlockData = encodeUnlockData(increaseActions, [increaseParams, settleParams]);
+                } else {
+                    throw simError;
+                }
+            }
 
             // Execute the modifyLiquidities transaction
             const txHash = await this.walletClient.writeContract({
@@ -731,6 +793,39 @@ export class UniswapLiquidityExecutor {
             poolKey,
             deadline,
         });
+    }
+
+    /**
+     * Find the ERC-721 tokenId of an existing position owned by this account.
+     * Queries Transfer(from=0, to=owner) mint events from the PositionManager
+     * and returns the most recently minted tokenId.
+     *
+     * @param owner - The account address to search for
+     * @returns The most recent tokenId, or null if no position found
+     */
+    private async findExistingPositionTokenId(owner: Address): Promise<bigint | null> {
+        const { positionManager } = this.getAddresses();
+
+        const logs = await this.publicClient.getLogs({
+            address: positionManager,
+            event: parseAbiItem(
+                'event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)'
+            ),
+            args: {
+                from: '0x0000000000000000000000000000000000000000',
+                to: owner,
+            },
+            fromBlock: 0n,
+        });
+
+        if (logs.length === 0) {
+            console.log('[Executor] No existing position Transfer events found');
+            return null;
+        }
+
+        const tokenId = logs[logs.length - 1].args.tokenId ?? null;
+        console.log('[Executor] Found existing position tokenId:', tokenId?.toString());
+        return tokenId ?? null;
     }
 
     /**

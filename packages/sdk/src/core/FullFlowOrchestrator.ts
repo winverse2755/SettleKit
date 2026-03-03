@@ -26,7 +26,7 @@ import { parseUnits } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import { ArcTransferLeg } from '../legs/ArcTransferLeg';
-import { HubToUnichainLeg } from '../legs/HubToUnichainLeg';
+// import { HubToUnichainLeg } from '../legs/HubToUnichainLeg';
 import type { LegReceipt } from '../types/leg-types';
 import type {
     AgentPolicy,
@@ -71,10 +71,8 @@ export interface FullFlowConfig {
  * Result of the full flow execution
  */
 export interface FullFlowResult {
-    /** Leg 1: Base → Arc CCTP transfer receipt */
+    /** Leg 1: Base → Unichain CCTP transfer receipt */
     leg1_baseToArc: LegReceipt;
-    /** Leg 2: Arc → Unichain CCTP transfer receipt */
-    leg2_arcToUnichain: LegReceipt;
     /** Risk metrics from the agent's simulation */
     riskMetrics: RiskMetrics;
     /** Agent's decision based on risk evaluation */
@@ -98,7 +96,7 @@ export interface FullFlowResult {
  */
 export interface FullFlowError {
     success: false;
-    failedLeg: 'leg1_baseToArc' | 'leg2_arcToUnichain' | 'riskEvaluation' | 'execution';
+    failedLeg: 'leg1_baseToUnichain' | 'riskEvaluation' | 'execution';
     error: string;
     partialResult?: Partial<FullFlowResult>;
 }
@@ -107,22 +105,7 @@ export interface FullFlowError {
 // FullFlowOrchestrator Class
 // ============================================================================
 
-/**
- * FullFlowOrchestrator coordinates the complete 3-leg cross-chain flow:
- *
- * ```
- * Base Sepolia (USDC)
- *       │
- *       ▼ [Leg 1: ArcTransferLeg]
- * Arc Hub (USDC)
- *       │
- *       ▼ [Leg 2: HubToUnichainLeg]
- * Unichain (USDC)
- *       │
- *       ▼ [Leg 3: SettleAgent + UniswapLiquidityExecutor]
- * Uniswap v4 Pool (LP Position)
- * ```
- */
+// FullFlowOrchestrator coordinates the complete 3-leg cross-chain flow
 export class FullFlowOrchestrator {
     private config: FullFlowConfig;
     private agent: SettleAgent | null = null;
@@ -151,7 +134,7 @@ export class FullFlowOrchestrator {
 
         try {
             // ══════════════════════════════════════════════════════════════
-            // Leg 1: Base → Arc (ArcTransferLeg)
+            // Leg 1: Base → Unichain (ArcTransferLeg)
             // ══════════════════════════════════════════════════════════════
             this.log('─'.repeat(60));
             this.log('  LEG 1: Base Sepolia → Arc Hub (CCTP)');
@@ -163,36 +146,12 @@ export class FullFlowOrchestrator {
                 this.log(`✗ Leg 1 FAILED`);
                 return {
                     success: false,
-                    failedLeg: 'leg1_baseToArc',
+                    failedLeg: 'leg1_baseToUnichain',
                     error: `ArcTransferLeg failed: ${leg1Receipt.txHash || 'unknown error'}`,
                 };
             }
 
             this.log(`✓ Leg 1 SUCCESS - TxHash: ${leg1Receipt.txHash}`);
-            this.log('');
-
-            // ══════════════════════════════════════════════════════════════
-            // Leg 2: Arc → Unichain (HubToUnichainLeg)
-            // ══════════════════════════════════════════════════════════════
-            this.log('─'.repeat(60));
-            this.log('  LEG 2: Arc Hub → Unichain (CCTP)');
-            this.log('─'.repeat(60));
-
-            const leg2Receipt = await this.executeLeg2();
-
-            if (!leg2Receipt.success) {
-                this.log(`✗ Leg 2 FAILED`);
-                return {
-                    success: false,
-                    failedLeg: 'leg2_arcToUnichain',
-                    error: `HubToUnichainLeg failed: ${leg2Receipt.txHash || 'unknown error'}`,
-                    partialResult: {
-                        leg1_baseToArc: leg1Receipt,
-                    },
-                };
-            }
-
-            this.log(`✓ Leg 2 SUCCESS - TxHash: ${leg2Receipt.txHash}`);
             this.log('');
 
             // ══════════════════════════════════════════════════════════════
@@ -286,7 +245,6 @@ export class FullFlowOrchestrator {
 
             return {
                 leg1_baseToArc: leg1Receipt,
-                leg2_arcToUnichain: leg2Receipt,
                 riskMetrics: risk,
                 decision,
                 execution,
@@ -311,7 +269,7 @@ export class FullFlowOrchestrator {
     }
 
     /**
-     * Execute Leg 1: Base → Arc via ArcTransferLeg
+     * Execute Leg 1: Base → Unichain via ArcTransferLeg
      */
     private async executeLeg1(): Promise<LegReceipt> {
         this.log(`Creating ArcTransferLeg...`);
@@ -332,33 +290,6 @@ export class FullFlowOrchestrator {
 
         // Execute
         this.log(`Executing ArcTransferLeg...`);
-        const receipt = await leg.execute();
-
-        return receipt;
-    }
-
-    /**
-     * Execute Leg 2: Arc → Unichain via HubToUnichainLeg
-     */
-    private async executeLeg2(): Promise<LegReceipt> {
-        this.log(`Creating HubToUnichainLeg...`);
-        this.log(`  Amount: ${this.config.amount} USDC`);
-        this.log(`  Recipient: ${this.config.recipient}`);
-
-        const leg = new HubToUnichainLeg({
-            amount: this.config.amount,
-            recipient: this.config.recipient,
-        });
-
-        // Get estimate
-        const estimate = await leg.estimate();
-        this.log(`Estimate:`);
-        this.log(`  - Gas: ${estimate.gasEstimate}`);
-        this.log(`  - Time: ${estimate.estimatedTimeMs}ms`);
-        this.log(`  - Failure Probability: ${(estimate.failureProbability * 100).toFixed(1)}%`);
-
-        // Execute
-        this.log(`Executing HubToUnichainLeg...`);
         const receipt = await leg.execute();
 
         return receipt;

@@ -1,0 +1,136 @@
+export class TelegramBotService {
+    token;
+    apiBase;
+    handlers;
+    polling = false;
+    offset = 0;
+    constructor(token, handlers) {
+        this.token = token;
+        this.apiBase = `https://api.telegram.org/bot${token}`;
+        this.handlers = handlers;
+    }
+    startPolling() {
+        if (this.polling)
+            return;
+        this.polling = true;
+        void this.pollLoop();
+    }
+    stopPolling() {
+        this.polling = false;
+    }
+    async sendMessage(chatId, text) {
+        await fetch(`${this.apiBase}/sendMessage`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                chat_id: chatId,
+                text,
+                disable_web_page_preview: true,
+            }),
+        });
+    }
+    async sendBroadcast(chatIds, text) {
+        await Promise.all(chatIds.map((chatId) => this.sendMessage(chatId, text)));
+    }
+    async pollLoop() {
+        while (this.polling) {
+            try {
+                const updates = await this.getUpdates();
+                for (const update of updates) {
+                    this.offset = Math.max(this.offset, update.update_id + 1);
+                    await this.handleUpdate(update);
+                }
+            }
+            catch (error) {
+                console.error("[Telegram] Poll error:", error);
+            }
+        }
+    }
+    async getUpdates() {
+        const url = `${this.apiBase}/getUpdates?timeout=25&offset=${this.offset}`;
+        const response = await fetch(url);
+        const data = (await response.json());
+        if (!data.ok)
+            return [];
+        return data.result;
+    }
+    async handleUpdate(update) {
+        const text = update.message?.text?.trim();
+        const chatId = update.message?.chat.id;
+        if (!text || !chatId)
+            return;
+        const parts = text.split(/\s+/);
+        const command = parts[0]?.toLowerCase();
+        const args = parts.slice(1);
+        const chatIdStr = String(chatId);
+        try {
+            switch (command) {
+                case "/simulate":
+                    await this.sendMessage(chatIdStr, await this.handlers.onSimulate(args));
+                    break;
+                case "/status":
+                    await this.sendMessage(chatIdStr, await this.handlers.onStatus(args));
+                    break;
+                case "/alerts":
+                    await this.sendMessage(chatIdStr, await this.handlers.onAlerts(chatIdStr, args));
+                    break;
+                case "/approve":
+                    await this.sendMessage(chatIdStr, await this.handlers.onApprove(args));
+                    break;
+                case "/history":
+                    await this.sendMessage(chatIdStr, await this.handlers.onHistory());
+                    break;
+                case "/fork":
+                    if (args[0]?.toLowerCase() === "status") {
+                        await this.sendMessage(chatIdStr, await this.handlers.onForkStatus());
+                    }
+                    else {
+                        await this.sendMessage(chatIdStr, "Usage: /fork status");
+                    }
+                    break;
+                case "/positions":
+                    await this.sendMessage(chatIdStr, await this.handlers.onPositions());
+                    break;
+                case "/rebalance":
+                    await this.sendMessage(chatIdStr, await this.handlers.onRebalance(args));
+                    break;
+                default:
+                    await this.sendMessage(chatIdStr, "Unknown command. Supported: /simulate /status /alerts /approve /history /fork status /positions /rebalance");
+            }
+        }
+        catch (error) {
+            await this.sendMessage(chatIdStr, `Command failed: ${String(error)}`);
+        }
+    }
+}
+export function formatHistory(settlements) {
+    if (settlements.length === 0)
+        return "No settlements found.";
+    const lines = settlements.slice(0, 5).map((s, i) => {
+        const statusIcon = s.status === "EXECUTED" ? "✅" : s.status === "FAILED" ? "❌" : "⏳";
+        const riskLink = s.riskReport?.explorerUrl ?? "n/a";
+        const txLink = s.explorerUrl ?? "n/a";
+        return `${i + 1}. ${statusIcon} ${s.id}\nstatus=${s.status}\nrisk=${riskLink}\nsettlementTx=${txLink}`;
+    });
+    return `Last settlements:\n\n${lines.join("\n\n")}`;
+}
+export function formatPositions(positions) {
+    if (positions.length === 0)
+        return "No active positions.";
+    const lines = positions.map((p) => {
+        return [
+            `• ${p.positionId}`,
+            `pool=${p.poolAddress}`,
+            `liquidity=${p.latestLiquidity ?? "n/a"}`,
+            `monitoring=${p.latestMonitoringStatus ?? "n/a"}`,
+            `lastScan=${p.lastScanAt ? new Date(p.lastScanAt).toISOString() : "n/a"}`,
+        ].join("\n");
+    });
+    return `Active positions:\n\n${lines.join("\n\n")}`;
+}
+export function formatMonitoringAlert(report, status, explorerUrl, error) {
+    if (status === "SUCCESS") {
+        return `Auto-rebalance completed ✅\nposition=${report.positionId}\nfrom=${report.poolAddress}\nto=${report.nextBestPool ?? "n/a"}\ntx=${explorerUrl ?? "n/a"}`;
+    }
+    return `Auto-rebalance failed ❌\nposition=${report.positionId}\nfrom=${report.poolAddress}\nto=${report.nextBestPool ?? "n/a"}\nreason=${error ?? "unknown"}\nlastTx=${explorerUrl ?? "n/a"}`;
+}
