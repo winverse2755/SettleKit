@@ -9,7 +9,7 @@
 
 import "dotenv/config";
 
-const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:3001";
+const BACKEND_URL = process.env.BACKEND_URL || "https://seedier-reese-nomographic.ngrok-free.dev";
 
 // Test settlement intent (matches test-payload.json from CRE workflow)
 const testIntent = {

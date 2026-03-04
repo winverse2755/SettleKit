@@ -4,6 +4,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "cd apps/client && npm run dev",
+    "dev:all": "concurrently -n backend,client -c blue,green \"cd skit-backend && npm run dev\" \"cd apps/client && npm run dev\"",
     "build": "cd apps/client && npm run build",
     "start": "cd apps/client && npm run start",
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -30,6 +31,7 @@
   "type": "module",
   "devDependencies": {
     "@types/uuid": "^10.0.0",
+    "concurrently": "^9.2.1",
     "dotenv": "^17.2.3",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"

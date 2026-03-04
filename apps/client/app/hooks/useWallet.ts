@@ -41,6 +41,40 @@ const CHAIN_NAMES: Record<string, string> = {
     '0x14a34': 'Base Sepolia',
     '0x38': 'BNB Chain',
     '0x61': 'BNB Testnet',
+    '0xa4ec': 'Celo Mainnet',
+    '0x515': 'Unichain Sepolia',
+};
+
+export interface SupportedChain {
+    chainIdHex: string;
+    chainId: number;
+    name: string;
+}
+
+export const SUPPORTED_CHAINS: SupportedChain[] = [
+    { chainIdHex: '0x1', chainId: 1, name: 'Ethereum Mainnet' },
+    { chainIdHex: '0xaa36a7', chainId: 11155111, name: 'Sepolia Testnet' },
+    { chainIdHex: '0x89', chainId: 137, name: 'Polygon Mainnet' },
+    { chainIdHex: '0xa4b1', chainId: 42161, name: 'Arbitrum One' },
+    { chainIdHex: '0xa', chainId: 10, name: 'Optimism' },
+    { chainIdHex: '0x2105', chainId: 8453, name: 'Base' },
+    { chainIdHex: '0x14a34', chainId: 84532, name: 'Base Sepolia' },
+    { chainIdHex: '0x38', chainId: 56, name: 'BNB Chain' },
+    { chainIdHex: '0xa4ec', chainId: 42220, name: 'Celo Mainnet' },
+    { chainIdHex: '0x515', chainId: 1301, name: 'Unichain Sepolia' },
+];
+
+const CHAIN_RPC_URLS: Record<string, string> = {
+    '0x1': 'https://eth.llamarpc.com',
+    '0xaa36a7': 'https://rpc.sepolia.org',
+    '0x89': 'https://polygon-rpc.com',
+    '0xa4b1': 'https://arb1.arbitrum.io/rpc',
+    '0xa': 'https://mainnet.optimism.io',
+    '0x2105': 'https://mainnet.base.org',
+    '0x14a34': 'https://sepolia.base.org',
+    '0x38': 'https://bsc-dataseed.binance.org',
+    '0xa4ec': 'https://forno.celo.org',
+    '0x515': 'https://sepolia.unichain.org',
 };
 
 export const useWallet = () => {
@@ -227,6 +261,43 @@ export const useWallet = () => {
         });
     };
 
+    const switchChain = async (chainIdHex: string) => {
+        const ethereum = detectProvider();
+        if (!ethereum) return;
+
+        try {
+            await ethereum.request({
+                method: 'wallet_switchEthereumChain',
+                params: [{ chainId: chainIdHex }],
+            });
+        } catch (error: any) {
+            if (error.code === 4902) {
+                const chain = SUPPORTED_CHAINS.find((c) => c.chainIdHex === chainIdHex);
+                const rpcUrl = CHAIN_RPC_URLS[chainIdHex];
+                if (chain && rpcUrl) {
+                    try {
+                        await ethereum.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [{
+                                chainId: chainIdHex,
+                                chainName: chain.name,
+                                rpcUrls: [rpcUrl],
+                            }],
+                        });
+                    } catch (addError: any) {
+                        console.error('Failed to add chain:', addError);
+                        alert(`Failed to add ${chain.name}: ${addError.message}`);
+                    }
+                } else {
+                    alert(`Please add ${chain?.name ?? 'this network'} manually in your wallet.`);
+                }
+            } else {
+                console.error('Failed to switch chain:', error);
+                alert(`Failed to switch network: ${error.message}`);
+            }
+        }
+    };
+
     useEffect(() => {
         const checkConnection = async () => {
             const ethereum = detectProvider();
@@ -276,6 +347,8 @@ export const useWallet = () => {
         ...wallet,
         connectWallet,
         disconnectWallet,
+        switchChain,
+        supportedChains: SUPPORTED_CHAINS,
         isMetaMaskAvailable: typeof window !== 'undefined' && !!window.ethereum?.isMetaMask,
         isCoinbaseWalletAvailable: typeof window !== 'undefined' && !!window.ethereum?.isCoinbaseWallet,
         isWalletAvailable: typeof window !== 'undefined' && !!window.ethereum,

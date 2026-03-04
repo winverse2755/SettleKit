@@ -9,6 +9,9 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -18,7 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Wallet, ChevronDown, ExternalLink, LogOut } from 'lucide-react';
+import { Wallet, ChevronDown, ExternalLink, LogOut, Network } from 'lucide-react';
 import { useState } from 'react';
 
 export default function WalletButton() {
@@ -27,9 +30,12 @@ export default function WalletButton() {
         isConnected,
         balance,
         chainName,
+        chainId,
         provider,
         connectWallet,
         disconnectWallet,
+        switchChain,
+        supportedChains,
         isWalletAvailable
     } = useWallet();
 
@@ -55,13 +61,13 @@ export default function WalletButton() {
             <>
                 <Button onClick={() => setShowModal(true)} size="lg">
                     <Wallet className="mr-2 h-4 w-4" />
-                    Install Wallet
+                    Connect Wallet
                 </Button>
 
                 <Dialog open={showModal} onOpenChange={setShowModal}>
                     <DialogContent>
                         <DialogHeader>
-                            <DialogTitle>Install Wallet</DialogTitle>
+                            <DialogTitle>Connect Wallet</DialogTitle>
                             <DialogDescription>
                                 You need a Web3 wallet to use this application
                             </DialogDescription>
@@ -142,6 +148,25 @@ export default function WalletButton() {
                             <div className="text-sm font-semibold">{balance} ETH</div>
                         </div>
                     </div>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuSub>
+                        <DropdownMenuSubTrigger>
+                            <Network className="mr-2 h-4 w-4" />
+                            Switch Network
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuSubContent>
+                            {supportedChains.map((chain) => (
+                                <DropdownMenuItem
+                                    key={chain.chainIdHex}
+                                    onClick={() => switchChain(chain.chainIdHex)}
+                                    disabled={chainId === chain.chainId}
+                                >
+                                    {chain.name}
+                                    {chainId === chain.chainId && ' ✓'}
+                                </DropdownMenuItem>
+                            ))}
+                        </DropdownMenuSubContent>
+                    </DropdownMenuSub>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                         onClick={disconnectWallet}

@@ -1,97 +1,48 @@
 'use client';
 
-import WalletButton from './components/WalletButton';
-import TransferFlow from './components/TransferFlow';
-import { useWallet } from './hooks/useWallet';
+import Link from 'next/link';
+import SharedHeader from './components/SharedHeader';
+import SharedFooter from './components/SharedFooter';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ArrowRight, Shield, Zap, Lock, BarChart3, Layers, Globe2, CheckCircle2 } from 'lucide-react';
 
 export default function HomePage() {
-  const { address, isConnected } = useWallet();
-
   return (
     <div className="min-h-screen bg-background dark">
-      {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-4 lg:px-8">
-          <div className="flex h-16 items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary">
-                <Layers className="h-5 w-5 text-primary-foreground" />
-              </div>
-              <div>
-                <h1 className="text-xl font-semibold tracking-tight">SettleKit</h1>
-                <p className="text-xs text-muted-foreground">Cross-Chain Liquidity Protocol</p>
-              </div>
-            </div>
-            <WalletButton />
-          </div>
-        </div>
-      </header>
+      <SharedHeader />
 
       {/* Hero Section */}
       <section className="border-b">
         <div className="container mx-auto px-4 lg:px-8 py-20 lg:py-28">
           <div className="max-w-4xl mx-auto text-center space-y-8">
             <Badge variant="secondary" className="mb-4">
-              Powered by CCTP & Uniswap v4
+              Powered by CRE & CCTP
             </Badge>
             <h1 className="text-5xl md:text-7xl font-bold tracking-tight">
-              Cross-Chain Liquidity
+              Cross-Chain Settlement
               <br />
               <span className="text-muted-foreground">Made Simple</span>
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Automated USDC transfers across chains with intelligent risk assessment
-              and seamless liquidity provision. Enterprise-grade infrastructure for DeFi.
+              Automated USDC deposits across DeFi pools and vaults with intelligent risk assessment
+              and monitoring.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-              <Button size="lg" className="text-base">
-                Get Started
-                <ArrowRight className="ml-2 h-5 w-5" />
+              <Button size="lg" className="text-base" asChild>
+                <Link href="/settlements">
+                  Risk Report
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Link>
               </Button>
-              <Button size="lg" variant="outline" className="text-base">
-                View Documentation
+              <Button size="lg" variant="outline" className="text-base" asChild>
+                <a href="https://github.com/winverse2755/SettleKit/tree/main" target="_blank" rel="noopener noreferrer">
+                  View Documentation
+                </a>
               </Button>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* Stats Section */}
-      <section className="border-b bg-secondary/30">
-        <div className="container mx-auto px-4 lg:px-8 py-16">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto">
-            {[
-              { label: 'Total Volume', value: '$2.4M+' },
-              { label: 'Transactions', value: '15,000+' },
-              { label: 'Success Rate', value: '99.9%' },
-              { label: 'Avg Speed', value: '<2 min' },
-            ].map((stat, idx) => (
-              <div key={idx} className="text-center">
-                <div className="text-3xl md:text-4xl font-bold">{stat.value}</div>
-                <div className="text-sm text-muted-foreground mt-1">{stat.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Main Application Section */}
-      <section className="py-16">
-        <div className="container mx-auto px-4 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Start Your Transfer</h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Configure your cross-chain liquidity transfer with advanced risk controls
-            </p>
-          </div>
-          <TransferFlow
-            walletAddress={address}
-            isConnected={isConnected}
-          />
         </div>
       </section>
 
@@ -207,37 +158,24 @@ export default function HomePage() {
               Ready to Get Started?
             </h2>
             <p className="text-xl text-muted-foreground">
-              Join thousands of users leveraging SettleKit for cross-chain liquidity
+              Join users leveraging SettleKit for cross-chain liquidity
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-              <Button size="lg" className="text-base">
-                Launch App
-                <ArrowRight className="ml-2 h-5 w-5" />
+              <Button size="lg" className="text-base" asChild>
+                <Link href="/settlements">
+                  Monitor Status
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Link>
               </Button>
-              <Button size="lg" variant="outline" className="text-base">
-                Contact Sales
+              <Button size="lg" variant="outline" className="text-base" asChild>
+                <a href="mailto:winverse2755@gmail.com">Contact</a>
               </Button>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t py-12">
-        <div className="container mx-auto px-4 lg:px-8">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary">
-                <Layers className="h-4 w-4 text-primary-foreground" />
-              </div>
-              <span className="font-semibold">SettleKit</span>
-            </div>
-            <div className="text-sm text-muted-foreground">
-              © 2026 SettleKit. Built with CRE & CCTP.
-            </div>
-          </div>
-        </div>
-      </footer>
+      <SharedFooter />
     </div>
   );
 }
