@@ -13,7 +13,6 @@ interface SettlementIntent {
   targetChain: string;
   token: string;
   amount: string;
-  targetPoolAddress: string;
   maxSlippageTolerance: number;
   maxBridgeDelay: number;
   sourceRpc: string;

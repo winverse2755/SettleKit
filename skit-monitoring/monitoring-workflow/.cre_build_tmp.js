@@ -15987,7 +15987,7 @@ function sendWebhookRequest(sendRequester, url, body) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: toBase642(body),
-    timeout: "10s"
+    timeout: "30s"
   }).result();
   if (ok(response)) {
     return {
@@ -16070,6 +16070,46 @@ function fetchActivePositions(runtime2) {
   }
   return result.positions;
 }
+var STANDARD_FEE_TIERS = [
+  { fee: 100, tickSpacing: 1 },
+  { fee: 500, tickSpacing: 10 },
+  { fee: 3000, tickSpacing: 60 },
+  { fee: 1e4, tickSpacing: 200 }
+];
+var TOKEN_ADDRESSES = {
+  nativeEth: "0x0000000000000000000000000000000000000000",
+  usdc: "0x31d0220469e10c4e71834a79b1f276d740d3768f"
+};
+function computePoolId(poolKey) {
+  const encoded = encodeAbiParameters([
+    { type: "address" },
+    { type: "address" },
+    { type: "uint24" },
+    { type: "int24" },
+    { type: "address" }
+  ], [
+    poolKey.currency0,
+    poolKey.currency1,
+    poolKey.fee,
+    poolKey.tickSpacing,
+    poolKey.hooks
+  ]);
+  return keccak256(encoded);
+}
+function generatePoolKeys(tokenA, tokenB, hooks = "0x0000000000000000000000000000000000000000") {
+  const [currency0, currency1] = tokenA.toLowerCase() < tokenB.toLowerCase() ? [tokenA, tokenB] : [tokenB, tokenA];
+  return STANDARD_FEE_TIERS.map((tier) => ({
+    currency0,
+    currency1,
+    fee: tier.fee,
+    tickSpacing: tier.tickSpacing,
+    hooks
+  }));
+}
+function getEthUsdcPoolIds() {
+  const poolKeys = generatePoolKeys(TOKEN_ADDRESSES.nativeEth, TOKEN_ADDRESSES.usdc);
+  return poolKeys.map((pk) => computePoolId(pk));
+}
 var onCronTrigger = (runtime2) => {
   runtime2.log("=".repeat(60));
   runtime2.log("Monitoring workflow triggered");
@@ -16078,7 +16118,9 @@ var onCronTrigger = (runtime2) => {
   const positions = fetchActivePositions(runtime2);
   runtime2.log(`Loaded active positions: ${positions.length}`);
   const rpcUrl = runtime2.config.targetRpc;
-  const poolSnapshots = fetchAllPoolHealth(runtime2, runtime2.config.poolRegistry, rpcUrl);
+  const poolIds = getEthUsdcPoolIds();
+  runtime2.log(`Using discovered ETH/USDC pool set (${poolIds.length} fee tiers)`);
+  const poolSnapshots = fetchAllPoolHealth(runtime2, poolIds, rpcUrl);
   runtime2.log(`Fetched health for ${poolSnapshots.length} pools`);
   const reports = [];
   let healthy = 0;

@@ -7,7 +7,8 @@ export interface MonitoringWorkflowConfig {
   targetRpc: string;
   poolManagerAddress: `0x${string}`;
   liquidityThreshold: string;
-  poolRegistry: `0x${string}`[];
+  /** @deprecated Pool list now from discovery (same ETH/USDC set as risk-guard). Kept for backward compatibility. */
+  poolRegistry?: `0x${string}`[];
 }
 
 export interface ActivePosition {

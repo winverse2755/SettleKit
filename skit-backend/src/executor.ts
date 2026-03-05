@@ -328,25 +328,34 @@ export class SettlementExecutor {
       const intent = report.intent;
       const amount = BigInt(intent.amount);
 
-      // Pool key for ETH/USDC pool on Unichain Sepolia
-      // Note: targetPoolAddress in the intent refers to the Pool Manager address, not the pool ID
-      const poolKey = {
-        currency0: "0x0000000000000000000000000000000000000000" as Address, // ETH
-        currency1: ADDRESSES.usdc, // USDC
+      // Use pool key/ID from risk report when workflow discovered the best pool; otherwise default 0.30% tier
+      const defaultPoolKey = {
+        currency0: "0x0000000000000000000000000000000000000000" as Address,
+        currency1: ADDRESSES.usdc,
         fee: 3000,
         tickSpacing: 60,
         hooks: "0x0000000000000000000000000000000000000000" as Address,
       };
+      const poolKey = report.selectedPoolKey
+        ? {
+            currency0: report.selectedPoolKey.currency0 as Address,
+            currency1: report.selectedPoolKey.currency1 as Address,
+            fee: report.selectedPoolKey.fee,
+            tickSpacing: report.selectedPoolKey.tickSpacing,
+            hooks: report.selectedPoolKey.hooks as Address,
+          }
+        : defaultPoolKey;
 
-      // Compute pool ID from pool key: keccak256(abi.encode(currency0, currency1, fee, tickSpacing, hooks))
-      const poolId = keccak256(
-        encodeAbiParameters(
-          parseAbiParameters("address, address, uint24, int24, address"),
-          [poolKey.currency0, poolKey.currency1, poolKey.fee, poolKey.tickSpacing, poolKey.hooks]
-        )
-      );
+      const poolId = report.selectedPoolId
+        ? (report.selectedPoolId as `0x${string}`)
+        : keccak256(
+            encodeAbiParameters(
+              parseAbiParameters("address, address, uint24, int24, address"),
+              [poolKey.currency0, poolKey.currency1, poolKey.fee, poolKey.tickSpacing, poolKey.hooks]
+            )
+          );
 
-      console.log("[Executor] Pool ID (computed):", poolId);
+      console.log("[Executor] Pool ID:", poolId);
       console.log("[Executor] Amount:", amount.toString());
 
       // Get current pool state via extsload.

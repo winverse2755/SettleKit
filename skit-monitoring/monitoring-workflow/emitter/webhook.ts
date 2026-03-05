@@ -44,7 +44,7 @@ function sendWebhookRequest(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: toBase64(body),
-      timeout: "10s",
+      timeout: "30s",
     })
     .result();
 

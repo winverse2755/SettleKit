@@ -17,9 +17,11 @@ import type {
   OracleData,
   PoolData,
   BridgeData,
+  PoolKeyReport,
 } from "./types";
 import { fetchOracleData } from "./fetchers/oracle";
-import { fetchPoolData } from "./fetchers/pool";
+import { fetchPoolDataForPoolId, MOCK_POOL_DATA } from "./fetchers/pool";
+import { discoverBestPool } from "./utils/pool-discovery";
 import { fetchBridgeData } from "./fetchers/bridge";
 import {
   evaluateRisk,
@@ -111,27 +113,32 @@ const onHttpTrigger = (
   }
 
   // ============================================================
-  // Step 3: Fetch Pool Health (Uniswap v4 via HTTP eth_call → Tenderly RPC)
+  // Step 3: Discover best ETH/USDC pool and fetch its health (Uniswap v4 pool keys)
   // ============================================================
-  runtime.log("\n[Step 3] Fetching pool health data via Tenderly RPC (HTTP eth_call)...");
+  runtime.log("\n[Step 3] Discovering best ETH/USDC pool on target chain...");
   let poolData: PoolData;
+  let selectedPoolId: string | undefined;
+  let selectedPoolKey: PoolKeyReport | undefined;
   try {
-    poolData = fetchPoolData(runtime, intent);
-    runtime.log(`  Liquidity: ${poolData.liquidity.toString()}`);
-    runtime.log(`  Liquidity depth: ${poolData.liquidityDepth}`);
-    runtime.log(`  Current tick: ${poolData.tick}`);
-    runtime.log(`  LP fee: ${poolData.lpFee / 10000}%`);
+    const discovered = discoverBestPool(runtime, intent);
+    if (discovered) {
+      poolData = discovered.poolData;
+      selectedPoolId = discovered.poolId;
+      selectedPoolKey = discovered.poolKey;
+      runtime.log(`  Selected pool ID: ${discovered.poolId.slice(0, 18)}...`);
+      runtime.log(`  Liquidity: ${poolData.liquidity.toString()}`);
+      runtime.log(`  Liquidity depth: ${poolData.liquidityDepth}`);
+      runtime.log(`  Current tick: ${poolData.tick}`);
+      runtime.log(`  LP fee: ${poolData.lpFee / 10000}%`);
+    } else {
+      poolData = { ...MOCK_POOL_DATA };
+      runtime.log("  No initialized pool found — using mock pool data for evaluation");
+    }
   } catch (error) {
-    const errorMsg = `Pool fetch failed: ${error}`;
+    const errorMsg = `Pool discovery/fetch failed: ${error}`;
     runtime.log(`  ERROR: ${errorMsg}`);
     fetchErrors.push(errorMsg);
-    poolData = {
-      sqrtPriceX96: 0n,
-      tick: 0,
-      liquidity: 0n,
-      liquidityDepth: "shallow" as const,
-      lpFee: 0,
-    };
+    poolData = { ...MOCK_POOL_DATA };
   }
 
   // ============================================================
@@ -194,7 +201,9 @@ const onHttpTrigger = (
     poolData,
     intent,
     runtime.config,
-    executionId
+    executionId,
+    selectedPoolId,
+    selectedPoolKey
   );
 
   // Add fetch errors to report metadata if any
@@ -258,7 +267,6 @@ function createErrorReport(error: string, executionId: string): RiskReport {
       targetChain: "",
       token: "",
       amount: "0",
-      targetPoolAddress: "",
       maxSlippageTolerance: 0,
       maxBridgeDelay: 0,
       sourceRpc: "",

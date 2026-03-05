@@ -8,7 +8,6 @@ export interface SettlementIntent {
   targetChain: string;
   token: string;
   amount: string;
-  targetPoolAddress: string;
   maxSlippageTolerance: number;
   maxBridgeDelay: number;
   sourceRpc: string;
@@ -50,6 +49,15 @@ export interface OracleDataReport {
   timestamp: number;
 }
 
+/** Pool key for Uniswap v4 (used by executor when report includes selected pool) */
+export interface PoolKeyReport {
+  currency0: string;
+  currency1: string;
+  fee: number;
+  tickSpacing: number;
+  hooks: string;
+}
+
 export interface RiskReport {
   status: RiskStatus;
   checks: RiskCheck[];
@@ -59,6 +67,10 @@ export interface RiskReport {
   recipeId: string;
   timestamp: number;
   intent: SettlementIntent;
+  /** Resolved pool ID from discovery (Uniswap v4 pool key hash) */
+  selectedPoolId?: string;
+  /** Resolved pool key for execution (when workflow discovered the pool) */
+  selectedPoolKey?: PoolKeyReport;
   metadata?: {
     executionId?: string;
     notes?: string[];

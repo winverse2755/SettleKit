@@ -13,6 +13,7 @@ import type {
   TenderlySim,
   OracleDataReport,
   ThresholdConfig,
+  PoolKeyReport,
 } from "../types";
 import {
   DEFAULT_THRESHOLDS,
@@ -273,7 +274,9 @@ export function buildReport(
   pool: PoolData,
   intent: SettlementIntent,
   config: WorkflowConfig,
-  executionId?: string
+  executionId?: string,
+  selectedPoolId?: string,
+  selectedPoolKey?: PoolKeyReport
 ): RiskReport {
   // Serialize oracle data for JSON
   const oracleData: OracleDataReport = {
@@ -321,6 +324,8 @@ export function buildReport(
     recipeId,
     timestamp: Date.now(),
     intent,
+    ...(selectedPoolId !== undefined ? { selectedPoolId } : {}),
+    ...(selectedPoolKey !== undefined ? { selectedPoolKey } : {}),
     metadata: {
       executionId,
       // Omit notes when empty — undefined inside objects crashes CRE's serializer.

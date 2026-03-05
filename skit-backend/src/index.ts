@@ -112,15 +112,14 @@ if (TELEGRAM_BOT_TOKEN) {
   telegramBot = new TelegramBotService(TELEGRAM_BOT_TOKEN, {
     onSimulate: async (chatId, args) => {
       if (args.length < 3) {
-        return "Usage: /simulate <amount> <from_chain> <to_pool>";
+        return "Usage: /simulate <amount> <from_chain> <to_chain>";
       }
-      const [amount, fromChain, toPool] = args;
+      const [amount, fromChain, toChain] = args;
       const intent: SettlementIntent = {
         sourceChain: fromChain,
-        targetChain: "unichainSepolia",
+        targetChain: toChain,
         token: "USDC",
         amount,
-        targetPoolAddress: toPool,
         maxSlippageTolerance: 0.01,
         maxBridgeDelay: 1_200_000,
         sourceRpc: BASE_VNET_RPC,
@@ -539,7 +538,7 @@ app.post("/webhook", async (req: Request, res: Response) => {
         );
         try {
           addToPositionOrCreate({
-            poolAddress: report.intent.targetPoolAddress,
+            poolAddress: report.selectedPoolId ?? "",
             amount: report.intent.amount,
             chain: report.intent.targetChain ?? "unichainSepolia",
             rpcUrl: report.intent.targetRpc ?? UNICHAIN_VNET_RPC,

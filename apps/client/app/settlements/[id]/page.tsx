@@ -13,7 +13,6 @@ interface SettlementIntent {
   targetChain: string;
   token: string;
   amount: string;
-  targetPoolAddress: string;
   maxSlippageTolerance: number;
   maxBridgeDelay: number;
   sourceRpc: string;
@@ -52,6 +51,7 @@ interface RiskReport {
   recipeId: string;
   timestamp: number;
   intent: SettlementIntent;
+  selectedPoolId?: string;
 }
 
 interface Settlement {
@@ -176,10 +176,12 @@ export default function SettlementDetailPage() {
                 <div className="text-xs text-muted-foreground">Amount</div>
                 <div className="font-medium">{settlement.intent.amount}</div>
               </div>
-              <div className="md:col-span-2">
-                <div className="text-xs text-muted-foreground">Target Pool Address</div>
-                <div className="font-mono text-sm break-all">{settlement.intent.targetPoolAddress}</div>
-              </div>
+              {settlement.riskReport?.selectedPoolId && (
+                <div className="md:col-span-2">
+                  <div className="text-xs text-muted-foreground">Selected Pool (ID)</div>
+                  <div className="font-mono text-sm break-all">{settlement.riskReport.selectedPoolId}</div>
+                </div>
+              )}
               <div>
                 <div className="text-xs text-muted-foreground">Max Slippage Tolerance</div>
                 <div className="font-medium">{(settlement.intent.maxSlippageTolerance * 100).toFixed(2)}%</div>

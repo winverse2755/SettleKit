@@ -10,6 +10,7 @@ import { fetchAllPoolHealth } from "./fetchers/pool";
 import { selectNextBestPool } from "./evaluator";
 import { emitMonitoringReports } from "./emitter/webhook";
 import { fetchActivePositions } from "./fetchers/positions";
+import { getEthUsdcPoolIds } from "./utils/pool-discovery";
 
 const onCronTrigger = (
   runtime: Runtime<MonitoringWorkflowConfig>
@@ -23,11 +24,10 @@ const onCronTrigger = (
   runtime.log(`Loaded active positions: ${positions.length}`);
 
   const rpcUrl = runtime.config.targetRpc;
-  const poolSnapshots = fetchAllPoolHealth(
-    runtime,
-    runtime.config.poolRegistry,
-    rpcUrl
-  );
+  // Use same ETH/USDC pool set as risk-guard (discovery) so position's pool is always in snapshot
+  const poolIds = getEthUsdcPoolIds();
+  runtime.log(`Using discovered ETH/USDC pool set (${poolIds.length} fee tiers)`);
+  const poolSnapshots = fetchAllPoolHealth(runtime, poolIds, rpcUrl);
   runtime.log(`Fetched health for ${poolSnapshots.length} pools`);
 
   const reports: MonitoringReport[] = [];
