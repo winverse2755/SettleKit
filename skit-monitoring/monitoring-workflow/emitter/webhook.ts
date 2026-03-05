@@ -81,3 +81,33 @@ export function emitMonitoringReport(
     )(runtime.config.webhookUrl, JSON.stringify(payload))
     .result();
 }
+
+export interface MonitoringReportBatchPayload {
+  event: "MONITORING_REPORT_BATCH";
+  reports: MonitoringReport[];
+  sentAt: number;
+}
+
+export function emitMonitoringReports(
+  runtime: Runtime<MonitoringWorkflowConfig>,
+  reports: MonitoringReport[]
+): EmitResult {
+  if (reports.length === 0) {
+    return { success: true };
+  }
+
+  const payload: MonitoringReportBatchPayload = {
+    event: "MONITORING_REPORT_BATCH",
+    reports,
+    sentAt: Date.now(),
+  };
+
+  const httpClient = new HTTPClient();
+  return httpClient
+    .sendRequest(
+      runtime,
+      sendWebhookRequest,
+      consensusIdenticalAggregation<EmitResult>()
+    )(runtime.config.webhookUrl, JSON.stringify(payload))
+    .result();
+}

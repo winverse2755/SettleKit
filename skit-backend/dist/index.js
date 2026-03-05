@@ -9,9 +9,9 @@
 import "dotenv/config";
 import express from "express";
 import { v4 as uuidv4 } from "uuid";
-import { initDatabase, createSettlement, getSettlement, getSettlementByRecipeId, updateSettlementStatus, getAllSettlements, getActivePositionsWithMonitoring, getPosition, createMonitoringReport, getLatestMonitoringReportByPosition, updateMonitoringReportExecution, createOrUpdatePosition, updatePositionPool, getEnabledTelegramChatIds, setTelegramAlerts, closeDatabase, } from "./db.js";
+import { initDatabase, createSettlement, getSettlement, getSettlementByRecipeId, updateSettlementStatus, getAllSettlements, getActivePositionsWithMonitoring, getPosition, createMonitoringReport, getLatestMonitoringReportByPosition, updateMonitoringReportExecution, createOrUpdatePosition, addToPositionOrCreate, updatePositionPool, getEnabledTelegramChatIds, setTelegramAlerts, closeDatabase, } from "./db.js";
 import { getExecutor } from "./executor.js";
-import { TelegramBotService, formatHistory, formatMonitoringAlert, formatPositions, } from "./telegram.js";
+import { TelegramBotService, formatHistory, formatMonitoringAlert, formatPositions, formatSettlementExecuted, formatSettlementFailed, } from "./telegram.js";
 const PORT = process.env.PORT || 3001;
 const CRE_WORKFLOW_URL = process.env.CRE_WORKFLOW_URL;
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -39,10 +39,12 @@ async function fetchRpcBlockNumber(rpcUrl) {
         throw new Error("No block number in RPC response");
     return BigInt(json.result);
 }
+// Maps settlementId → chatId so the webhook can send a follow-up to the right chat
+const pendingSimulations = new Map();
 let telegramBot = null;
 if (TELEGRAM_BOT_TOKEN) {
     telegramBot = new TelegramBotService(TELEGRAM_BOT_TOKEN, {
-        onSimulate: async (args) => {
+        onSimulate: async (chatId, args) => {
             if (args.length < 3) {
                 return "Usage: /simulate <amount> <from_chain> <to_pool>";
             }
@@ -60,37 +62,25 @@ if (TELEGRAM_BOT_TOKEN) {
             };
             const settlementId = uuidv4();
             createSettlement(settlementId, intent);
+            // Register this chat so the webhook handler can send a follow-up message
+            // once CRE completes the risk assessment and calls back.
+            pendingSimulations.set(settlementId, chatId);
             if (CRE_WORKFLOW_URL) {
-                await fetch(CRE_WORKFLOW_URL, {
+                fetch(CRE_WORKFLOW_URL, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(intent),
-                });
+                }).catch((err) => console.error("[/simulate] Failed to forward to CRE:", err));
             }
-            // Wait briefly for webhook callback to attach risk report.
-            let settlement = getSettlement(settlementId);
-            for (let i = 0; i < 10; i += 1) {
-                if (settlement?.riskReport)
-                    break;
-                await new Promise((r) => setTimeout(r, 2000));
-                settlement = getSettlement(settlementId);
-            }
-            if (!settlement?.riskReport) {
-                return `Simulation submitted (pending)\nsettlementId=${settlementId}\nstatus=PENDING`;
-            }
-            const report = settlement.riskReport;
-            const slippageCheck = report.checks.find((c) => c.name === "slippage");
-            const liquidityCheck = report.checks.find((c) => c.name === "liquidity");
-            const bridgeCheck = report.checks.find((c) => c.name === "bridgeDelay");
             return [
-                "Simulation result:",
-                `status=${report.status}`,
-                `recipeId=${report.recipeId}`,
-                `slippage=${slippageCheck?.actual ?? "n/a"}`,
-                `liquidity=${liquidityCheck?.actual ?? "n/a"}`,
-                `bridgeETA(ms)=${bridgeCheck?.actual ?? "n/a"}`,
-                `gasEstimate=${report.tenderlySim.gasEstimate}`,
-                `tenderly=${report.explorerUrl}`,
+                "Simulation submitted ✅",
+                `settlementId=${settlementId}`,
+                `status=PENDING`,
+                "",
+                "CRE is running the risk assessment. You will receive a follow-up message here once the result arrives.",
+                CRE_WORKFLOW_URL
+                    ? `Trigger: cre simulate --target sim-settings`
+                    : "⚠️  CRE_WORKFLOW_URL not set — trigger CRE manually, then use /status to check.",
             ].join("\n");
         },
         onStatus: async (args) => {
@@ -240,6 +230,47 @@ app.post("/webhook", async (req, res) => {
     try {
         // Handle settlement and monitoring events.
         const body = req.body;
+        if ("event" in body && body.event === "MONITORING_REPORT_BATCH") {
+            const reports = body.reports ?? [];
+            console.log(`[/webhook] Received MONITORING_REPORT_BATCH event (${reports.length} reports)`);
+            for (const report of reports) {
+                console.log(`[/webhook] Processing report ${report.reportId} status=${report.status}`);
+                createMonitoringReport(report);
+                if (report.status === "MOVE_RECOMMENDED" && report.nextBestPool) {
+                    console.log(`[/webhook] MOVE_RECOMMENDED - triggering immediate rebalance`);
+                    const executor = getExecutor();
+                    const rebalanceRequest = {
+                        positionId: report.positionId,
+                        currentPool: report.poolAddress,
+                        nextBestPool: report.nextBestPool,
+                        depositAmount: report.depositAmount,
+                        chain: report.chain,
+                        reason: report.reason,
+                    };
+                    const result = await executor.executeRebalance(rebalanceRequest);
+                    const alertChatIds = getEnabledTelegramChatIds();
+                    if (result.success) {
+                        updateMonitoringReportExecution(report.reportId, "EXECUTED", result.txHash);
+                        updatePositionPool(report.positionId, report.nextBestPool);
+                        if (telegramBot && alertChatIds.length > 0) {
+                            await telegramBot.sendBroadcast(alertChatIds, formatMonitoringAlert(report, "SUCCESS", result.explorerUrl));
+                        }
+                    }
+                    else {
+                        updateMonitoringReportExecution(report.reportId, "FAILED", undefined, result.error);
+                        if (telegramBot && alertChatIds.length > 0) {
+                            await telegramBot.sendBroadcast(alertChatIds, formatMonitoringAlert(report, "FAILED", result.explorerUrl, result.error));
+                        }
+                    }
+                }
+            }
+            const response = {
+                success: true,
+                message: `Monitoring report batch processed (${reports.length} reports)`,
+            };
+            res.status(200).json(response);
+            return;
+        }
         if ("event" in body && body.event === "MONITORING_REPORT") {
             const report = body.report;
             console.log(`[/webhook] Received MONITORING_REPORT event`);
@@ -316,7 +347,12 @@ app.post("/webhook", async (req, res) => {
         let updatedSettlement = updateSettlementStatus(settlement.id, settlementStatus, report);
         if ((report.status === "WARNING" || report.status === "BLOCKED") && telegramBot) {
             const alertChatIds = getEnabledTelegramChatIds();
-            if (alertChatIds.length > 0) {
+            // Also notify the chat that originally triggered /simulate, if any.
+            const simChatId = pendingSimulations.get(settlement.id);
+            const targets = simChatId
+                ? [...new Set([...alertChatIds, simChatId])]
+                : alertChatIds;
+            if (targets.length > 0) {
                 const failedChecks = report.checks
                     .filter((c) => !c.passed)
                     .map((c) => `${c.name}(${c.actual}/${c.threshold})`)
@@ -328,10 +364,11 @@ app.post("/webhook", async (req, res) => {
                     `reason=${failedChecks || "n/a"}`,
                     `tenderly=${report.explorerUrl}`,
                 ].join("\n");
-                await telegramBot.sendBroadcast(alertChatIds, text);
+                await telegramBot.sendBroadcast(targets, text);
             }
+            pendingSimulations.delete(settlement.id);
         }
-        // If approved, execute the settlement
+        // If approved, execute the settlement and broadcast the outcome.
         if (report.status === "APPROVED") {
             console.log(`[/webhook] Settlement APPROVED - triggering execution`);
             const executor = getExecutor();
@@ -339,11 +376,43 @@ app.post("/webhook", async (req, res) => {
             if (result.success) {
                 console.log(`[/webhook] Execution successful: ${result.txHash}`);
                 updatedSettlement = updateSettlementStatus(settlement.id, "EXECUTED", undefined, result.txHash, result.explorerUrl);
+                try {
+                    addToPositionOrCreate({
+                        poolAddress: report.intent.targetPoolAddress,
+                        amount: report.intent.amount,
+                        chain: report.intent.targetChain ?? "unichainSepolia",
+                        rpcUrl: report.intent.targetRpc ?? UNICHAIN_VNET_RPC,
+                    });
+                }
+                catch (posErr) {
+                    console.error(`[/webhook] addToPositionOrCreate failed:`, posErr);
+                }
+                if (telegramBot) {
+                    const alertChatIds = getEnabledTelegramChatIds();
+                    const simChatId = pendingSimulations.get(settlement.id);
+                    const targets = simChatId
+                        ? [...new Set([...alertChatIds, simChatId])]
+                        : alertChatIds;
+                    if (targets.length > 0) {
+                        await telegramBot.sendBroadcast(targets, formatSettlementExecuted(report, result.txHash, result.explorerUrl));
+                    }
+                }
             }
             else {
                 console.log(`[/webhook] Execution failed: ${result.error}`);
                 updatedSettlement = updateSettlementStatus(settlement.id, "FAILED", undefined, undefined, undefined);
+                if (telegramBot) {
+                    const alertChatIds = getEnabledTelegramChatIds();
+                    const simChatId = pendingSimulations.get(settlement.id);
+                    const targets = simChatId
+                        ? [...new Set([...alertChatIds, simChatId])]
+                        : alertChatIds;
+                    if (targets.length > 0) {
+                        await telegramBot.sendBroadcast(targets, formatSettlementFailed(report, result.error));
+                    }
+                }
             }
+            pendingSimulations.delete(settlement.id);
         }
         const response = {
             success: true,

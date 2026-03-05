@@ -63,6 +63,11 @@ export interface MonitoringReportPayload {
     report: MonitoringReport;
     sentAt: number;
 }
+export interface MonitoringReportBatchPayload {
+    event: "MONITORING_REPORT_BATCH";
+    reports: MonitoringReport[];
+    sentAt: number;
+}
 export interface ExecutorSignal {
     action: "EXECUTE";
     report: RiskReport;

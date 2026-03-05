@@ -12,6 +12,18 @@ export declare function updateSettlementStatus(id: string, status: SettlementSta
 export declare function getAllSettlements(limit?: number): Settlement[];
 export declare function createOrUpdatePosition(position: Omit<Position, "createdAt" | "updatedAt">): Position;
 export declare function getPosition(positionId: string): Position | null;
+export declare function getPositionByPoolAddress(poolAddress: string, chain?: string): Position | null;
+export interface AddToPositionParams {
+    poolAddress: string;
+    amount: string;
+    chain: string;
+    rpcUrl?: string;
+}
+/**
+ * Add amount to an existing position for the given pool, or create a new position.
+ * Uses pos-{index} for new position IDs. Same pool + chain aggregates into one position.
+ */
+export declare function addToPositionOrCreate(params: AddToPositionParams): Position;
 export declare function getActivePositions(limit?: number): Position[];
 export declare function updatePositionPool(positionId: string, nextPoolAddress: string): Position | null;
 export declare function createMonitoringReport(report: MonitoringReport): MonitoringReport;

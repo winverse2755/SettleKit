@@ -1,0 +1,11 @@
+{
+  "sourceChain": "baseSepolia",
+  "targetChain": "unichainSepolia",
+  "token": "USDC",
+  "amount": "25000000",
+  "targetPoolAddress": "0x00b036b58a818b1bc34d502d3fe730db729e62ac",
+  "maxSlippageTolerance": 0.01,
+  "maxBridgeDelay": 1200000,
+  "sourceRpc": "https://virtual.base-sepolia.eu.rpc.tenderly.co/eda241e6-2aa8-4abe-9db9-784bd0ceb88d",
+  "targetRpc": "https://virtual.astrochain-sepolia.eu.rpc.tenderly.co/bd73fda9-3ee0-46de-9dec-8204367d2668"
+}

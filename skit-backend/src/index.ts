@@ -10,6 +10,9 @@
 import "dotenv/config";
 import express, { type Request, type Response } from "express";
 import { v4 as uuidv4 } from "uuid";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import {
   initDatabase,
   createSettlement,
@@ -24,6 +27,7 @@ import {
   getLatestMonitoringReportByPosition,
   updateMonitoringReportExecution,
   createOrUpdatePosition,
+  addToPositionOrCreate,
   updatePositionPool,
   getEnabledTelegramChatIds,
   setTelegramAlerts,
@@ -40,6 +44,7 @@ import {
 } from "./telegram.js";
 import type {
   MonitoringReport,
+  MonitoringReportBatchPayload,
   MonitoringReportPayload,
   RebalanceRequest,
   SettlementStatus,
@@ -51,6 +56,20 @@ import type {
   SettlementResponse,
   RiskReport,
 } from "./types.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Path to the JSON file used by CRE CLI (@last-telegram-intent.json)
+// when simulating the risk-guard workflow with the latest Telegram /simulate intent.
+const LAST_TELEGRAM_INTENT_PATH = path.join(
+  __dirname,
+  "..",
+  "..",
+  "skit-risk-guard",
+  "risk-guard-workflow",
+  "last-telegram-intent.json"
+);
 
 const PORT = process.env.PORT || 3001;
 const CRE_WORKFLOW_URL = process.env.CRE_WORKFLOW_URL;
@@ -114,6 +133,23 @@ if (TELEGRAM_BOT_TOKEN) {
       // Register this chat so the webhook handler can send a follow-up message
       // once CRE completes the risk assessment and calls back.
       pendingSimulations.set(settlementId, chatId);
+
+      // Persist the latest Telegram /simulate intent so it can be reused
+      // by the CRE CLI as @last-telegram-intent.json.
+      try {
+        fs.mkdirSync(path.dirname(LAST_TELEGRAM_INTENT_PATH), { recursive: true });
+        fs.writeFileSync(
+          LAST_TELEGRAM_INTENT_PATH,
+          JSON.stringify(intent, null, 2),
+          "utf-8"
+        );
+        console.log(
+          "[/simulate] Wrote latest intent to",
+          LAST_TELEGRAM_INTENT_PATH
+        );
+      } catch (err) {
+        console.error("[/simulate] Failed to write last-telegram-intent.json:", err);
+      }
 
       if (CRE_WORKFLOW_URL) {
         fetch(CRE_WORKFLOW_URL, {
@@ -293,8 +329,69 @@ app.post("/webhook", async (req: Request, res: Response) => {
     const body = req.body as
       | WebhookPayload
       | MonitoringReportPayload
+      | MonitoringReportBatchPayload
       | ExecutorSignal
       | RiskReport;
+
+    if ("event" in body && body.event === "MONITORING_REPORT_BATCH") {
+      const reports = (body as MonitoringReportBatchPayload).reports ?? [];
+      console.log(`[/webhook] Received MONITORING_REPORT_BATCH event (${reports.length} reports)`);
+
+      for (const report of reports) {
+        console.log(`[/webhook] Processing report ${report.reportId} status=${report.status}`);
+        createMonitoringReport(report);
+
+        if (report.status === "MOVE_RECOMMENDED" && report.nextBestPool) {
+          console.log(`[/webhook] MOVE_RECOMMENDED - triggering immediate rebalance`);
+          const executor = getExecutor();
+          const rebalanceRequest: RebalanceRequest = {
+            positionId: report.positionId,
+            currentPool: report.poolAddress,
+            nextBestPool: report.nextBestPool,
+            depositAmount: report.depositAmount,
+            chain: report.chain,
+            reason: report.reason,
+          };
+
+          const result = await executor.executeRebalance(rebalanceRequest);
+          const alertChatIds = getEnabledTelegramChatIds();
+          if (result.success) {
+            updateMonitoringReportExecution(
+              report.reportId,
+              "EXECUTED",
+              result.txHash
+            );
+            updatePositionPool(report.positionId, report.nextBestPool);
+            if (telegramBot && alertChatIds.length > 0) {
+              await telegramBot.sendBroadcast(
+                alertChatIds,
+                formatMonitoringAlert(report, "SUCCESS", result.explorerUrl)
+              );
+            }
+          } else {
+            updateMonitoringReportExecution(
+              report.reportId,
+              "FAILED",
+              undefined,
+              result.error
+            );
+            if (telegramBot && alertChatIds.length > 0) {
+              await telegramBot.sendBroadcast(
+                alertChatIds,
+                formatMonitoringAlert(report, "FAILED", result.explorerUrl, result.error)
+              );
+            }
+          }
+        }
+      }
+
+      const response: WebhookResponse = {
+        success: true,
+        message: `Monitoring report batch processed (${reports.length} reports)`,
+      };
+      res.status(200).json(response);
+      return;
+    }
 
     if ("event" in body && body.event === "MONITORING_REPORT") {
       const report = body.report as MonitoringReport;
@@ -440,6 +537,16 @@ app.post("/webhook", async (req: Request, res: Response) => {
           result.txHash,
           result.explorerUrl
         );
+        try {
+          addToPositionOrCreate({
+            poolAddress: report.intent.targetPoolAddress,
+            amount: report.intent.amount,
+            chain: report.intent.targetChain ?? "unichainSepolia",
+            rpcUrl: report.intent.targetRpc ?? UNICHAIN_VNET_RPC,
+          });
+        } catch (posErr) {
+          console.error(`[/webhook] addToPositionOrCreate failed:`, posErr);
+        }
         if (telegramBot) {
           const alertChatIds = getEnabledTelegramChatIds();
           const simChatId = pendingSimulations.get(settlement.id);

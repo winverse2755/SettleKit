@@ -15827,27 +15827,33 @@ function toBase64(str) {
   }
   return result;
 }
-function batchPoolEthCall(sendRequester, rpcUrl, poolManagerAddress, slot0Calldata, liquidityCalldata) {
-  const body = JSON.stringify([
-    {
+function batchAllPoolsEthCall(sendRequester, rpcUrl, poolManagerAddress, poolCalldatas) {
+  const batch = [];
+  let id = 1;
+  for (const p of poolCalldatas) {
+    batch.push({
       jsonrpc: "2.0",
       method: "eth_call",
       params: [
-        { from: zeroAddress, to: poolManagerAddress, data: slot0Calldata },
+        { from: zeroAddress, to: poolManagerAddress, data: p.slot0Calldata },
         "latest"
       ],
-      id: 1
-    },
-    {
+      id: id++
+    }, {
       jsonrpc: "2.0",
       method: "eth_call",
       params: [
-        { from: zeroAddress, to: poolManagerAddress, data: liquidityCalldata },
+        {
+          from: zeroAddress,
+          to: poolManagerAddress,
+          data: p.liquidityCalldata
+        },
         "latest"
       ],
-      id: 2
-    }
-  ]);
+      id: id++
+    });
+  }
+  const body = JSON.stringify(batch);
   const encodedBody = toBase64(body);
   const response = sendRequester.sendRequest({
     url: rpcUrl,
@@ -15859,65 +15865,43 @@ function batchPoolEthCall(sendRequester, rpcUrl, poolManagerAddress, slot0Callda
   if (!ok(response)) {
     return {
       success: false,
-      slot0Data: "0x",
-      liquidityData: "0x",
+      poolResults: [],
       error: "HTTP request to RPC failed"
     };
   }
   try {
     const parsed = json(response);
-    const slot0 = parsed.find((r) => r.id === 1);
-    const liquidity = parsed.find((r) => r.id === 2);
-    if (!slot0?.result || !liquidity?.result) {
-      return {
-        success: false,
-        slot0Data: "0x",
-        liquidityData: "0x",
-        error: slot0?.error?.message ?? liquidity?.error?.message ?? "Missing RPC result"
-      };
+    const poolResults = [];
+    for (let i2 = 0;i2 < poolCalldatas.length; i2++) {
+      const slot0Id = i2 * 2 + 1;
+      const liquidityId = i2 * 2 + 2;
+      const slot0 = parsed.find((r) => r.id === slot0Id);
+      const liquidity = parsed.find((r) => r.id === liquidityId);
+      if (!slot0?.result || !liquidity?.result) {
+        return {
+          success: false,
+          poolResults: [],
+          error: slot0?.error?.message ?? liquidity?.error?.message ?? "Missing RPC result"
+        };
+      }
+      poolResults.push({
+        slot0Data: slot0.result,
+        liquidityData: liquidity.result
+      });
     }
-    return {
-      success: true,
-      slot0Data: slot0.result,
-      liquidityData: liquidity.result
-    };
+    return { success: true, poolResults };
   } catch (error) {
     return {
       success: false,
-      slot0Data: "0x",
-      liquidityData: "0x",
+      poolResults: [],
       error: `Failed to parse RPC response: ${error}`
     };
   }
 }
-function fetchPoolHealth(runtime2, poolId, rpcUrl) {
-  const poolStateSlot = keccak256(encodeAbiParameters([{ type: "bytes32" }, { type: "uint256" }], [poolId, POOLS_SLOT]));
-  const liquiditySlot = "0x" + (BigInt(poolStateSlot) + LIQUIDITY_OFFSET).toString(16).padStart(64, "0");
-  const slot0Calldata = encodeFunctionData({
-    abi: POOL_MANAGER_ABI,
-    functionName: "extsload",
-    args: [poolStateSlot]
-  });
-  const liquidityCalldata = encodeFunctionData({
-    abi: POOL_MANAGER_ABI,
-    functionName: "extsload",
-    args: [liquiditySlot]
-  });
-  const httpClient = new ClientCapability;
-  const rpcResult = httpClient.sendRequest(runtime2, batchPoolEthCall, consensusIdenticalAggregation())(rpcUrl, runtime2.config.poolManagerAddress, slot0Calldata, liquidityCalldata).result();
-  if (!rpcResult.success) {
-    runtime2.log(`[Pool health] Failed to fetch pool ${poolId}: ${rpcResult.error}`);
-    return {
-      poolId,
-      initialized: false,
-      sqrtPriceX96: 0n,
-      tick: 0,
-      liquidity: 0n
-    };
-  }
+function parsePoolHealth(poolId, slot0Data, liquidityData) {
   try {
-    const [slot0Value] = decodeAbiParameters([{ type: "bytes32" }], rpcResult.slot0Data);
-    const [liquidityValue] = decodeAbiParameters([{ type: "bytes32" }], rpcResult.liquidityData);
+    const [slot0Value] = decodeAbiParameters([{ type: "bytes32" }], slot0Data);
+    const [liquidityValue] = decodeAbiParameters([{ type: "bytes32" }], liquidityData);
     const slot0BigInt = BigInt(slot0Value);
     const sqrtPriceX96 = slot0BigInt & (1n << 160n) - 1n;
     const tickRaw = Number(slot0BigInt >> 160n & (1n << 24n) - 1n);
@@ -15930,8 +15914,7 @@ function fetchPoolHealth(runtime2, poolId, rpcUrl) {
       tick,
       liquidity
     };
-  } catch (error) {
-    runtime2.log(`[Pool health] Decode failed for ${poolId}: ${error}`);
+  } catch {
     return {
       poolId,
       initialized: false,
@@ -15940,6 +15923,41 @@ function fetchPoolHealth(runtime2, poolId, rpcUrl) {
       liquidity: 0n
     };
   }
+}
+function fetchAllPoolHealth(runtime2, poolRegistry, rpcUrl) {
+  const poolCalldatas = poolRegistry.map((poolId) => {
+    const poolStateSlot = keccak256(encodeAbiParameters([{ type: "bytes32" }, { type: "uint256" }], [poolId, POOLS_SLOT]));
+    const liquiditySlot = "0x" + (BigInt(poolStateSlot) + LIQUIDITY_OFFSET).toString(16).padStart(64, "0");
+    return {
+      poolId,
+      slot0Calldata: encodeFunctionData({
+        abi: POOL_MANAGER_ABI,
+        functionName: "extsload",
+        args: [poolStateSlot]
+      }),
+      liquidityCalldata: encodeFunctionData({
+        abi: POOL_MANAGER_ABI,
+        functionName: "extsload",
+        args: [liquiditySlot]
+      })
+    };
+  });
+  if (poolCalldatas.length === 0) {
+    return [];
+  }
+  const httpClient = new ClientCapability;
+  const result = httpClient.sendRequest(runtime2, batchAllPoolsEthCall, consensusIdenticalAggregation())(rpcUrl, runtime2.config.poolManagerAddress, poolCalldatas).result();
+  if (!result.success) {
+    runtime2.log(`[Pool health] Batch fetch failed: ${result.error}`);
+    return poolCalldatas.map((p) => ({
+      poolId: p.poolId,
+      initialized: false,
+      sqrtPriceX96: 0n,
+      tick: 0,
+      liquidity: 0n
+    }));
+  }
+  return result.poolResults.map((r, i2) => parsePoolHealth(poolCalldatas[i2].poolId, r.slot0Data, r.liquidityData));
 }
 function selectNextBestPool(currentPoolId, pools) {
   const candidates = pools.filter((pool) => pool.poolId !== currentPoolId).sort((a, b) => {
@@ -15983,10 +16001,13 @@ function sendWebhookRequest(sendRequester, url, body) {
     error: `HTTP ${response.statusCode}`
   };
 }
-function emitMonitoringReport(runtime2, report2) {
+function emitMonitoringReports(runtime2, reports) {
+  if (reports.length === 0) {
+    return { success: true };
+  }
   const payload = {
-    event: "MONITORING_REPORT",
-    report: report2,
+    event: "MONITORING_REPORT_BATCH",
+    reports,
     sentAt: Date.now()
   };
   const httpClient = new ClientCapability;
@@ -16056,13 +16077,17 @@ var onCronTrigger = (runtime2) => {
   runtime2.log("=".repeat(60));
   const positions = fetchActivePositions(runtime2);
   runtime2.log(`Loaded active positions: ${positions.length}`);
-  let reportsEmitted = 0;
+  const rpcUrl = runtime2.config.targetRpc;
+  const poolSnapshots = fetchAllPoolHealth(runtime2, runtime2.config.poolRegistry, rpcUrl);
+  runtime2.log(`Fetched health for ${poolSnapshots.length} pools`);
+  const reports = [];
   let healthy = 0;
   let moveRecommended = 0;
-  for (const position of positions) {
+  const baseTimestamp = Date.now();
+  for (let i2 = 0;i2 < positions.length; i2++) {
+    const position = positions[i2];
     runtime2.log("");
     runtime2.log(`[Position] ${position.positionId}`);
-    const poolSnapshots = runtime2.config.poolRegistry.map((poolId) => fetchPoolHealth(runtime2, poolId, position.rpcUrl ?? runtime2.config.targetRpc));
     const currentPool = poolSnapshots.find((pool) => pool.poolId === position.poolAddress) ?? {
       poolId: position.poolAddress,
       initialized: false,
@@ -16096,14 +16121,14 @@ var onCronTrigger = (runtime2) => {
         healthy += 1;
       }
     }
-    const report2 = buildMonitoringReport(runtime2, position, currentPool, decision);
-    const emitResult = emitMonitoringReport(runtime2, report2);
-    if (emitResult.success) {
-      reportsEmitted += 1;
-      runtime2.log(`[Report emitted] position=${position.positionId} status=${report2.status}`);
-    } else {
-      runtime2.log(`[Report emission failed] position=${position.positionId} error=${emitResult.error}`);
-    }
+    const report2 = buildMonitoringReport(runtime2, position, currentPool, decision, `${baseTimestamp}-${i2}`);
+    reports.push(report2);
+    runtime2.log(`[Report prepared] position=${position.positionId} status=${report2.status}`);
+  }
+  const emitResult = emitMonitoringReports(runtime2, reports);
+  const reportsEmitted = emitResult.success ? reports.length : 0;
+  if (!emitResult.success) {
+    runtime2.log(`[Batch emission failed] error=${emitResult.error}`);
   }
   runtime2.log("=".repeat(60));
   runtime2.log(`Monitoring complete: emitted=${reportsEmitted}, healthy=${healthy}, moveRecommended=${moveRecommended}`);
@@ -16114,9 +16139,9 @@ var onCronTrigger = (runtime2) => {
     moveRecommended
   };
 };
-function buildMonitoringReport(runtime2, position, currentPool, decision) {
+function buildMonitoringReport(runtime2, position, currentPool, decision, uniqueSuffix) {
   return {
-    reportId: `monitor-${position.positionId}-${Date.now()}`,
+    reportId: `monitor-${position.positionId}-${uniqueSuffix ?? Date.now()}`,
     positionId: position.positionId,
     poolAddress: position.poolAddress,
     depositAmount: position.depositAmount,
