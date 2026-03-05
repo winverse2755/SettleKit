@@ -26,7 +26,7 @@ export default function HomePage() {
               <span className="text-muted-foreground">Made Simple</span>
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Automated USDC deposits across DeFi pools and vaults with intelligent risk assessment
+              Automated USDC deposits across DeFi pools and vaults with agentic risk assessment
               and monitoring.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
