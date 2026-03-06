@@ -16743,7 +16743,11 @@ function extractTenderlyVnetId(rpcUrl) {
   }
 }
 function buildTenderlyExplorerUrl(baseUrl, vnetId, txHash) {
-  const base = `${baseUrl}/${vnetId}/transactions`;
+  const isProjectUrl = baseUrl.includes("/project/testnet/");
+  if (isProjectUrl) {
+    return txHash ? `${baseUrl}/tx/${txHash}` : baseUrl;
+  }
+  const base = vnetId ? `${baseUrl}/${vnetId}/transactions` : baseUrl;
   return txHash ? `${base}/${txHash}` : base;
 }
 
@@ -16880,8 +16884,8 @@ function buildReport(status, checks, oracle, pool, intent, config, executionId, 
     expectedOutput: calculateExpectedOutput(intent, pool),
     ...vnetId !== undefined ? { vnetId } : {}
   };
-  const explorerBase = config.tenderlyExplorerBase ?? "https://dashboard.tenderly.co/explorer/vnet/d64dbd1d-9664-445b-b168-b90bdf7af8db/transactions";
-  const explorerUrl = vnetId ? buildTenderlyExplorerUrl(explorerBase, vnetId) : explorerBase;
+  const explorerBase = config.tenderlyExplorerBase ?? "https://dashboard.tenderly.co/winverse/project/testnet/22cbc0df-919d-4cdc-927b-436480a7129f";
+  const explorerUrl = buildTenderlyExplorerUrl(explorerBase, vnetId);
   const recipeId = generateRecipeId(intent, executionId);
   const notes = [];
   const failedChecks = checks.filter((c) => !c.passed);

@@ -7,6 +7,7 @@ import { SettlementStatusBadge } from '../components/SettlementStatusBadge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ExternalLink, List, Activity, Loader2 } from 'lucide-react';
+import { formatAmount } from '@/lib/utils';
 
 interface SettlementIntent {
   sourceChain: string;
@@ -69,6 +70,7 @@ function formatTimestamp(ts: number) {
 }
 
 function truncateId(id: string) {
+  if (id.match(/^stl-\d+$/)) return id;
   return `${id.slice(0, 8)}...${id.slice(-4)}`;
 }
 
@@ -158,7 +160,7 @@ export default function SettlementsPage() {
                         <SettlementStatusBadge status={s.status as any} />
                       </div>
                       <div className="mt-2 text-sm text-muted-foreground">
-                        {s.intent.sourceChain} → {s.intent.targetChain} • {s.intent.amount} {s.intent.token}
+                        {s.intent.sourceChain} → {s.intent.targetChain} • {formatAmount(s.intent.amount)} {s.intent.token}
                       </div>
                       <div className="text-xs text-muted-foreground mt-1">
                         {formatTimestamp(s.createdAt)}
@@ -236,7 +238,7 @@ export default function SettlementsPage() {
                         Pool: {p.poolAddress.slice(0, 10)}...{p.poolAddress.slice(-8)} • {p.chain}
                       </div>
                       <div className="text-sm mt-1">
-                        Deposit: {p.depositAmount} • Liquidity: {p.latestLiquidity ?? '—'}
+                        Deposit: {formatAmount(p.depositAmount)} • Liquidity: {p.latestLiquidity != null ? formatAmount(p.latestLiquidity) : '—'}
                       </div>
                       {p.lastScanAt && (
                         <div className="text-xs text-muted-foreground mt-1">

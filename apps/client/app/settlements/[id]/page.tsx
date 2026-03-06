@@ -7,6 +7,7 @@ import { SettlementStatusBadge } from '../../components/SettlementStatusBadge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ExternalLink, ArrowLeft, CheckCircle2, XCircle, Copy } from 'lucide-react';
+import { formatAmount } from '@/lib/utils';
 
 interface SettlementIntent {
   sourceChain: string;
@@ -174,7 +175,7 @@ export default function SettlementDetailPage() {
               </div>
               <div>
                 <div className="text-xs text-muted-foreground">Amount</div>
-                <div className="font-medium">{settlement.intent.amount}</div>
+                <div className="font-medium">{formatAmount(settlement.intent.amount)} {settlement.intent.token}</div>
               </div>
               {settlement.riskReport?.selectedPoolId && (
                 <div className="md:col-span-2">
@@ -277,7 +278,7 @@ export default function SettlementDetailPage() {
                   </div>
                   <div>
                     <div className="text-xs text-muted-foreground">Expected Output</div>
-                    <div className="font-mono text-sm break-all">{report.tenderlySim.expectedOutput}</div>
+                    <div className="font-mono text-sm break-all">{formatAmount(report.tenderlySim.expectedOutput)}</div>
                   </div>
                 </div>
                 {explorerUrl && (

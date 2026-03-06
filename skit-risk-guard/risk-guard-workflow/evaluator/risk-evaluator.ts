@@ -296,12 +296,11 @@ export function buildReport(
     ...(vnetId !== undefined ? { vnetId } : {}),
   };
 
-  // Build explorer URL
+  // Build explorer URL (project format: .../winverse/project/testnet/{id}/tx/{txHash})
   const explorerBase =
-    config.tenderlyExplorerBase ?? "https://dashboard.tenderly.co/explorer/vnet/d64dbd1d-9664-445b-b168-b90bdf7af8db/transactions";
-  const explorerUrl = vnetId
-    ? buildTenderlyExplorerUrl(explorerBase, vnetId)
-    : explorerBase;
+    config.tenderlyExplorerBase ??
+    "https://dashboard.tenderly.co/winverse/project/testnet/22cbc0df-919d-4cdc-927b-436480a7129f";
+  const explorerUrl = buildTenderlyExplorerUrl(explorerBase, vnetId);
 
   // Generate recipe ID
   const recipeId = generateRecipeId(intent, executionId);

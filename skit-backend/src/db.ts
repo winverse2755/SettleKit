@@ -98,6 +98,24 @@ export function getDatabase(): Database.Database {
   return db;
 }
 
+/** Next settlement ID in id-index format (e.g. stl-0, stl-1). */
+export function getNextSettlementId(): string {
+  const db = getDatabase();
+  const stmt = db.prepare(`
+    SELECT id FROM settlements WHERE id LIKE 'stl-%'
+  `);
+  const rows = stmt.all() as Array<{ id: string }>;
+  let maxIndex = -1;
+  for (const row of rows) {
+    const match = row.id.match(/^stl-(\d+)$/);
+    if (match) {
+      const n = parseInt(match[1], 10);
+      if (n > maxIndex) maxIndex = n;
+    }
+  }
+  return `stl-${maxIndex + 1}`;
+}
+
 export function createSettlement(id: string, intent: SettlementIntent): Settlement {
   const db = getDatabase();
   const now = Date.now();

@@ -9,7 +9,6 @@
 
 import "dotenv/config";
 import express, { type Request, type Response } from "express";
-import { v4 as uuidv4 } from "uuid";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -18,6 +17,7 @@ import {
   createSettlement,
   getSettlement,
   getSettlementByRecipeId,
+  getNextSettlementId,
   updateSettlementStatus,
   getAllSettlements,
   getActivePositions,
@@ -126,7 +126,7 @@ if (TELEGRAM_BOT_TOKEN) {
         targetRpc: UNICHAIN_VNET_RPC,
       };
 
-      const settlementId = uuidv4();
+      const settlementId = getNextSettlementId();
       createSettlement(settlementId, intent);
 
       // Register this chat so the webhook handler can send a follow-up message
@@ -280,8 +280,8 @@ app.post("/trigger", async (req: Request, res: Response) => {
       return;
     }
     
-    // Generate unique settlement ID
-    const settlementId = uuidv4();
+    // Generate unique settlement ID (id-index format: stl-0, stl-1, ...)
+    const settlementId = getNextSettlementId();
     console.log(`[/trigger] Created settlement: ${settlementId}`);
     
     // Store in database
@@ -483,7 +483,7 @@ app.post("/webhook", async (req: Request, res: Response) => {
     
     if (!settlement) {
       console.log(`[/webhook] No matching settlement found, creating new one`);
-      const settlementId = uuidv4();
+      const settlementId = getNextSettlementId();
       settlement = createSettlement(settlementId, report.intent);
     }
     
