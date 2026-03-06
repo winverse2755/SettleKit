@@ -2,7 +2,7 @@
   "sourceChain": "baseSepolia",
   "targetChain": "unichainSepolia",
   "token": "USDC",
-  "amount": "5000000",
+  "amount": "13000000",
   "maxSlippageTolerance": 0.01,
   "maxBridgeDelay": 1200000,
   "sourceRpc": "https://virtual.base-sepolia.eu.rpc.tenderly.co/eda241e6-2aa8-4abe-9db9-784bd0ceb88d",

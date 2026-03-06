@@ -114,7 +114,7 @@ async function testWebhookEndpoint(settlementId) {
             gasEstimate: "250000",
             expectedOutput: "995000"
         },
-        explorerUrl: "https://dashboard.tenderly.co/explorer/vnet/cf254021-0a4e-427f-b35e-907c08cfc532/transactions",
+        explorerUrl: "https://dashboard.tenderly.co/winverse/project/testnet/22cbc0df-919d-4cdc-927b-436480a7129f",
         recipeId: `risk-${Date.now()}`,
         timestamp: Date.now(),
         intent: testIntent,

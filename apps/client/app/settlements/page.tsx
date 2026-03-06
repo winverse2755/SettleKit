@@ -7,7 +7,7 @@ import { SettlementStatusBadge } from '../components/SettlementStatusBadge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ExternalLink, List, Activity, Loader2 } from 'lucide-react';
-import { formatAmount } from '@/lib/utils';
+import { formatAmount, getTenderlyTxUrl } from '@/lib/utils';
 
 interface SettlementIntent {
   sourceChain: string;
@@ -170,10 +170,10 @@ export default function SettlementsPage() {
                       <Button variant="outline" size="sm" asChild>
                         <Link href={`/settlements/${s.id}`}>View</Link>
                       </Button>
-                      {(s.riskReport?.explorerUrl || s.explorerUrl) && (
+                      {(s.txHash || s.riskReport?.explorerUrl || s.explorerUrl) && (
                         <Button variant="ghost" size="sm" asChild>
                           <a
-                            href={s.riskReport?.explorerUrl || s.explorerUrl}
+                            href={s.txHash ? getTenderlyTxUrl(s.txHash) : (s.riskReport?.explorerUrl || s.explorerUrl)!}
                             target="_blank"
                             rel="noopener noreferrer"
                           >

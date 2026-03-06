@@ -18,7 +18,7 @@
   },
   "webhookUrl": "https://seedier-reese-nomographic.ngrok-free.dev/webhook",
   "executorUrl": "https://seedier-reese-nomographic.ngrok-free.dev/webhook",
-  "tenderlyExplorerBase": "https://dashboard.tenderly.co/explorer/vnet/d64dbd1d-9664-445b-b168-b90bdf7af8db/transactions",
+  "tenderlyExplorerBase": "https://dashboard.tenderly.co/winverse/project/testnet/22cbc0df-919d-4cdc-927b-436480a7129f",
   "thresholds": {
     "maxPriceDeviationPercent": 1,
     "criticalSlippageMultiplier": 2,

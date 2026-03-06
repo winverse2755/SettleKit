@@ -7,7 +7,7 @@ import { SettlementStatusBadge } from '../../components/SettlementStatusBadge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ExternalLink, ArrowLeft, CheckCircle2, XCircle, Copy } from 'lucide-react';
-import { formatAmount } from '@/lib/utils';
+import { formatAmount, getTenderlyTxUrl } from '@/lib/utils';
 
 interface SettlementIntent {
   sourceChain: string;
@@ -123,8 +123,9 @@ export default function SettlementDetailPage() {
   }
 
   const report = settlement.riskReport;
-  const explorerUrl = report?.explorerUrl || settlement.explorerUrl;
   const txHash = settlement.execution?.txHash || settlement.txHash;
+  // Use same Tenderly link as Telegram bot after execution (project/tx/txHash)
+  const explorerUrl = txHash ? getTenderlyTxUrl(txHash) : (report?.explorerUrl || settlement.explorerUrl);
 
   return (
     <div className="container mx-auto px-4 lg:px-8 py-12">
@@ -306,15 +307,15 @@ export default function SettlementDetailPage() {
                   <div className="text-xs text-muted-foreground">Transaction Hash</div>
                   <div className="font-mono text-sm break-all">{txHash}</div>
                 </div>
-                {(settlement.execution?.explorerUrl || settlement.explorerUrl) && (
+                {txHash && (
                   <Button asChild>
                     <a
-                      href={settlement.execution?.explorerUrl || settlement.explorerUrl}
+                      href={getTenderlyTxUrl(txHash)}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
                       <ExternalLink className="mr-2 h-4 w-4" />
-                      View on Explorer
+                      View on Tenderly
                     </a>
                   </Button>
                 )}
