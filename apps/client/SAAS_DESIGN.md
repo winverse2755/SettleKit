@@ -9,6 +9,7 @@ The new design follows a **clean, flat SaaS aesthetic** inspired by enterprise s
 ### 1. **Professional Landing Page**
 
 A complete SaaS landing page with:
+
 - **Hero Section**: Large, bold typography with clear value proposition
 - **Stats Bar**: Social proof with key metrics (Volume, Transactions, Success Rate)
 - **Feature Grid**: 6 feature cards with icons explaining capabilities
@@ -27,6 +28,7 @@ A complete SaaS landing page with:
 ### 3. **Enterprise Color Scheme**
 
 **Light Mode Ready** (with dark mode support):
+
 ```css
 Primary: Dark slate/black (#0f172a)
 Secondary: Light gray (#f8fafc)
@@ -35,6 +37,7 @@ Text: Black/dark gray
 ```
 
 **Dark Mode**:
+
 ```css
 Background: Deep slate (#0f172a)
 Cards: Slightly lighter slate
@@ -45,48 +48,56 @@ Text: Off-white
 ## 📐 Layout Sections
 
 ### Header
+
 - Clean, minimal header
 - Logo with icon
 - Wallet connection CTA
 - Sticky on scroll
 
 ### Hero Section
+
 - Badge for "Powered by..."
 - Large headline (5xl → 7xl responsive)
 - Supporting paragraph
 - Two CTA buttons (primary + secondary)
 
 ### Stats Bar
+
 - 4 key metrics in grid
 - Large numbers
 - Gray background section
 - Social proof
 
 ### Main App Section
+
 - Centered with max-width
 - Section heading
 - Your existing TransferFlow component
 - Clean spacing
 
 ### Features Section
+
 - 6 feature cards in responsive grid
 - Icons with minimal backgrounds
 - Hover effects (border color change only)
 - Clean card design
 
 ### How It Works
+
 - Numbered steps (01, 02, 03, 04)
 - Large step numbers in primary color
 - Clear explanations
 - Horizontal layout with icons
 
 ### CTA Section
+
 - Gray background
 - Large heading
 - Two CTAs
 - Centered content
 
 ### Footer
+
 - Simple, one-row footer
 - Logo and copyright
 - Clean separation
@@ -94,6 +105,7 @@ Text: Off-white
 ## 🎨 Design Tokens
 
 ### Typography
+
 ```
 Headings: Bold, tracking-tight
 Body: Regular weight
@@ -102,6 +114,7 @@ Section Titles: 3xl → 4xl
 ```
 
 ### Spacing
+
 ```
 Sections: py-20 (large breathing room)
 Container: max-w-6xl (constrained width)
@@ -109,6 +122,7 @@ Grid gaps: gap-6 (consistent)
 ```
 
 ### Colors
+
 ```
 Primary: Black/Dark Slate
 Secondary: Light Gray
@@ -117,6 +131,7 @@ Borders: Subtle, minimal contrast
 ```
 
 ### Borders
+
 ```
 Border width: 1px
 Border radius: 0.5rem (rounded-lg)
@@ -125,19 +140,20 @@ Border color: Subtle, low contrast
 
 ## 🎯 Key Changes from Previous Version
 
-| Before | After |
-|--------|-------|
-| Animated gradient orbs | Clean, solid backgrounds |
-| Gradient text | Solid black text |
-| Colorful feature cards | Monochrome with subtle accents |
-| 4 small features | 6 detailed features + more content |
-| Single page | Complete landing page with sections |
-| Flashy animations | Subtle hover transitions |
-| Gradient buttons | Solid primary button |
+| Before                 | After                               |
+| ---------------------- | ----------------------------------- |
+| Animated gradient orbs | Clean, solid backgrounds            |
+| Gradient text          | Solid black text                    |
+| Colorful feature cards | Monochrome with subtle accents      |
+| 4 small features       | 6 detailed features + more content  |
+| Single page            | Complete landing page with sections |
+| Flashy animations      | Subtle hover transitions            |
+| Gradient buttons       | Solid primary button                |
 
 ## 🏗️ Component Updates
 
 ### page.tsx
+
 - **New**: Complete landing page structure
 - **New**: Hero section with CTAs
 - **New**: Stats section
@@ -147,24 +163,28 @@ Border color: Subtle, low contrast
 - **Removed**: Gradient text effects
 
 ### TransferFlow.tsx
+
 - Removed gradient backgrounds on cards
 - Flat colors for info boxes
 - Solid buttons instead of gradient
 - Clean, professional styling
 
 ### TransactionLog.tsx
+
 - Monochrome status icons
 - Flat badge colors
 - Removed color-coded steps
 - Professional timeline design
 
 ### RiskDashboard.tsx
+
 - Removed color coding for metrics
 - All text is consistent color
 - Flat card backgrounds
 - Professional metric display
 
 ### globals.css
+
 - **Removed**: Gradient utilities
 - **Removed**: Animation keyframes
 - **Added**: Light mode support
@@ -207,19 +227,25 @@ Border color: Subtle, low contrast
 ## 🎨 Customization Tips
 
 ### Change Primary Color
+
 Edit `globals.css`:
+
 ```css
 --primary: 220 100% 50%; /* Blue instead of black */
 ```
 
 ### Adjust Stats
+
 Edit `page.tsx` stats array:
+
 ```typescript
 { label: 'Your Metric', value: 'Your Value' }
 ```
 
 ### Add Features
+
 Edit `page.tsx` features array:
+
 ```typescript
 {
   icon: YourIcon,
@@ -231,6 +257,7 @@ Edit `page.tsx` features array:
 ## 🏆 Result
 
 You now have a **professional, enterprise-grade SaaS landing page** that:
+
 - Looks trustworthy and established
 - Focuses on features and benefits
 - Converts visitors to users

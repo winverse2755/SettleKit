@@ -1,14 +1,25 @@
-import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
-import './globals.css';
-import { Toaster } from 'react-hot-toast';
-import { Providers } from './providers';
+import type { Metadata } from "next";
+import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
+import "./globals.css";
+import { Toaster } from "react-hot-toast";
+import { Providers } from "./providers";
 
-const inter = Inter({ subsets: ['latin'] });
+const plusJakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-jakarta",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+  variable: "--font-mono",
+});
 
 export const metadata: Metadata = {
-  title: 'SettleKit | Cross-Chain Liquidity Orchestrator',
-  description: 'Automated cross-chain liquidity provision powered by CCTP & Uniswap v4',
+  title: "SettleKit | Cross-Chain Liquidity Orchestrator",
+  description:
+    "Automated cross-chain liquidity provision powered by CCTP & Uniswap v4",
 };
 
 export default function RootLayout({
@@ -17,33 +28,36 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
-      <body className={inter.className}>
+    <html
+      lang="en"
+      className={`dark ${plusJakarta.variable} ${jetbrainsMono.variable}`}
+    >
+      <body className={plusJakarta.className}>
         <Providers>
           {children}
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            duration: 4000,
-            style: {
-              background: '#1e293b',
-              color: '#f1f5f9',
-              border: '1px solid #334155',
-            },
-            success: {
-              iconTheme: {
-                primary: '#10b981',
-                secondary: '#f1f5f9',
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              duration: 4000,
+              style: {
+                background: "#1e293b",
+                color: "#f1f5f9",
+                border: "1px solid #334155",
               },
-            },
-            error: {
-              iconTheme: {
-                primary: '#ef4444',
-                secondary: '#f1f5f9',
+              success: {
+                iconTheme: {
+                  primary: "#10b981",
+                  secondary: "#f1f5f9",
+                },
               },
-            },
-          }}
-        />
+              error: {
+                iconTheme: {
+                  primary: "#ef4444",
+                  secondary: "#f1f5f9",
+                },
+              },
+            }}
+          />
         </Providers>
       </body>
     </html>

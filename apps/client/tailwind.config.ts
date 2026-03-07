@@ -59,18 +59,25 @@ const config: Config = {
 					3: "hsl(var(--chart-3))",
 					4: "hsl(var(--chart-4))",
 					5: "hsl(var(--chart-5))"
-				}
+				},
+				success: "hsl(var(--success))",
+				warning: "hsl(var(--warning))",
+				"accent-cyan": "hsl(var(--accent-cyan))",
+				"accent-pink": "hsl(var(--accent-pink))",
+				"card-elevated": "hsl(var(--card-elevated))",
+				"foreground-muted": "hsl(var(--foreground-muted))",
+				"foreground-faint": "hsl(var(--foreground-faint))"
 			},
 			borderRadius: {
 				xl: "calc(var(--radius) + 4px)",
-				lg: "var(--radius)",
-				md: "calc(var(--radius) - 2px)",
-				sm: "calc(var(--radius) - 4px)"
+				lg: "var(--radius-lg, var(--radius))",
+				md: "var(--radius-md, calc(var(--radius) - 2px))",
+				sm: "var(--radius-sm, calc(var(--radius) - 4px))"
 			},
 			fontFamily: {
-				sans: ["var(--font-sans)"],
-				serif: ["var(--font-serif)"],
-				mono: ["var(--font-mono)"]
+				sans: ["var(--font-jakarta)", "var(--font-sans)", "sans-serif"],
+				serif: ["var(--font-jakarta)", "var(--font-serif)", "sans-serif"],
+				mono: ["var(--font-mono)", "monospace"]
 			}
 		}
 	},

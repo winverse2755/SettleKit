@@ -10,6 +10,7 @@ npm install
 ```
 
 This will install:
+
 - Tailwind CSS and plugins
 - All Radix UI primitives
 - Lucide React icons
@@ -46,17 +47,20 @@ Open your browser and check:
 ## 🎨 What to Expect
 
 ### Landing Page
+
 - Deep dark background with animated gradient orbs
 - "SettleKit" branding with icon
 - Large hero text: "Cross-Chain Liquidity Orchestration"
 - 4 feature cards with icons (Connect, Configure, Bridge, Liquidity)
 
 ### Connect Wallet
+
 1. Click "Connect Wallet" button (top right)
 2. If no wallet: Beautiful modal with MetaMask/Coinbase options
 3. If wallet detected: Connect and see address dropdown
 
 ### Main Flow
+
 1. **Configuration Card**
    - USDC amount input with icon
    - Pool info badge (blue)
@@ -80,6 +84,7 @@ Open your browser and check:
 ### Issue: "Module not found" errors
 
 **Solution:**
+
 ```bash
 # Delete node_modules and reinstall
 rm -rf node_modules package-lock.json
@@ -89,6 +94,7 @@ npm install
 ### Issue: Styles not applying
 
 **Solution:**
+
 ```bash
 # Clear Next.js cache and restart
 rm -rf .next
@@ -99,21 +105,23 @@ npm run dev
 
 **Solution:**
 Check that all imports are correct:
+
 ```typescript
 // Should be @/components/ui/... not @components/ui/...
-import { Button } from '@/components/ui/button'
+import { Button } from "@/components/ui/button";
 ```
 
 ### Issue: Tailwind classes not working
 
 **Solution:**
 Verify `tailwind.config.ts` includes all paths:
+
 ```typescript
 content: [
   "./pages/**/*.{js,ts,jsx,tsx,mdx}",
   "./components/**/*.{js,ts,jsx,tsx,mdx}",
   "./app/**/*.{js,ts,jsx,tsx,mdx}",
-]
+];
 ```
 
 ## 📝 Customization Quick Wins
@@ -121,6 +129,7 @@ content: [
 ### Change Primary Color
 
 Edit `tailwind.config.ts`:
+
 ```typescript
 colors: {
   primary: "hsl(270 91.2% 59.8%)", // Purple instead of blue
@@ -130,6 +139,7 @@ colors: {
 ### Change Brand Name
 
 Edit `app/page.tsx`:
+
 ```typescript
 <h1 className="text-xl font-bold gradient-text">YourName</h1>
 ```
@@ -137,6 +147,7 @@ Edit `app/page.tsx`:
 ### Add More Feature Cards
 
 In `app/page.tsx`, add to the features array:
+
 ```typescript
 {
   icon: YourIcon,
@@ -149,10 +160,16 @@ In `app/page.tsx`, add to the features array:
 ### Adjust Animations
 
 Edit `globals.css`:
+
 ```css
 @keyframes gradient-shift {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
 }
 
 /* Slower animation: 8s → 15s */
@@ -185,17 +202,22 @@ Before your hackathon presentation:
 ## 🔥 Pro Tips
 
 ### Dark Mode Toggle (Future Enhancement)
+
 The current design is dark-only. To add light mode:
+
 ```typescript
 // In layout.tsx
 <html lang="en" className="dark"> // Remove this for toggle
 ```
 
 ### Custom Toasts
+
 Already styled! Uses react-hot-toast with your theme colors.
 
 ### Loading States
+
 All buttons have loading states:
+
 ```typescript
 <Button disabled={isRunning}>
   {isRunning && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -217,14 +239,9 @@ Key values you might want to adjust:
 
 ```css
 /* Border radius */
---radius: 0.5rem         /* Roundness of cards/buttons */
-
-/* Spacing */
-container: 4rem          /* Padding on main container */
-
-/* Font sizes */
-text-4xl: 2.25rem       /* Hero mobile */
-text-6xl: 3.75rem       /* Hero desktop */
+--radius: 0.5rem /* Roundness of cards/buttons */ /* Spacing */ container: 4rem
+  /* Padding on main container */ /* Font sizes */ text-4xl: 2.25rem
+  /* Hero mobile */ text-6xl: 3.75rem /* Hero desktop */;
 ```
 
 ## 🚢 Building for Production
@@ -235,6 +252,7 @@ npm run start
 ```
 
 Optimizations included:
+
 - Automatic code splitting
 - Image optimization
 - CSS purging (Tailwind)
@@ -243,6 +261,7 @@ Optimizations included:
 ## 🎉 You're Ready!
 
 Your SettleKit UI is now:
+
 - ✅ Modern and professional
 - ✅ Fully responsive
 - ✅ Accessible
