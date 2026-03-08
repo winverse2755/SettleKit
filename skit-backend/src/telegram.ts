@@ -29,6 +29,34 @@ export interface TelegramCommandHandlers {
   onRebalance: (args: string[]) => Promise<string>;
 }
 
+const USDC_DECIMALS = 6;
+
+/** Normalize chain name to backend format (e.g. baseSepolia, unichainSepolia). */
+function normalizeChain(name: string): string {
+  const s = name.toLowerCase().replace(/\s+/g, "");
+  if (s.includes("base") && s.includes("sepolia")) return "baseSepolia";
+  if ((s.includes("unichain") || s.includes("astrochain")) && s.includes("sepolia")) return "unichainSepolia";
+  return name.trim();
+}
+
+/**
+ * Parse intent-based message like "send 5 USDC from baseSepolia to unichainSepolia".
+ * Returns [amountRaw, fromChain, toChain] for onSimulate, or null if not matched.
+ */
+export function parseIntentMessage(text: string): string[] | null {
+  const trimmed = text.trim();
+  // send <amount> USDC from <source> to <target>
+  const match = trimmed.match(
+    /^send\s+([\d.]+)\s+(USDC|usdc)\s+from\s+(.+?)\s+to\s+(.+)$/i
+  );
+  if (!match) return null;
+  const [, amountStr, , fromChain, toChain] = match;
+  const amount = parseFloat(amountStr);
+  if (Number.isNaN(amount) || amount <= 0) return null;
+  const amountRaw = Math.floor(amount * 10 ** USDC_DECIMALS).toString();
+  return [amountRaw, normalizeChain(fromChain), normalizeChain(toChain)];
+}
+
 export class TelegramBotService {
   private readonly token: string;
   private readonly apiBase: string;
@@ -101,6 +129,13 @@ export class TelegramBotService {
     const chatIdStr = String(chatId);
 
     try {
+      // Intent-based: "send 5 USDC from baseSepolia to unichainSepolia"
+      const intentArgs = !command.startsWith("/") ? parseIntentMessage(text) : null;
+      if (intentArgs) {
+        await this.sendMessage(chatIdStr, await this.handlers.onSimulate(chatIdStr, intentArgs));
+        return;
+      }
+
       switch (command) {
         case "/simulate":
           await this.sendMessage(chatIdStr, await this.handlers.onSimulate(chatIdStr, args));
@@ -133,7 +168,7 @@ export class TelegramBotService {
         default:
           await this.sendMessage(
             chatIdStr,
-            "Unknown command. Supported: /simulate /status /alerts /approve /history /fork status /positions /rebalance"
+            "Unknown command. Try: send 5 USDC from baseSepolia to unichainSepolia — or /simulate /status /alerts /approve /history /fork status /positions /rebalance"
           );
       }
     } catch (error) {

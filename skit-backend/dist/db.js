@@ -178,6 +178,65 @@ export function getPosition(positionId) {
     const row = stmt.get(positionId);
     return row ? rowToPosition(row) : null;
 }
+export function getPositionByPoolAddress(poolAddress, chain) {
+    const db = getDatabase();
+    const normalizedPool = poolAddress.toLowerCase();
+    const stmt = chain
+        ? db.prepare(`
+        SELECT * FROM positions WHERE LOWER(pool_address) = ? AND chain = ?
+      `)
+        : db.prepare(`
+        SELECT * FROM positions WHERE LOWER(pool_address) = ?
+      `);
+    const row = (chain ? stmt.get(normalizedPool, chain) : stmt.get(normalizedPool));
+    return row ? rowToPosition(row) : null;
+}
+function getNextPositionIndex() {
+    const db = getDatabase();
+    const stmt = db.prepare(`
+    SELECT position_id FROM positions WHERE position_id LIKE 'pos-%'
+  `);
+    const rows = stmt.all();
+    let maxIndex = 0;
+    for (const row of rows) {
+        const match = row.position_id.match(/^pos-(\d+)$/);
+        if (match) {
+            const n = parseInt(match[1], 10);
+            if (n > maxIndex)
+                maxIndex = n;
+        }
+    }
+    return maxIndex + 1;
+}
+/**
+ * Add amount to an existing position for the given pool, or create a new position.
+ * Uses pos-{index} for new position IDs. Same pool + chain aggregates into one position.
+ */
+export function addToPositionOrCreate(params) {
+    const { poolAddress, amount, chain, rpcUrl } = params;
+    const db = getDatabase();
+    const now = Date.now();
+    const normalizedPool = poolAddress.toLowerCase();
+    const existing = getPositionByPoolAddress(normalizedPool, chain);
+    if (existing) {
+        const newAmount = (BigInt(existing.depositAmount) + BigInt(amount)).toString();
+        const updateStmt = db.prepare(`
+      UPDATE positions
+      SET deposit_amount = ?, updated_at = ?
+      WHERE position_id = ?
+    `);
+        updateStmt.run(newAmount, now, existing.positionId);
+        return getPosition(existing.positionId);
+    }
+    const positionId = `pos-${getNextPositionIndex()}`;
+    const insertStmt = db.prepare(`
+    INSERT INTO positions (
+      position_id, pool_address, deposit_amount, chain, rpc_url, status, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, 'ACTIVE', ?, ?)
+  `);
+    insertStmt.run(positionId, normalizedPool, amount, chain, rpcUrl ?? null, now, now);
+    return getPosition(positionId);
+}
 export function getActivePositions(limit = 100) {
     const db = getDatabase();
     const stmt = db.prepare(`

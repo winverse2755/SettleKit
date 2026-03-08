@@ -18,8 +18,11 @@ const UNICHAIN_VNET = {
     },
     blockExplorers: {
         default: {
-            name: "Tenderly Explorer",
-            url: "https://dashboard.tenderly.co/explorer/vnet/cf254021-0a4e-427f-b35e-907c08cfc532/transactions",
+          // Project TX URL: https://dashboard.tenderly.co/winverse/project/testnet/{projectId}/tx/{txHash}
+          name: "Tenderly Explorer",
+          url:
+            process.env.TENDERLY_PROJECT_TX_BASE ??
+            "https://dashboard.tenderly.co/winverse/project/testnet/22cbc0df-919d-4cdc-927b-436480a7129f",
         },
     },
 };

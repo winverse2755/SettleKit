@@ -6,10 +6,11 @@ import type {
   MonitoringWorkflowConfig,
   PoolHealth,
 } from "./types";
-import { fetchPoolHealth } from "./fetchers/pool";
+import { fetchAllPoolHealth } from "./fetchers/pool";
 import { selectNextBestPool } from "./evaluator";
-import { emitMonitoringReport } from "./emitter/webhook";
+import { emitMonitoringReports } from "./emitter/webhook";
 import { fetchActivePositions } from "./fetchers/positions";
+import { getEthUsdcPoolIds } from "./utils/pool-discovery";
 
 const onCronTrigger = (
   runtime: Runtime<MonitoringWorkflowConfig>
@@ -22,16 +23,22 @@ const onCronTrigger = (
   const positions = fetchActivePositions(runtime);
   runtime.log(`Loaded active positions: ${positions.length}`);
 
-  let reportsEmitted = 0;
+  const rpcUrl = runtime.config.targetRpc;
+  // Use same ETH/USDC pool set as risk-guard (discovery) so position's pool is always in snapshot
+  const poolIds = getEthUsdcPoolIds();
+  runtime.log(`Using discovered ETH/USDC pool set (${poolIds.length} fee tiers)`);
+  const poolSnapshots = fetchAllPoolHealth(runtime, poolIds, rpcUrl);
+  runtime.log(`Fetched health for ${poolSnapshots.length} pools`);
+
+  const reports: MonitoringReport[] = [];
   let healthy = 0;
   let moveRecommended = 0;
+  const baseTimestamp = Date.now();
 
-  for (const position of positions) {
+  for (let i = 0; i < positions.length; i++) {
+    const position = positions[i];
     runtime.log("");
     runtime.log(`[Position] ${position.positionId}`);
-    const poolSnapshots = runtime.config.poolRegistry.map((poolId) =>
-      fetchPoolHealth(runtime, poolId, position.rpcUrl ?? runtime.config.targetRpc)
-    );
     const currentPool =
       poolSnapshots.find((pool) => pool.poolId === position.poolAddress) ?? {
         poolId: position.poolAddress,
@@ -78,20 +85,17 @@ const onCronTrigger = (
       runtime,
       position,
       currentPool,
-      decision
+      decision,
+      `${baseTimestamp}-${i}`
     );
+    reports.push(report);
+    runtime.log(`[Report prepared] position=${position.positionId} status=${report.status}`);
+  }
 
-    const emitResult = emitMonitoringReport(runtime, report);
-    if (emitResult.success) {
-      reportsEmitted += 1;
-      runtime.log(
-        `[Report emitted] position=${position.positionId} status=${report.status}`
-      );
-    } else {
-      runtime.log(
-        `[Report emission failed] position=${position.positionId} error=${emitResult.error}`
-      );
-    }
+  const emitResult = emitMonitoringReports(runtime, reports);
+  const reportsEmitted = emitResult.success ? reports.length : 0;
+  if (!emitResult.success) {
+    runtime.log(`[Batch emission failed] error=${emitResult.error}`);
   }
 
   runtime.log("=".repeat(60));
@@ -111,10 +115,11 @@ function buildMonitoringReport(
   runtime: Runtime<MonitoringWorkflowConfig>,
   position: ActivePosition,
   currentPool: PoolHealth,
-  decision: MonitoringDecision
+  decision: MonitoringDecision,
+  uniqueSuffix?: string
 ): MonitoringReport {
   return {
-    reportId: `monitor-${position.positionId}-${Date.now()}`,
+    reportId: `monitor-${position.positionId}-${uniqueSuffix ?? Date.now()}`,
     positionId: position.positionId,
     poolAddress: position.poolAddress,
     depositAmount: position.depositAmount,

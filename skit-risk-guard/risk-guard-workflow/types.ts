@@ -14,8 +14,6 @@ export interface SettlementIntent {
   token: string;
   /** Transfer amount in base units (wei) */
   amount: string;
-  /** Target Uniswap v4 pool address/ID for liquidity check */
-  targetPoolAddress: string;
   /** Maximum acceptable slippage as decimal (e.g., 0.01 for 1%) */
   maxSlippageTolerance: number;
   /** Maximum acceptable bridge delay in milliseconds */
@@ -292,6 +290,15 @@ export interface OracleDataReport {
   timestamp: number;
 }
 
+/** Pool key for Uniswap v4 (for executor when workflow discovers the pool) */
+export interface PoolKeyReport {
+  currency0: string;
+  currency1: string;
+  fee: number;
+  tickSpacing: number;
+  hooks: string;
+}
+
 /**
  * Complete risk report emitted by the workflow.
  */
@@ -312,6 +319,10 @@ export interface RiskReport {
   timestamp: number;
   /** Original settlement intent */
   intent: SettlementIntent;
+  /** Resolved pool ID from discovery (keccak256 of pool key) */
+  selectedPoolId?: string;
+  /** Resolved pool key for execution */
+  selectedPoolKey?: PoolKeyReport;
   /** Additional metadata */
   metadata?: {
     /** Workflow execution ID */

@@ -17,7 +17,6 @@ import {
   encodeAbiParameters,
   keccak256,
   zeroAddress,
-  padHex,
 } from "viem";
 import {
   PoolManagerABI,
@@ -32,7 +31,7 @@ import type { PoolData, SettlementIntent, WorkflowConfig } from "../types";
  * Represents a healthy stablecoin pool with moderate liquidity so the
  * rest of the risk-assessment workflow can still run.
  */
-const MOCK_POOL_DATA: PoolData = {
+export const MOCK_POOL_DATA: PoolData = {
   // sqrt(1.0) * 2^96 — price ≈ 1:1 (stablecoin pair)
   sqrtPriceX96: 79228162514264337593543950336n,
   tick: 0,
@@ -50,6 +49,13 @@ interface BatchEthCallResult {
   slot0Data: string;
   liquidityData: string;
   success: boolean;
+  error?: string;
+}
+
+/** Per-pool slot results for batched fetch (one HTTP request for N pools). */
+interface BatchAllPoolsResult {
+  success: boolean;
+  poolResults: { slot0Data: string; liquidityData: string }[];
   error?: string;
 }
 
@@ -166,27 +172,206 @@ function batchPoolEthCall(
 }
 
 /**
- * Fetches pool health data from Uniswap v4 PoolManager via HTTP eth_call.
- * Reads pool state directly from storage slots using the Tenderly RPC URL
- * supplied in the settlement intent (`intent.targetRpc`).
- *
- * Falls back to MOCK_POOL_DATA when:
- *  - `intent.targetRpc` is not set
- *  - The HTTP call to the RPC fails
- *  - The pool is not yet initialized (sqrtPriceX96 == 0)
- *  - The response cannot be decoded
- *
- * Storage layout for Uniswap v4 pools:
- *  - slot0 (256 bits): sqrtPriceX96 (160) | tick (24, signed) | protocolFee (24) | lpFee (24)
- *  - slot1 (256 bits): liquidity (128)
+ * One HTTP request: JSON-RPC batch of 2*N eth_calls (slot0 + liquidity per pool).
+ * Used to stay under CRE's 5-call limit when discovering multiple pools.
+ */
+function batchAllPoolsEthCall(
+  sendRequester: HTTPSendRequester,
+  rpcUrl: string,
+  poolManagerAddress: string,
+  calldatas: { slot0: string; liquidity: string }[]
+): BatchAllPoolsResult {
+  const batch = calldatas.flatMap((c, i) => [
+    {
+      jsonrpc: "2.0",
+      method: "eth_call",
+      params: [
+        { from: zeroAddress, to: poolManagerAddress, data: c.slot0 },
+        "latest",
+      ],
+      id: i * 2 + 1,
+    },
+    {
+      jsonrpc: "2.0",
+      method: "eth_call",
+      params: [
+        { from: zeroAddress, to: poolManagerAddress, data: c.liquidity },
+        "latest",
+      ],
+      id: i * 2 + 2,
+    },
+  ]);
+
+  const body = JSON.stringify(batch);
+  const encodedBody = toBase64(body);
+
+  const response = sendRequester
+    .sendRequest({
+      url: rpcUrl,
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: encodedBody,
+      timeout: "10s",
+    })
+    .result();
+
+  if (!ok(response)) {
+    return { success: false, poolResults: [], error: "HTTP request to RPC failed" };
+  }
+
+  try {
+    const parsed = json(response) as Array<{
+      id: number;
+      result?: string;
+      error?: { message: string };
+    }>;
+    if (!Array.isArray(parsed) || parsed.length !== calldatas.length * 2) {
+      return {
+        success: false,
+        poolResults: [],
+        error: "Unexpected JSON-RPC batch response length",
+      };
+    }
+    const poolResults: { slot0Data: string; liquidityData: string }[] = [];
+    for (let i = 0; i < calldatas.length; i++) {
+      const slot0Item = parsed.find((r) => r.id === i * 2 + 1);
+      const liqItem = parsed.find((r) => r.id === i * 2 + 2);
+      if (slot0Item?.error || liqItem?.error) {
+        return {
+          success: false,
+          poolResults: [],
+          error: slot0Item?.error?.message ?? liqItem?.error?.message ?? "RPC error",
+        };
+      }
+      poolResults.push({
+        slot0Data: slot0Item?.result ?? "0x",
+        liquidityData: liqItem?.result ?? "0x",
+      });
+    }
+    return { success: true, poolResults };
+  } catch (e) {
+    return {
+      success: false,
+      poolResults: [],
+      error: `Failed to parse RPC response: ${e}`,
+    };
+  }
+}
+
+/**
+ * Fetches pool health data for multiple pool IDs in a single HTTP request.
+ * Use this in discovery to stay under CRE's HTTP call limit (5).
+ */
+export function fetchAllPoolsDataInOneRequest(
+  runtime: Runtime<WorkflowConfig>,
+  intent: SettlementIntent,
+  poolIds: `0x${string}`[]
+): PoolData[] {
+  const rpcUrl = intent.targetRpc;
+  if (!rpcUrl || poolIds.length === 0) {
+    return poolIds.map(() => ({ ...MOCK_POOL_DATA }));
+  }
+
+  const poolManagerAddress =
+    runtime.config.poolManagerAddress ??
+    CONTRACT_ADDRESSES.unichainSepolia.poolManager;
+
+  const calldatas: { slot0: string; liquidity: string }[] = [];
+  for (const poolId of poolIds) {
+    const poolStateSlot = keccak256(
+      encodeAbiParameters(
+        [{ type: "bytes32" }, { type: "uint256" }],
+        [poolId, POOL_MANAGER_STORAGE.POOLS_SLOT]
+      )
+    );
+    const liquiditySlot = (
+      "0x" +
+      (BigInt(poolStateSlot) + POOL_MANAGER_STORAGE.LIQUIDITY_OFFSET)
+        .toString(16)
+        .padStart(64, "0")
+    ) as `0x${string}`;
+    calldatas.push({
+      slot0: encodeFunctionData({
+        abi: PoolManagerABI,
+        functionName: "extsload",
+        args: [poolStateSlot],
+      }),
+      liquidity: encodeFunctionData({
+        abi: PoolManagerABI,
+        functionName: "extsload",
+        args: [liquiditySlot],
+      }),
+    });
+  }
+
+  const httpClient = new HTTPClient();
+  const result = httpClient
+    .sendRequest(
+      runtime,
+      batchAllPoolsEthCall,
+      consensusIdenticalAggregation<BatchAllPoolsResult>()
+    )(rpcUrl, poolManagerAddress, calldatas)
+    .result();
+
+  if (!result.success) {
+    runtime.log(`Batch pool fetch failed: ${result.error}`);
+    return poolIds.map(() => ({ ...MOCK_POOL_DATA }));
+  }
+
+  const out: PoolData[] = [];
+  for (let i = 0; i < result.poolResults.length; i++) {
+    const { slot0Data, liquidityData } = result.poolResults[i];
+    let slot0Value: `0x${string}`;
+    let slot1Value: `0x${string}`;
+    try {
+      [slot0Value] = decodeAbiParameters(
+        [{ type: "bytes32" }],
+        slot0Data as `0x${string}`
+      );
+      [slot1Value] = decodeAbiParameters(
+        [{ type: "bytes32" }],
+        liquidityData as `0x${string}`
+      );
+    } catch {
+      out.push({ ...MOCK_POOL_DATA });
+      continue;
+    }
+    const slot0BigInt = BigInt(slot0Value);
+    if (slot0BigInt === 0n) {
+      out.push({ ...MOCK_POOL_DATA });
+      continue;
+    }
+    const sqrtPriceX96 = slot0BigInt & ((1n << 160n) - 1n);
+    const tickRaw = Number((slot0BigInt >> 160n) & ((1n << 24n) - 1n));
+    const tick = tickRaw >= 0x800000 ? tickRaw - 0x1000000 : tickRaw;
+    const protocolFee = Number((slot0BigInt >> 184n) & ((1n << 24n) - 1n));
+    const lpFee = Number((slot0BigInt >> 208n) & ((1n << 24n) - 1n));
+    const liquidity = BigInt(slot1Value) & ((1n << 128n) - 1n);
+    out.push({
+      sqrtPriceX96,
+      tick,
+      liquidity,
+      liquidityDepth: assessLiquidityDepth(liquidity),
+      lpFee,
+      protocolFee,
+    });
+  }
+  return out;
+}
+
+/**
+ * Fetches pool health data for a given Uniswap v4 pool ID via HTTP eth_call.
+ * Used by pool discovery and when the workflow has a resolved pool ID.
  *
  * @param runtime - CRE workflow runtime
- * @param intent - Settlement intent with pool address and RPC config
- * @returns Pool data including liquidity, price, and fees
+ * @param intent - Settlement intent (targetRpc, etc.)
+ * @param poolId - Uniswap v4 pool ID (keccak256 of pool key)
+ * @returns Pool data including liquidity, price, and fees; or MOCK_POOL_DATA on failure
  */
-export function fetchPoolData(
+export function fetchPoolDataForPoolId(
   runtime: Runtime<WorkflowConfig>,
-  intent: SettlementIntent
+  intent: SettlementIntent,
+  poolId: `0x${string}`
 ): PoolData {
   const rpcUrl = intent.targetRpc;
 
@@ -201,14 +386,7 @@ export function fetchPoolData(
     runtime.config.poolManagerAddress ??
     CONTRACT_ADDRESSES.unichainSepolia.poolManager;
 
-  const rawPoolId = intent.targetPoolAddress as `0x${string}`;
-
-  // Uniswap v4 mapping key is bytes32. An address is 20 bytes, so we left-pad
-  // it to 32 bytes — matching Ethereum ABI encoding of address → bytes32
-  // (i.e. bytes32(uint160(addr)): address occupies the right-most 20 bytes).
-  const poolId = padHex(rawPoolId, { dir: "left", size: 32 });
-
-  runtime.log(`Fetching pool state for pool ID: ${poolId}`);
+  runtime.log(`Fetching pool state for pool ID: ${poolId.slice(0, 18)}...`);
   runtime.log(`Using PoolManager at: ${poolManagerAddress}`);
   runtime.log(`RPC endpoint: ${rpcUrl}`);
 

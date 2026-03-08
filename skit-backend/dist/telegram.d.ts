@@ -1,6 +1,6 @@
-import type { PositionWithMonitoring, MonitoringReport, Settlement } from "./types.js";
+import type { PositionWithMonitoring, MonitoringReport, Settlement, RiskReport } from "./types.js";
 export interface TelegramCommandHandlers {
-    onSimulate: (args: string[]) => Promise<string>;
+    onSimulate: (chatId: string, args: string[]) => Promise<string>;
     onStatus: (args: string[]) => Promise<string>;
     onAlerts: (chatId: string, args: string[]) => Promise<string>;
     onApprove: (args: string[]) => Promise<string>;
@@ -26,4 +26,6 @@ export declare class TelegramBotService {
 }
 export declare function formatHistory(settlements: Settlement[]): string;
 export declare function formatPositions(positions: PositionWithMonitoring[]): string;
+export declare function formatSettlementExecuted(report: RiskReport, txHash?: string, explorerUrl?: string): string;
+export declare function formatSettlementFailed(report: RiskReport, error?: string): string;
 export declare function formatMonitoringAlert(report: MonitoringReport, status: "SUCCESS" | "FAILED", explorerUrl?: string, error?: string): string;

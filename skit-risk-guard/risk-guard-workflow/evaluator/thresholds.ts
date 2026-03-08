@@ -142,12 +142,18 @@ export function extractTenderlyVnetId(rpcUrl: string): string | undefined {
 
 /**
  * Build Tenderly explorer URL.
+ * If baseUrl is the project format (contains /project/testnet/), return baseUrl + /tx/{txHash} when txHash provided, else baseUrl.
+ * Otherwise use legacy format: baseUrl/vnetId/transactions[/txHash].
  */
 export function buildTenderlyExplorerUrl(
   baseUrl: string,
-  vnetId: string,
+  vnetId?: string,
   txHash?: string
 ): string {
-  const base = `${baseUrl}/${vnetId}/transactions`;
+  const isProjectUrl = baseUrl.includes("/project/testnet/");
+  if (isProjectUrl) {
+    return txHash ? `${baseUrl}/tx/${txHash}` : baseUrl;
+  }
+  const base = vnetId ? `${baseUrl}/${vnetId}/transactions` : baseUrl;
   return txHash ? `${base}/${txHash}` : base;
 }

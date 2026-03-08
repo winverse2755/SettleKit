@@ -7,14 +7,14 @@
  * 3. GET /settlement/:id - Verify execution and get explorer URL
  */
 import "dotenv/config";
-const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:3001";
+const BACKEND_URL = process.env.BACKEND_URL || "https://seedier-reese-nomographic.ngrok-free.dev";
 // Test settlement intent (matches test-payload.json from CRE workflow)
 const testIntent = {
     sourceChain: "baseSepolia",
     targetChain: "unichainSepolia",
     token: "USDC",
     amount: "1000000", // 1 USDC (6 decimals)
-    targetPoolAddress: "0x00b036b58a818b1bc34d502d3fe730db729e62ac",
+    // targetPoolAddress: "0x00b036b58a818b1bc34d502d3fe730db729e62ac",
     maxSlippageTolerance: 0.01,
     maxBridgeDelay: 1200000,
     sourceRpc: "https://virtual.base-sepolia.eu.rpc.tenderly.co/eda241e6-2aa8-4abe-9db9-784bd0ceb88d",
@@ -114,7 +114,7 @@ async function testWebhookEndpoint(settlementId) {
             gasEstimate: "250000",
             expectedOutput: "995000"
         },
-        explorerUrl: "https://dashboard.tenderly.co/explorer/vnet/cf254021-0a4e-427f-b35e-907c08cfc532/transactions",
+        explorerUrl: "https://dashboard.tenderly.co/winverse/project/testnet/22cbc0df-919d-4cdc-927b-436480a7129f",
         recipeId: `risk-${Date.now()}`,
         timestamp: Date.now(),
         intent: testIntent,

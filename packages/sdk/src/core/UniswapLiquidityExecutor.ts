@@ -65,6 +65,11 @@ const POSITION_MANAGER_ABI = [
             { name: 'amount1', type: 'uint256' },
         ],
     },
+    {
+        type: 'error',
+        name: 'AllowanceExpired',
+        inputs: [{ name: 'deadline', type: 'uint256' }],
+    },
 ] as const;
 
 // ERC20 ABI for token approvals
